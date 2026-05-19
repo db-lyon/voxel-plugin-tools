@@ -1,0 +1,134 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Prevent two concurrent publish runs from racing on the same main.
+# Do not cancel in-progress publishes - canceling mid-npm-publish leaves
+# a half-published version.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
+# Default to least-privilege. Individual jobs escalate only what they need.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install
+        # The committed package-lock.json was generated on Windows; npm has a
+        # known optional-deps bug (npm/cli#4828) where Linux-native binaries
+        # are skipped when the lockfile is from another platform. Drop the
+        # lockfile and reinstall with --include=optional. Mirrors the parent
+        # ue-mcp repo's workaround.
+        run: |
+          rm -f package-lock.json
+          npm install --include=optional
+
+      - name: Type-check & build
+        # `tsc` is the build script and the strictest validation we have for
+        # this plugin (no unit tests yet). Failing here blocks publish.
+        run: npm run build
+
+      - name: Verify build output
+        # Fail loud if the entry-point task files are missing or empty - a
+        # broken publish is hard to retract.
+        run: |
+          for f in dist/tasks/ScatterOnTerrain.js dist/tasks/SpawnStamps.js dist/tasks/VoxelToHeightmap.js; do
+            test -s "$f" || (echo "$f missing or empty" && exit 1)
+          done
+
+      - name: Audit (high+ only, production deps)
+        run: npm audit --omit=dev --audit-level=high
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write   # tag push + gh release create
+      id-token: write   # npm provenance
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # needed for tag push
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+          cache: "npm"
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Check if version changed
+        id: version
+        run: |
+          LOCAL=$(node -p "require('./package.json').version")
+          PUBLISHED=$(npm view ue-mcp-plugin-voxel-plugin-pro version 2>/dev/null || echo "0.0.0")
+          echo "local=$LOCAL" >> "$GITHUB_OUTPUT"
+          echo "published=$PUBLISHED" >> "$GITHUB_OUTPUT"
+          if [ "$LOCAL" != "$PUBLISHED" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install & Build
+        if: steps.version.outputs.changed == 'true'
+        run: |
+          rm -f package-lock.json
+          npm install --include=optional
+          npm run build
+
+      - name: Tag release (before publish)
+        if: steps.version.outputs.changed == 'true'
+        # Tag and push BEFORE npm publish. If the tag push fails (network /
+        # permissions), we have not yet stranded a live npm version without a
+        # corresponding tag.
+        run: |
+          TAG="v${{ steps.version.outputs.local }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists locally; skipping creation"
+          else
+            git tag "$TAG"
+          fi
+          git push origin "$TAG"
+
+      - name: Publish to npm
+        if: steps.version.outputs.changed == 'true'
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub release
+        if: steps.version.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.local }}
+        run: |
+          set -euo pipefail
+          # Idempotent: if a release for this tag already exists, skip.
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "Release v$VERSION already exists; skipping"
+            exit 0
+          fi
+          gh release create "v$VERSION" \
+            --title "v$VERSION" \
+            --generate-notes
