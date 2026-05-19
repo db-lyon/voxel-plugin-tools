@@ -11,7 +11,7 @@ interface Options {
 }
 
 /**
- * Builds a PCG graph that scatters static meshes on a Voxel Plugin Pro
+ * Builds a PCG graph that scatters static meshes on a Voxel Plugin
  * terrain. Pipeline: VoxelSampler → SurfaceSampler → DensityFilter →
  * TransformPoints → StaticMeshSpawner.
  *
@@ -20,8 +20,8 @@ interface Options {
  * idempotency should delete the graph first via `pcg(action="delete_graph")`
  * (or skip the call entirely when no rebuild is needed).
  */
-export default class ScatterOnTerrain extends BaseTask<Options> {
-  get taskName(): string { return "vpp.scatter_on_terrain"; }
+export default class ScatterMeshes extends BaseTask<Options> {
+  get taskName(): string { return "voxel.scatter_meshes"; }
 
   protected validate(): void {
     if (!this.options.graphPath) throw new Error("graphPath is required");

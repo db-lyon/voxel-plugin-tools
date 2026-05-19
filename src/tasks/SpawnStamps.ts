@@ -19,7 +19,7 @@ interface Options {
  * volume density.
  */
 export default class SpawnStamps extends BaseTask<Options> {
-  get taskName(): string { return "vpp.spawn_stamps"; }
+  get taskName(): string { return "voxel.spawn_stamps"; }
 
   protected validate(): void {
     if (!this.options.graphPath) throw new Error("graphPath is required");

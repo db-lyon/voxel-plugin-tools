@@ -1,12 +1,12 @@
-actionPrefix: vpp
-minServerVersion: 1.0.10
-uePluginDependency: VoxelPro
+actionPrefix: voxel
+minServerVersion: 1.0.15
+uePluginDependency: Voxel
 
 inject:
   pcg:
-    scatter_on_terrain:
-      task: vpp.scatter_on_terrain
-      description: "Build a PCG graph that scatters static meshes on a Voxel Plugin Pro terrain via Voxel Sampler. Params: graphPath, mesh, density?, minScale?, maxScale?, seed?"
+    scatter_meshes:
+      task: voxel.scatter_meshes
+      description: "Build a PCG graph that scatters static meshes on a voxel terrain via Voxel Sampler. Params: graphPath, mesh, density?, minScale?, maxScale?, seed?"
       schema:
         graphPath: { type: string, required: true }
         mesh:      { type: string, required: true }
@@ -15,8 +15,8 @@ inject:
         maxScale:  { type: number }
         seed:      { type: number }
     spawn_stamps:
-      task: vpp.spawn_stamps
-      description: "Build a PCG graph that places voxel stamp assets on a VPP terrain. Params: graphPath, stampAsset, count?, radius?, seed?"
+      task: voxel.spawn_stamps
+      description: "Build a PCG graph that places voxel stamp assets on a voxel terrain. Params: graphPath, stampAsset, count?, radius?, seed?"
       schema:
         graphPath:  { type: string, required: true }
         stampAsset: { type: string, required: true }
@@ -25,9 +25,9 @@ inject:
         seed:       { type: number }
 
   landscape:
-    voxel_to_heightmap:
-      task: vpp.voxel_to_heightmap
-      description: "Bake a region of a VPP voxel terrain to a Landscape heightmap. Params: landscapeLabel, bounds, resolution?"
+    bake_heightmap:
+      task: voxel.bake_heightmap
+      description: "Bake a region of a voxel terrain into a standard Landscape heightmap. Params: landscapeLabel, bounds, resolution?"
       schema:
         landscapeLabel: { type: string, required: true }
         bounds:         { type: object, required: true }
@@ -38,27 +38,27 @@ knowledge:
   landscape: knowledge/landscape.md
 
 tasks:
-  vpp.scatter_on_terrain:
-    class_path: tasks/ScatterOnTerrain
-    description: "Build the PCG graph for VPP terrain scatter"
-  vpp.spawn_stamps:
+  voxel.scatter_meshes:
+    class_path: tasks/ScatterMeshes
+    description: "Build the PCG graph for voxel-terrain mesh scatter"
+  voxel.spawn_stamps:
     class_path: tasks/SpawnStamps
-    description: "Build the PCG graph for VPP voxel stamps"
-  vpp.voxel_to_heightmap:
-    class_path: tasks/VoxelToHeightmap
-    description: "Bake a VPP region to a Landscape heightmap"
+    description: "Build the PCG graph for voxel stamps"
+  voxel.bake_heightmap:
+    class_path: tasks/BakeHeightmap
+    description: "Bake a voxel-terrain region into a Landscape heightmap"
 
 flows:
-  vpp_scatter_setup:
-    description: "Create a PCG scatter graph on a VPP terrain and execute it"
+  voxel_scatter_setup:
+    description: "Create a PCG mesh-scatter graph on a voxel terrain and execute it"
     rollback_on_failure: true
     steps:
-      1: { task: vpp.scatter_on_terrain }
+      1: { task: voxel.scatter_meshes }
       2: { task: pcg.execute }
 
-  vpp_stamps_setup:
+  voxel_stamps_setup:
     description: "Create a PCG voxel-stamp graph and execute it"
     rollback_on_failure: true
     steps:
-      1: { task: vpp.spawn_stamps }
+      1: { task: voxel.spawn_stamps }
       2: { task: pcg.execute }

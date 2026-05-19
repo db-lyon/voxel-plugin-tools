@@ -13,19 +13,19 @@ interface Options {
 }
 
 /**
- * Bakes a region of a VPP voxel terrain to a Landscape heightmap.
+ * Bakes a region of a Voxel Plugin terrain to a Landscape heightmap.
  *
  * Pipeline:
  *  1. Sample the voxel surface at a grid resolution by issuing Python through
- *     the editor (the C++ bridge has no direct VPP API surface).
+ *     the editor (the C++ bridge has no direct Voxel Plugin API surface).
  *  2. Pipe the resulting heightfield into `landscape.import_heightmap`.
  *
  * The Python step is the escape hatch documented in CLAUDE.md and is
- * acceptable here because VPP exposes no native PCG-side way to extract
- * raw voxel heights into the engine's landscape format.
+ * acceptable here because Voxel Plugin exposes no native PCG-side way to
+ * extract raw voxel heights into the engine's landscape format.
  */
-export default class VoxelToHeightmap extends BaseTask<Options> {
-  get taskName(): string { return "vpp.voxel_to_heightmap"; }
+export default class BakeHeightmap extends BaseTask<Options> {
+  get taskName(): string { return "voxel.bake_heightmap"; }
 
   protected validate(): void {
     if (!this.options.landscapeLabel) throw new Error("landscapeLabel is required");
@@ -37,8 +37,8 @@ export default class VoxelToHeightmap extends BaseTask<Options> {
   async execute(): Promise<TaskResult> {
     const { landscapeLabel, bounds, resolution = 1009 } = this.options;
 
-    // 1. Sample VPP voxel heights via Python. The script writes a raw uint16
-    //    heightmap PNG to the project's intermediate dir and returns its path.
+    // 1. Sample voxel heights via Python. The script writes a raw uint16
+    //    heightmap to the project's intermediate dir and returns its path.
     const sample = await this.call("editor.execute_python", {
       script: buildVoxelSampleScript(bounds, resolution),
     });
@@ -74,9 +74,9 @@ export default class VoxelToHeightmap extends BaseTask<Options> {
 
 function buildVoxelSampleScript(bounds: Bounds, resolution: number): string {
   // The script is kept in a single string so the bridge ships it verbatim to
-  // Python. It is intentionally defensive: any VPP API the host installation
-  // may not have is caught and reported as a clear error rather than a
-  // traceback.
+  // Python. It is intentionally defensive: any Voxel Plugin API the host
+  // installation may not have is caught and reported as a clear error rather
+  // than a traceback.
   return `
 import unreal, os, struct
 
@@ -85,9 +85,9 @@ bounds_max = (${bounds.max.x}, ${bounds.max.y})
 res = ${resolution}
 
 try:
-    voxel_lib = unreal.VoxelBlueprintLibrary  # exposed by VPP at runtime
+    voxel_lib = unreal.VoxelBlueprintLibrary  # exposed by Voxel Plugin at runtime
 except AttributeError:
-    raise RuntimeError("Voxel Plugin Pro not loaded - vpp_voxel_to_heightmap requires VPP")
+    raise RuntimeError("Voxel Plugin not loaded - voxel.bake_heightmap requires the Voxel plugin")
 
 dx = (bounds_max[0] - bounds_min[0]) / float(res - 1)
 dy = (bounds_max[1] - bounds_min[1]) / float(res - 1)
@@ -105,7 +105,7 @@ for j in range(res):
         sample = max(0, min(65535, int(h + 32768)))
         samples += struct.pack("<H", sample)
 
-out_dir = os.path.join(unreal.Paths.project_intermediate_dir(), "VPP")
+out_dir = os.path.join(unreal.Paths.project_intermediate_dir(), "Voxel")
 os.makedirs(out_dir, exist_ok=True)
 out_path = os.path.join(out_dir, "voxel_heightmap.r16")
 with open(out_path, "wb") as f:

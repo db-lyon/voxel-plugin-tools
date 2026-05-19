@@ -1,22 +1,22 @@
 import type { TaskResult } from "@db-lyon/flowkit";
 
 /**
- * Cross-task helpers for building VPP-flavoured PCG graphs. None of these are
- * referenced by ue-mcp.plugin.yml directly - task files import them.
+ * Cross-task helpers for building Voxel-Plugin-flavoured PCG graphs. None of
+ * these are referenced by ue-mcp.plugin.yml directly - task files import them.
  *
- * The exact PCG node-type names depend on the Voxel Plugin Pro 2 version
- * installed. They are intentionally string constants so they can be updated
- * in one place when the plugin's exposed nodes shift.
+ * The exact PCG node-type names depend on the Voxel Plugin version installed.
+ * They are intentionally string constants so they can be updated in one
+ * place when the plugin's exposed nodes shift.
  */
 
-export const VPP_NODES = {
-  /** Samples the active VPP voxel volume in PCG space. */
+export const VOXEL_NODES = {
+  /** Samples the active voxel volume in PCG space. */
   voxelSampler: "VoxelSampler",
   /** Surface sampler that filters points to voxel-terrain surface positions. */
   surfaceSampler: "PCGSurfaceSampler",
   /** Static-mesh spawner consuming the points from the surface sampler. */
   staticMeshSpawner: "PCGStaticMeshSpawner",
-  /** Stamp-spawner specific to VPP's stamp asset format. */
+  /** Stamp-spawner specific to Voxel Plugin's stamp asset format. */
   voxelStamp: "VoxelStamp",
   /** Density filter for thinning out sampled points. */
   densityFilter: "PCGDensityFilter",
@@ -24,7 +24,7 @@ export const VPP_NODES = {
   transformPoints: "PCGTransformPoints",
 } as const;
 
-export type VoxelNodeKey = keyof typeof VPP_NODES;
+export type VoxelNodeKey = keyof typeof VOXEL_NODES;
 
 /**
  * Tasks pass `this` in; `BaseTask.call` is `protected` so the helper accepts
@@ -51,7 +51,7 @@ export async function addNode(
 ): Promise<string> {
   const r = await callable(task).call("pcg.add_node", {
     graphPath,
-    nodeType: VPP_NODES[nodeKey],
+    nodeType: VOXEL_NODES[nodeKey],
   });
   if (!r.success) {
     throw new Error(`pcg.add_node ${nodeKey} failed: ${r.error?.message ?? "unknown"}`);

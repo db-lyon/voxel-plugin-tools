@@ -1,7 +1,7 @@
 {
-  "name": "ue-mcp-plugin-voxel-plugin-pro",
+  "name": "ue-mcp-plugin-voxel-plugin",
   "version": "0.1.0",
-  "description": "Voxel Plugin Pro 2 actions for ue-mcp - voxel terrain scatter, stamps, and heightmap baking via PCG and Landscape.",
+  "description": "Voxel Plugin actions for ue-mcp - voxel terrain scatter, stamps, and heightmap baking via PCG and Landscape.",
   "type": "module",
   "main": "dist/index.js",
   "files": [
@@ -16,7 +16,7 @@
     "unreal-engine",
     "ue5",
     "voxel",
-    "voxel-plugin-pro",
+    "voxel-plugin",
     "pcg",
     "landscape"
   ],
@@ -24,7 +24,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/db-lyon/ue-mcp-plugin-voxel-plugin-pro.git"
+    "url": "https://github.com/db-lyon/ue-mcp-plugin-voxel-plugin.git"
   },
   "peerDependencies": {
     "@db-lyon/flowkit": "~0.5.2"

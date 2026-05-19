@@ -47,7 +47,7 @@ jobs:
         # Fail loud if the entry-point task files are missing or empty - a
         # broken publish is hard to retract.
         run: |
-          for f in dist/tasks/ScatterOnTerrain.js dist/tasks/SpawnStamps.js dist/tasks/VoxelToHeightmap.js; do
+          for f in dist/tasks/ScatterMeshes.js dist/tasks/SpawnStamps.js dist/tasks/BakeHeightmap.js; do
             test -s "$f" || (echo "$f missing or empty" && exit 1)
           done
 
@@ -81,7 +81,7 @@ jobs:
         id: version
         run: |
           LOCAL=$(node -p "require('./package.json').version")
-          PUBLISHED=$(npm view ue-mcp-plugin-voxel-plugin-pro version 2>/dev/null || echo "0.0.0")
+          PUBLISHED=$(npm view ue-mcp-plugin-voxel-plugin version 2>/dev/null || echo "0.0.0")
           echo "local=$LOCAL" >> "$GITHUB_OUTPUT"
           echo "published=$PUBLISHED" >> "$GITHUB_OUTPUT"
           if [ "$LOCAL" != "$PUBLISHED" ]; then
