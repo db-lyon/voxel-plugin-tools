@@ -4,13 +4,14 @@
 
 ## What ships
 
-One injected action in v0.2.0, cited to its source:
+Each action is cited to the C++ header it wraps. Full API reference under [`docs/`](docs/).
 
-| Category | Action                       | Wraps |
-|----------|------------------------------|-------|
-| `pcg`    | `voxel_build_scatter_graph`  | `UPCGVoxelSamplerSettings` (`VoxelPCG/Public/PCGVoxelSampler.h`) feeding `UPCGStaticMeshSpawnerSettings` |
+| Category | Action                          | Wraps |
+|----------|---------------------------------|-------|
+| `pcg`    | `voxel_build_scatter_graph`     | `UPCGVoxelSamplerSettings` (`VoxelPCG/Public/PCGVoxelSampler.h`) feeding `UPCGStaticMeshSpawnerSettings` |
+| `level`  | `voxel_get_voxel_world_status`  | 5 zero-arg lifecycle UFUNCTIONs on `AVoxelWorld` (`Voxel/Public/VoxelWorld.h`) |
 
-More tools are tracked in [`TODO.md`](TODO.md) — each entry cites the header and class it would wrap. The v0.1.0 release shipped three actions that called ue-mcp tasks with wrong parameter names and passed PCG node-type strings that did not exist; v0.1.1 removed them.
+The v0.1.0 release shipped three actions that called ue-mcp tasks with wrong parameter names and passed PCG node-type strings that did not exist; v0.1.1 removed them.
 
 ## Install
 
@@ -38,6 +39,14 @@ The call creates a `UPCGGraph` at `assetPath`, adds a Voxel Sampler → Static M
 ```text
 pcg(action="execute", actorLabel="MyPCGActor")
 ```
+
+Check the voxel world is actually live before scattering / stamping into it:
+
+```text
+level(action="voxel_get_voxel_world_status", actorLabel="MyVoxelWorld")
+```
+
+Returns `{ isRuntimeCreated, isVoxelWorldReady, isProcessingNewState, progress, numPendingTasks }`. The runtime can be mid-regeneration even after `IsRuntimeCreated` flips true — wait for `isVoxelWorldReady && !isProcessingNewState` before pipelines that depend on stable terrain.
 
 ## Requirements
 

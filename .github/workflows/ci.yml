@@ -46,7 +46,7 @@ jobs:
       - name: Verify build output
         # Fail loud if the package would publish without its task files.
         run: |
-          for f in dist/index.js dist/tasks/BuildScatterGraph.js; do
+          for f in dist/index.js dist/tasks/BuildScatterGraph.js dist/tasks/GetWorldStatus.js; do
             test -s "$f" || (echo "$f missing or empty" && exit 1)
           done
 

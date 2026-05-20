@@ -1,13 +1,14 @@
 {
   "name": "ue-mcp-plugin-voxel-plugin",
-  "version": "0.2.0",
-  "description": "Voxel Plugin actions for ue-mcp. One real PCG action in 0.2.0 - rest tracked in TODO.md.",
+  "version": "0.3.0",
+  "description": "Voxel Plugin actions for ue-mcp. Cited to the C++ headers each action wraps; full reference under docs/.",
   "type": "module",
   "main": "dist/index.js",
   "files": [
     "dist",
     "ue-mcp.plugin.yml",
     "knowledge",
+    "docs",
     "README.md",
     "LICENSE"
   ],

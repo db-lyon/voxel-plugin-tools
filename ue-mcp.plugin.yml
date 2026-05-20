@@ -13,11 +13,22 @@ inject:
         pointsPerSquaredMeter: { type: number }
         seed:                  { type: number }
 
+  level:
+    get_voxel_world_status:
+      task: voxel.get_world_status
+      description: "One-call snapshot of an AVoxelWorld's lifecycle state (isRuntimeCreated, isVoxelWorldReady, isProcessingNewState, progress, numPendingTasks). Call this before scattering / stamping / sampling to confirm the runtime is live and not mid-regeneration. Wraps the 5 zero-arg lifecycle UFUNCTIONs on AVoxelWorld (Voxel/Public/VoxelWorld.h). Params: actorLabel (voxel-world actor label), world? (editor|pie)."
+      schema:
+        actorLabel: { type: string, required: true }
+        world:      { type: string }
+
 knowledge: {}
 
 tasks:
   voxel.build_scatter_graph:
     class_path: tasks/BuildScatterGraph
     description: "Build a Voxel-Sampler-driven PCG mesh scatter graph"
+  voxel.get_world_status:
+    class_path: tasks/GetWorldStatus
+    description: "Snapshot AVoxelWorld lifecycle state in one call"
 
 flows: {}
