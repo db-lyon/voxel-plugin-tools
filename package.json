@@ -1,7 +1,7 @@
 {
   "name": "ue-mcp-plugin-voxel-plugin",
-  "version": "0.1.0",
-  "description": "Voxel Plugin actions for ue-mcp - voxel terrain scatter, stamps, and heightmap baking via PCG and Landscape.",
+  "version": "0.2.0",
+  "description": "Voxel Plugin actions for ue-mcp. Scaffold only at this version - real tools tracked in TODO.md.",
   "type": "module",
   "main": "dist/index.js",
   "files": [
@@ -34,7 +34,8 @@
     "typescript": "^5.7.0"
   },
   "scripts": {
-    "build": "tsc",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && tsc",
     "prepublishOnly": "npm run build"
   },
   "engines": {
