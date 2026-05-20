@@ -2,56 +2,48 @@ actionPrefix: voxel
 minServerVersion: 1.0.15
 uePluginDependency: Voxel
 
+# Tools here are STRICTLY ATOMIC — each wraps exactly one host ue-mcp call.
+# Orchestrations live under `flows:` below, not inside task bodies.
+
 inject:
-  pcg:
-    build_scatter_graph:
-      task: voxel.build_scatter_graph
-      description: "Build a PCG graph that scatters weighted static meshes on a voxel terrain. Wraps UPCGVoxelSamplerSettings (VoxelPCG/Public/PCGVoxelSampler.h) feeding the stock PCGStaticMeshSpawner. After creation, attach the graph to a PCG component (usually near an AVoxelWorld) and call pcg.execute. Params: assetPath (e.g. /Game/PCG/MyScatter), meshes=[{mesh, weight?}], pointsPerSquaredMeter? (default 0.1), seed? (default 1)."
-      schema:
-        assetPath:             { type: string, required: true }
-        meshes:                { type: array,  required: true }
-        pointsPerSquaredMeter: { type: number }
-        seed:                  { type: number }
-
-    ensure_wait_for_world:
-      task: voxel.ensure_wait_for_world
-      description: "Insert a WaitForVoxelWorld node immediately upstream of beforeNode in an existing PCG graph. Idempotent — if a Wait node is already gating beforeNode, returns inserted:false. Fixes the standard PCG-on-voxel footgun: pipelines that run before the voxel runtime finishes generating produce empty/stale output. Wraps UPCGWaitForVoxelWorldSettings (VoxelPCG/Public/PCGWaitForVoxelWorld.h). Params: assetPath, beforeNode (the node to gate — typically your spawner)."
-      schema:
-        assetPath:  { type: string, required: true }
-        beforeNode: { type: string, required: true }
-
   level:
-    get_voxel_world_status:
-      task: voxel.get_world_status
-      description: "One-call snapshot of an AVoxelWorld's lifecycle state (isRuntimeCreated, isVoxelWorldReady, isProcessingNewState, progress, numPendingTasks). Call this before scattering / stamping / sampling to confirm the runtime is live and not mid-regeneration. Wraps the 5 zero-arg lifecycle UFUNCTIONs on AVoxelWorld (Voxel/Public/VoxelWorld.h). Params: actorLabel (voxel-world actor label), world? (editor|pie)."
+    spawn_world:
+      task: voxel.spawn_world
+      description: "Atomic. Drop an AVoxelWorld into the active level. Wraps level.place_actor with actorClass=/Script/Voxel.VoxelWorld. Property setup (LayerStack, MegaMaterial, voxelSize) is a separate level.set_actor_property call — or use the voxel_hello_world flow which chains the canonical defaults. Header: Voxel/Public/VoxelWorld.h. Params: label?, location? ({x,y,z}), rotation? ({x,y,z}), scale? ({x,y,z})."
+      schema:
+        label:    { type: string }
+        location: { type: object }
+        rotation: { type: object }
+        scale:    { type: object }
+
+    is_world_ready:
+      task: voxel.is_world_ready
+      description: "Atomic. Read AVoxelWorld::IsVoxelWorldReady() — the single most useful gate before scattering / stamping / sampling. Wraps editor.invoke_function. Returns the standard invoke_function result; the bool lands at data.returnValues.ReturnValue as the string 'true' or 'false'. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
       schema:
         actorLabel: { type: string, required: true }
         world:      { type: string }
 
-    spawn_voxel_world:
-      task: voxel.spawn_world
-      description: "Drop an AVoxelWorld actor into the active level - the prerequisite for every other Voxel-Plugin operation. Wraps level.place_actor with actorClass=/Script/Voxel.VoxelWorld, then applies VoxelSize / LayerStack / MegaMaterial via level.set_actor_property. LayerStack defaults to the plugin-bundled /Voxel/Default/DefaultStack.DefaultStack so the world renders out of the box; pass empty string to opt out. Header: Voxel/Public/VoxelWorld.h. Params: label?, location? ({x,y,z}), voxelSize? (cm, default 100), layerStack? (asset path or '' to skip), megaMaterial? (asset path)."
-      schema:
-        label:        { type: string }
-        location:     { type: object }
-        voxelSize:    { type: number }
-        layerStack:   { type: string }
-        megaMaterial: { type: string }
-
 knowledge: {}
 
 tasks:
-  voxel.build_scatter_graph:
-    class_path: tasks/BuildScatterGraph
-    description: "Build a Voxel-Sampler-driven PCG mesh scatter graph"
-  voxel.ensure_wait_for_world:
-    class_path: tasks/EnsureWaitForWorld
-    description: "Splice WaitForVoxelWorld into an existing PCG graph"
-  voxel.get_world_status:
-    class_path: tasks/GetWorldStatus
-    description: "Snapshot AVoxelWorld lifecycle state in one call"
   voxel.spawn_world:
     class_path: tasks/SpawnWorld
-    description: "Spawn an AVoxelWorld actor with sane defaults"
+    description: "Spawn an AVoxelWorld actor (atomic)"
+  voxel.is_world_ready:
+    class_path: tasks/IsWorldReady
+    description: "Read IsVoxelWorldReady on an AVoxelWorld actor (atomic)"
 
-flows: {}
+flows:
+  voxel_hello_world:
+    description: "0-to-1: spawn an AVoxelWorld and assign the bundled default LayerStack so it renders. Pass `label` (and optional location/rotation/scale) as flow params. The LayerStack assignment threads the spawned actor's label via ${steps.1.data.actorLabel}."
+    steps:
+      1:
+        task: voxel.spawn_world
+        # `label`, `location`, `rotation`, `scale` come in via FlowRunOptions.params
+        # and merge into this step's options at runtime.
+      2:
+        task: level.set_actor_property
+        options:
+          actorLabel: "${steps.1.data.actorLabel}"
+          propertyName: LayerStack
+          value: /Voxel/Default/DefaultStack.DefaultStack

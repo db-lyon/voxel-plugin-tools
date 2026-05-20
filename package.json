@@ -1,6 +1,6 @@
 {
   "name": "ue-mcp-plugin-voxel-plugin",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Voxel Plugin actions for ue-mcp. Cited to the C++ headers each action wraps; full reference under docs/.",
   "type": "module",
   "main": "dist/index.js",

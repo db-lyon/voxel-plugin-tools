@@ -47,10 +47,8 @@ jobs:
         # Fail loud if the package would publish without its task files.
         run: |
           for f in dist/index.js \
-                   dist/tasks/BuildScatterGraph.js \
-                   dist/tasks/EnsureWaitForWorld.js \
-                   dist/tasks/GetWorldStatus.js \
-                   dist/tasks/SpawnWorld.js; do
+                   dist/tasks/SpawnWorld.js \
+                   dist/tasks/IsWorldReady.js; do
             test -s "$f" || (echo "$f missing or empty" && exit 1)
           done
 
