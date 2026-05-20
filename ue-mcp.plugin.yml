@@ -2,14 +2,22 @@ actionPrefix: voxel
 minServerVersion: 1.0.15
 uePluginDependency: Voxel
 
-# No actions ship in this version. The 0.1.0 release injected three
-# placeholder actions (voxel_scatter_meshes, voxel_spawn_stamps,
-# voxel_bake_heightmap) that called ue-mcp tasks with the wrong parameter
-# names and passed fabricated PCG node-type strings - none of them worked.
-# They have been removed. See TODO.md in the repo for the real API surface
-# and the prioritized list of tools being built against it.
+inject:
+  pcg:
+    build_scatter_graph:
+      task: voxel.build_scatter_graph
+      description: "Build a PCG graph that scatters weighted static meshes on a voxel terrain. Wraps UPCGVoxelSamplerSettings (VoxelPCG/Public/PCGVoxelSampler.h) feeding the stock PCGStaticMeshSpawner. After creation, attach the graph to a PCG component (usually near an AVoxelWorld) and call pcg.execute. Params: assetPath (e.g. /Game/PCG/MyScatter), meshes=[{mesh, weight?}], pointsPerSquaredMeter? (default 0.1), seed? (default 1)."
+      schema:
+        assetPath:             { type: string, required: true }
+        meshes:                { type: array,  required: true }
+        pointsPerSquaredMeter: { type: number }
+        seed:                  { type: number }
 
-inject: {}
 knowledge: {}
-tasks: {}
+
+tasks:
+  voxel.build_scatter_graph:
+    class_path: tasks/BuildScatterGraph
+    description: "Build a Voxel-Sampler-driven PCG mesh scatter graph"
+
 flows: {}
