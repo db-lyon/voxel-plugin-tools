@@ -1,4 +1,4 @@
-# ue-mcp-plugin-voxel-plugin
+# voxel-plugin-tools
 
 [Voxel Plugin](https://voxelplugin.com) actions for [ue-mcp](https://github.com/db-lyon/ue-mcp).
 
@@ -44,7 +44,7 @@ The return is the raw `editor.invoke_function` result — parse `data.returnValu
 ## Install
 
 ```bash
-ue-mcp plugin install ue-mcp-plugin-voxel-plugin
+ue-mcp plugin install voxel-plugin-tools
 ```
 
 Adds an entry under `plugins:` in your `ue-mcp.yml`. Restart ue-mcp.
@@ -57,8 +57,8 @@ Adds an entry under `plugins:` in your `ue-mcp.yml`. Restart ue-mcp.
 ## Develop
 
 ```bash
-git clone https://github.com/db-lyon/ue-mcp-plugin-voxel-plugin.git
-cd ue-mcp-plugin-voxel-plugin
+git clone https://github.com/db-lyon/voxel-plugin-tools.git
+cd voxel-plugin-tools
 npm install
 npm run build
 ```

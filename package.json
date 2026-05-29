@@ -1,5 +1,5 @@
 {
-  "name": "ue-mcp-plugin-voxel-plugin",
+  "name": "voxel-plugin-tools",
   "version": "0.3.2",
   "description": "Voxel Plugin actions for ue-mcp. Cited to the C++ headers each action wraps; full reference under docs/.",
   "type": "module",
@@ -25,7 +25,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/db-lyon/ue-mcp-plugin-voxel-plugin.git"
+    "url": "https://github.com/db-lyon/voxel-plugin-tools.git"
   },
   "peerDependencies": {
     "@db-lyon/flowkit": "~0.5.2"
