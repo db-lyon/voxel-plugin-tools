@@ -1,4 +1,4 @@
-import { BaseTask, type TaskResult } from "@db-lyon/flowkit";
+import { UeMcpTask, type TaskResult } from "ue-mcp/task";
 
 interface Vec3 { x: number; y: number; z: number; }
 
@@ -19,7 +19,7 @@ interface Options {
  *
  * Header: `Voxel/Public/VoxelWorld.h` (`AVoxelWorld`).
  */
-export default class SpawnWorld extends BaseTask<Options> {
+export default class SpawnWorld extends UeMcpTask<Options> {
   get taskName(): string { return "voxel.spawn_world"; }
 
   async execute(): Promise<TaskResult> {

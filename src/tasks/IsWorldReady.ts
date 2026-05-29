@@ -1,4 +1,4 @@
-import { BaseTask, type TaskResult } from "@db-lyon/flowkit";
+import { UeMcpTask, type TaskResult } from "ue-mcp/task";
 
 interface Options {
   actorLabel: string;
@@ -16,7 +16,7 @@ interface Options {
  *
  * Header: `Voxel/Public/VoxelWorld.h` (`bool IsVoxelWorldReady()`).
  */
-export default class IsWorldReady extends BaseTask<Options> {
+export default class IsWorldReady extends UeMcpTask<Options> {
   get taskName(): string { return "voxel.is_world_ready"; }
 
   protected validate(): void {

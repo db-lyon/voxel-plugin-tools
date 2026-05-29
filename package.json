@@ -28,10 +28,10 @@
     "url": "https://github.com/db-lyon/voxel-plugin-tools.git"
   },
   "peerDependencies": {
-    "@db-lyon/flowkit": "~0.5.2"
+    "ue-mcp": ">=1.0.15"
   },
   "devDependencies": {
-    "@db-lyon/flowkit": "~0.5.2",
+    "ue-mcp": "^1.0.71",
     "typescript": "^5.7.0"
   },
   "scripts": {
