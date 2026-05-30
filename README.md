@@ -10,12 +10,28 @@ Full Voxel Plugin API reference under [`docs/`](docs/).
 
 ## What ships
 
-### Actions
+**60 actions** across three host categories, plus one flow. Each action surfaces as
+`<category>(action="voxel_<name>", …)` and cites the C++ header it wraps. The
+authoritative list — every action, its parameters, and the header it maps to — is the
+manifest, [`ue-mcp.plugin.yml`](ue-mcp.plugin.yml); the full API reference is under
+[`docs/`](docs/).
 
-| Category | Action                 | Wraps                                                  | Header |
-|----------|------------------------|--------------------------------------------------------|--------|
-| `level`  | `voxel_spawn_world`    | `level.place_actor` with `/Script/Voxel.VoxelWorld`    | `Voxel/Public/VoxelWorld.h` |
-| `level`  | `voxel_is_world_ready` | `editor.invoke_function IsVoxelWorldReady`             | `Voxel/Public/VoxelWorld.h` |
+### Actions by group
+
+| Host category | Group | Count | Examples |
+|---|---|---:|---|
+| `level` | Spawns (`AVoxelWorld`, stamp/sculpt/baker/debug actors) | 6 | `voxel_spawn_world`, `voxel_spawn_volume_sculpt_actor` |
+| `level` | World lifecycle & status (`AVoxelWorld`) | 7 | `voxel_is_world_ready`, `voxel_create_runtime` |
+| `level` | World config (LayerStack, MegaMaterial, VoxelSize, Nanite/Nav/Lumen, LODQuality) | 7 | `voxel_set_world_layer_stack`, `voxel_set_world_lod_quality` |
+| `level` | Volume sculpting (`AVoxelVolumeSculptActor`) | 10 | `voxel_volume_sculpt_sphere`, `voxel_volume_apply_sculpt_graph` |
+| `level` | Height sculpting (`AVoxelHeightSculptActor`) | 7 | `voxel_height_sculpt_height`, `voxel_height_flatten` |
+| `level` | Stamps (heightmap, graph, mesh, spline + components) | 8 | `voxel_set_heightmap_stamp`, `voxel_set_mesh_stamp` |
+| `level` | Sculpt persistence (external save assets) | 2 | `voxel_set_sculpt_save_asset`, `voxel_get_sculpt_save_asset` |
+| `level` | Query & export | 3 | `voxel_query_voxel_layer`, `voxel_export_voxel_data_to_render_target` |
+| `level` | Instanced stamps (`UVoxelInstancedStampComponent`) | 5 | `voxel_add_instanced_stamp_component`, `voxel_count_instanced_stamps` |
+| `level` | No-clipping (`UVoxelNoClippingComponent`) | 2 | `voxel_add_no_clipping_component`, `voxel_set_no_clipping_layer` |
+| `asset` | Create / configure Voxel assets | 2 | `voxel_create_asset`, `voxel_set_asset_property` |
+| `pcg`   | VoxelPCG nodes | 1 | `voxel_pcg_add_node` (15 node types) |
 
 ### Flows
 

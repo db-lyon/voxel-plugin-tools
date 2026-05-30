@@ -5,10 +5,11 @@ classes are loaded *into* a running [ue-mcp](https://github.com/db-lyon/ue-mcp)
 server, which in turn bridges to a live Unreal Editor. Understanding that
 three-hop runtime is the key to developing here:
 
-```
-Claude / MCP client  ──►  ue-mcp server  ──►  WebSocket bridge  ──►  UE editor
-                          (loads our             (C++ plugin in        (our voxel
-                           dist/tasks/*.js)        the .uproject)        actions run here)
+```mermaid
+flowchart LR
+    A["Claude / MCP client"] --> B["ue-mcp server<br/>(loads our dist/tasks/*.js)"]
+    B --> C["WebSocket bridge<br/>(C++ plugin in the .uproject)"]
+    C --> D["UE editor<br/>(our voxel actions run here)"]
 ```
 
 ## Prerequisites
@@ -94,6 +95,15 @@ server command at the test `.uproject` (absolute path, so location-independent).
 `.mcp.json` is gitignored. After creating/editing it, **restart the MCP client**
 so the server is (re)spawned, and approve it on first load.
 
+> ⚠️ **Register the server under a unique name — not `ue-mcp`.** MCP server names
+> are global to the client: if two registrations share a name, they collide and
+> one silently wins. This repo's root `.mcp.json` registers the server as
+> **`ue-mcp-voxel`** precisely because a global `ue-mcp` server (bound to a
+> different project) would otherwise shadow it. Its tools then surface as
+> `mcp__ue-mcp-voxel__<category>` (`project`, `level`, `editor`, `asset`, `pcg`,
+> `reflection`, …). Pick any unique name; just don't reuse one already registered
+> elsewhere in your client config.
+
 ## The iteration loop
 
 Because the link is live, the cycle is:
@@ -104,7 +114,7 @@ npm run build                 # refresh dist/ (the symlink exposes it immediatel
 # restart the ue-mcp server   # plugins load only at server startup
 ```
 
-Restarting the server = reconnecting the `ue-mcp` MCP server in your client
+Restarting the server = reconnecting the `ue-mcp-voxel` MCP server in your client
 (plugins are read from `ue-mcp.yml` once, on boot). Then verify:
 
 ```
