@@ -135,6 +135,27 @@ inject:
         actorLabel: { type: string, required: true }
         value:      { type: number, required: true }
 
+    set_world_enable_nanite:
+      task: voxel.set_world_enable_nanite
+      description: "Atomic. Set AVoxelWorld::bEnableNanite — Nanite rendering of voxel meshes (default true). Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (bool)."
+      schema:
+        actorLabel: { type: string, required: true }
+        value:      { type: boolean, required: true }
+
+    set_world_enable_navigation:
+      task: voxel.set_world_enable_navigation
+      description: "Atomic. Set AVoxelWorld::bEnableNavigation — navmesh over the voxel surface (default true; needed for AI pathfinding). Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (bool)."
+      schema:
+        actorLabel: { type: string, required: true }
+        value:      { type: boolean, required: true }
+
+    set_world_enable_lumen:
+      task: voxel.set_world_enable_lumen
+      description: "Atomic. Set AVoxelWorld::bEnableLumen — Lumen GI on voxel meshes (default false; expensive). Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (bool)."
+      schema:
+        actorLabel: { type: string, required: true }
+        value:      { type: boolean, required: true }
+
     # ── Volume sculpting (static VoxelVolumeSculptBlueprintLibrary; ──────────
     #    wrap editor.execute_python — no native static-library invoke exists).
     #    All target an AVoxelVolumeSculptActor by label; center is world-space.
@@ -321,6 +342,15 @@ tasks:
   voxel.set_world_voxel_size:
     class_path: tasks/SetVoxelSize
     description: "Set AVoxelWorld::VoxelSize (atomic)"
+  voxel.set_world_enable_nanite:
+    class_path: tasks/SetEnableNanite
+    description: "Set AVoxelWorld::bEnableNanite (atomic)"
+  voxel.set_world_enable_navigation:
+    class_path: tasks/SetEnableNavigation
+    description: "Set AVoxelWorld::bEnableNavigation (atomic)"
+  voxel.set_world_enable_lumen:
+    class_path: tasks/SetEnableLumen
+    description: "Set AVoxelWorld::bEnableLumen (atomic)"
   voxel.volume_sculpt_sphere:
     class_path: tasks/VolumeSculptSphere
     description: "Volume sculpt: add/remove a sphere (atomic)"
