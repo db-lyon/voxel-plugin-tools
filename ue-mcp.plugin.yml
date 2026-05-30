@@ -329,6 +329,16 @@ inject:
         layerIndex:   { type: number }
         gradientStep: { type: number }
 
+    multi_query_voxel_layer:
+      task: voxel.multi_query_voxel_layer
+      description: "Batch-sample many points of a voxel layer in one call; returns an array of FVoxelQueryResult (value, surface_type, normal) as JSON on a VOXEL_QUERY_RESULT= line. Static lib taking an FVoxelStackLayer + positions -> wraps editor.execute_python. Header: Voxel/Public/VoxelQueryBlueprintLibrary.h. Params: positions ([{x,y,z}]), stack? (default DefaultStack), layerType? (height|volume, default volume), layerIndex? (default 0), gradientStep? (default 100)."
+      schema:
+        positions:    { type: array, required: true }
+        stack:        { type: string }
+        layerType:    { type: string }
+        layerIndex:   { type: number }
+        gradientStep: { type: number }
+
 knowledge: {}
 
 tasks:
@@ -350,6 +360,9 @@ tasks:
   voxel.query_voxel_layer:
     class_path: tasks/QueryVoxelLayer
     description: "Sample one point of a voxel layer (atomic)"
+  voxel.multi_query_voxel_layer:
+    class_path: tasks/QueryVoxelLayerMulti
+    description: "Batch-sample many points of a voxel layer (atomic)"
   voxel.spawn_stamp_actor:
     class_path: tasks/SpawnStampActor
     description: "Spawn an AVoxelStampActor (atomic)"
