@@ -8,7 +8,7 @@ interface Options extends VolumeSculptOptions {
 }
 
 /**
- * Atomic. Smooth/blur a region on an `AVoxelVolumeSculptActor`. The optional
+ * Smooth/blur a region on an `AVoxelVolumeSculptActor`. The optional
  * brush param is left at its default (circular).
  * `VoxelVolumeSculptBlueprintLibrary::Smooth`. Wraps editor.execute_python.
  */

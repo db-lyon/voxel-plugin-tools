@@ -1,7 +1,7 @@
 import { SpawnVoxelActor } from "./SpawnVoxelActor.js";
 
 /**
- * Atomic. Drop an `AVoxelDebugActor` into the active level — visualizes a voxel
+ * Drop an `AVoxelDebugActor` into the active level — visualizes a voxel
  * layer over a debug region (LOD, size, grayscale/color settings). Dev tool.
  *
  * Header: `Voxel/Public/VoxelDebugActor.h`. Class path

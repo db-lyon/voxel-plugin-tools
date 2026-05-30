@@ -1,7 +1,7 @@
 import { SetVoxelWorldProperty } from "./SetVoxelWorldProperty.js";
 
 /**
- * Atomic. Set `AVoxelWorld::bEnableNavigation` — navmesh generation over the
+ * Set `AVoxelWorld::bEnableNavigation` — navmesh generation over the
  * voxel surface (default true; required for AI pathfinding). `value` is boolean.
  *
  * Header: `Voxel/Public/VoxelWorld.h` (`bool bEnableNavigation`).

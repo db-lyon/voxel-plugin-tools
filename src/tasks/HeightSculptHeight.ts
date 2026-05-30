@@ -9,7 +9,7 @@ interface Options extends HeightSculptOptions {
 }
 
 /**
- * Atomic. Raise/lower height on an `AVoxelHeightSculptActor` (centre is 2D).
+ * Raise/lower height on an `AVoxelHeightSculptActor` (centre is 2D).
  * `VoxelHeightSculptBlueprintLibrary::SculptHeight`. Wraps editor.execute_python.
  */
 export default class HeightSculptHeight extends HeightSculptOp<Options> {

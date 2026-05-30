@@ -1,7 +1,7 @@
 import { VolumeSculptOp, type VolumeSculptOptions } from "./VolumeSculptOp.js";
 
 /**
- * Atomic. Clear all sculpt data on an `AVoxelVolumeSculptActor` (resets edits).
+ * Clear all sculpt data on an `AVoxelVolumeSculptActor` (resets edits).
  * `VoxelVolumeSculptBlueprintLibrary::ClearSculptData`. Wraps editor.execute_python.
  */
 export default class VolumeClearSculptData extends VolumeSculptOp<VolumeSculptOptions> {

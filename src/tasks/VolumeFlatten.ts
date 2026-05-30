@@ -11,7 +11,7 @@ interface Options extends VolumeSculptOptions {
 }
 
 /**
- * Atomic. Flatten a voxel surface along a normal on an `AVoxelVolumeSculptActor`.
+ * Flatten a voxel surface along a normal on an `AVoxelVolumeSculptActor`.
  * `VoxelVolumeSculptBlueprintLibrary::Flatten`. Wraps editor.execute_python.
  */
 export default class VolumeFlatten extends VolumeSculptOp<Options> {

@@ -1,7 +1,7 @@
 import { SpawnVoxelActor } from "./SpawnVoxelActor.js";
 
 /**
- * Atomic. Drop an `AVoxelHeightSculptActor` into the active level — the target
+ * Drop an `AVoxelHeightSculptActor` into the active level — the target
  * actor for 2D/height sculpting (paint, flatten, smooth, sculpt-height).
  *
  * Header: `Voxel/Public/Sculpt/Height/VoxelHeightSculptActor.h`. Class path

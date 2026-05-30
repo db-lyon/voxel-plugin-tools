@@ -1,7 +1,7 @@
 import { SetVoxelWorldProperty } from "./SetVoxelWorldProperty.js";
 
 /**
- * Atomic. Set `AVoxelWorld::MegaMaterial` — the `UVoxelMegaMaterial` asset that
+ * Set `AVoxelWorld::MegaMaterial` — the `UVoxelMegaMaterial` asset that
  * drives surface shading (per-surface-type materials + blending). `value` is
  * the asset object path.
  *

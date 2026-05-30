@@ -1,7 +1,7 @@
 import { SetVoxelWorldProperty } from "./SetVoxelWorldProperty.js";
 
 /**
- * Atomic. Set `AVoxelWorld::bEnableNanite` — Nanite rendering of voxel meshes
+ * Set `AVoxelWorld::bEnableNanite` — Nanite rendering of voxel meshes
  * (default true). `value` is a boolean.
  *
  * Header: `Voxel/Public/VoxelWorld.h` (`bool bEnableNanite`).

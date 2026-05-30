@@ -1,7 +1,7 @@
 import { SetVoxelWorldProperty } from "./SetVoxelWorldProperty.js";
 
 /**
- * Atomic. Set `AVoxelWorld::VoxelSize` — edge length of one voxel in cm
+ * Set `AVoxelWorld::VoxelSize` — edge length of one voxel in cm
  * (default 100). Lower = finer detail + heavier cost. `value` is an integer.
  *
  * Header: `Voxel/Public/VoxelWorld.h` (`int32 VoxelSize`).

@@ -1,7 +1,7 @@
 import { SpawnVoxelActor } from "./SpawnVoxelActor.js";
 
 /**
- * Atomic. Drop an `AVoxelVolumeSculptActor` into the active level — the target
+ * Drop an `AVoxelVolumeSculptActor` into the active level — the target
  * actor for 3D/volume sculpting (sphere, cube, surface, angle, flatten, smooth).
  *
  * Header: `Voxel/Public/Sculpt/Volume/VoxelVolumeSculptActor.h`. Class path

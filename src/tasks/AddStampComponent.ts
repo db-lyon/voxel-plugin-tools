@@ -6,7 +6,7 @@ interface Options {
 }
 
 /**
- * Atomic. Attach a `UVoxelStampComponent` to an existing actor — lets any actor
+ * Attach a `UVoxelStampComponent` to an existing actor — lets any actor
  * carry a voxel stamp (sculpt/displacement applied to nearby voxel worlds).
  * Wraps exactly one host call: `level.add_component`.
  *

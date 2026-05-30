@@ -11,7 +11,7 @@ interface Options extends VolumeSculptOptions {
 }
 
 /**
- * Atomic. Move a voxel surface toward a plane (sculpt angles) on an
+ * Move a voxel surface toward a plane (sculpt angles) on an
  * `AVoxelVolumeSculptActor` (brush left at default).
  * `VoxelVolumeSculptBlueprintLibrary::SculptAngle`. Wraps editor.execute_python.
  */

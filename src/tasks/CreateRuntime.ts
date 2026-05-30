@@ -1,7 +1,7 @@
 import { InvokeVoxelWorldFunction } from "./InvokeVoxelWorldFunction.js";
 
 /**
- * Atomic. Call `AVoxelWorld::CreateRuntime()` — explicitly initialize the voxel
+ * Call `AVoxelWorld::CreateRuntime()` — explicitly initialize the voxel
  * runtime (e.g. when `bCreateRuntimeOnBeginPlay` is off). No return value.
  *
  * Header: `Voxel/Public/VoxelWorld.h` (`void CreateRuntime()`).

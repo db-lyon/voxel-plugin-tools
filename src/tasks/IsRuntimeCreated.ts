@@ -1,7 +1,7 @@
 import { InvokeVoxelWorldFunction } from "./InvokeVoxelWorldFunction.js";
 
 /**
- * Atomic. Read `AVoxelWorld::IsRuntimeCreated()` — whether the voxel runtime is
+ * Read `AVoxelWorld::IsRuntimeCreated()` — whether the voxel runtime is
  * initialized (distinct from fully-rendered; see `voxel.is_world_ready`).
  * Result at `data.returnValues.ReturnValue` as `"true"`/`"false"`.
  *

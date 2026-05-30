@@ -1,7 +1,7 @@
 import { SpawnVoxelActor } from "./SpawnVoxelActor.js";
 
 /**
- * Atomic. Drop an `AVoxelWorld` actor into the active level.
+ * Drop an `AVoxelWorld` actor into the active level.
  *
  * Header: `Voxel/Public/VoxelWorld.h` (`AVoxelWorld`). Class path
  * `/Script/Voxel.VoxelWorld`. Wraps exactly one host call: `level.place_actor`.

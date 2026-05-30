@@ -1,7 +1,7 @@
 import { SpawnVoxelActor } from "./SpawnVoxelActor.js";
 
 /**
- * Atomic. Drop an `AVoxelStampActor` into the active level — a placement actor
+ * Drop an `AVoxelStampActor` into the active level — a placement actor
  * that owns a single stamp (sculpt/displacement applied to nearby voxel worlds).
  *
  * Header: `Voxel/Public/VoxelStampActor.h` (`AVoxelStampActor`). Class path

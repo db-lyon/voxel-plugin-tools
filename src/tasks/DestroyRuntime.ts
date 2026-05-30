@@ -1,7 +1,7 @@
 import { InvokeVoxelWorldFunction } from "./InvokeVoxelWorldFunction.js";
 
 /**
- * Atomic. Call `AVoxelWorld::DestroyRuntime()` — tear down the voxel runtime
+ * Call `AVoxelWorld::DestroyRuntime()` — tear down the voxel runtime
  * (frees meshes/collision/nav until re-created). No return value.
  *
  * Header: `Voxel/Public/VoxelWorld.h` (`void DestroyRuntime()`).

@@ -1,7 +1,7 @@
 import { SculptOp, type SculptActorOptions } from "./SculptOp.js";
 
 /**
- * Atomic. Free the sculpt cache on an `AVoxelHeightSculptActor` (subsequent
+ * Free the sculpt cache on an `AVoxelHeightSculptActor` (subsequent
  * edits a touch slower; does NOT clear sculpt data — see height_clear_sculpt_data).
  *
  * Static library function on the base `VoxelHeightSculptBlueprintLibrary` (not

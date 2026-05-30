@@ -9,7 +9,7 @@ interface Options extends VolumeSculptOptions {
 }
 
 /**
- * Atomic. Progressively sculpt a voxel surface on an `AVoxelVolumeSculptActor`
+ * Progressively sculpt a voxel surface on an `AVoxelVolumeSculptActor`
  * (brush left at default). `VoxelVolumeSculptBlueprintLibrary::SculptSurface`.
  * Wraps editor.execute_python.
  */

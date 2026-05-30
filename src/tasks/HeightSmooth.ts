@@ -8,7 +8,7 @@ interface Options extends HeightSculptOptions {
 }
 
 /**
- * Atomic. Smooth/blur a height region on an `AVoxelHeightSculptActor` (centre is
+ * Smooth/blur a height region on an `AVoxelHeightSculptActor` (centre is
  * 2D; brush left at default). `VoxelHeightSculptBlueprintLibrary::Smooth`.
  * Wraps editor.execute_python.
  */

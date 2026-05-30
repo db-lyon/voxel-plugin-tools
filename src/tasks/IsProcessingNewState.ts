@@ -1,7 +1,7 @@
 import { InvokeVoxelWorldFunction } from "./InvokeVoxelWorldFunction.js";
 
 /**
- * Atomic. Read `AVoxelWorld::IsProcessingNewState()` — whether a state update
+ * Read `AVoxelWorld::IsProcessingNewState()` — whether a state update
  * (regeneration) is in flight. Result at `data.returnValues.ReturnValue` as
  * `"true"`/`"false"`.
  *

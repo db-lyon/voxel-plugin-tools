@@ -11,7 +11,7 @@ interface Options extends HeightSculptOptions {
 }
 
 /**
- * Atomic. Paint a surface type on a height sculpt stamp of an
+ * Paint a surface type on a height sculpt stamp of an
  * `AVoxelHeightSculptActor` (centre is 2D; metadata + brush at defaults).
  * `VoxelHeightSculptBlueprintLibrary::PaintSurface`. Wraps editor.execute_python.
  */

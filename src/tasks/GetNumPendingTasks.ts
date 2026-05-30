@@ -1,7 +1,7 @@
 import { InvokeVoxelWorldFunction } from "./InvokeVoxelWorldFunction.js";
 
 /**
- * Atomic. Read `AVoxelWorld::GetNumPendingTasks()` — count of queued background
+ * Read `AVoxelWorld::GetNumPendingTasks()` — count of queued background
  * tasks; a coarse "how much work is left" signal. Result at
  * `data.returnValues.ReturnValue` (int as string).
  *

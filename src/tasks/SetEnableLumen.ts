@@ -1,7 +1,7 @@
 import { SetVoxelWorldProperty } from "./SetVoxelWorldProperty.js";
 
 /**
- * Atomic. Set `AVoxelWorld::bEnableLumen` — Lumen global illumination on voxel
+ * Set `AVoxelWorld::bEnableLumen` — Lumen global illumination on voxel
  * meshes (default false; expensive). `value` is a boolean.
  *
  * Header: `Voxel/Public/VoxelWorld.h` (`bool bEnableLumen`).

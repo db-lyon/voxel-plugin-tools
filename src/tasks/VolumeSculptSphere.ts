@@ -9,7 +9,7 @@ interface Options extends VolumeSculptOptions {
 }
 
 /**
- * Atomic. Add or remove a sphere on an `AVoxelVolumeSculptActor`.
+ * Add or remove a sphere on an `AVoxelVolumeSculptActor`.
  * `VoxelVolumeSculptBlueprintLibrary::SculptSphere`. Wraps editor.execute_python.
  */
 export default class VolumeSculptSphere extends VolumeSculptOp<Options> {

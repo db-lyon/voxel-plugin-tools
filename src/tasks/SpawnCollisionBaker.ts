@@ -1,7 +1,7 @@
 import { SpawnVoxelActor } from "./SpawnVoxelActor.js";
 
 /**
- * Atomic. Drop an `AVoxelCollisionBaker` into the active level — bakes collision
+ * Drop an `AVoxelCollisionBaker` into the active level — bakes collision
  * geometry for a voxel layer within a radius (set `bGenerate` to trigger).
  *
  * Header: `Voxel/Public/Collision/VoxelCollisionBaker.h`. Class path

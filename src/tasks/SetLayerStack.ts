@@ -1,7 +1,7 @@
 import { SetVoxelWorldProperty } from "./SetVoxelWorldProperty.js";
 
 /**
- * Atomic. Set `AVoxelWorld::LayerStack` — the `UVoxelLayerStack` asset that
+ * Set `AVoxelWorld::LayerStack` — the `UVoxelLayerStack` asset that
  * defines what the world generates/renders. `value` is the asset object path
  * (e.g. `/Voxel/Default/DefaultStack.DefaultStack`). Without a stack the world
  * renders nothing.

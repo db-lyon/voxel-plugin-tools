@@ -10,7 +10,7 @@ interface Options extends HeightSculptOptions {
 }
 
 /**
- * Atomic. Flatten a height region toward a target height on an
+ * Flatten a height region toward a target height on an
  * `AVoxelHeightSculptActor` (centre is 2D).
  * `VoxelHeightSculptBlueprintLibrary::Flatten`. Wraps editor.execute_python.
  */

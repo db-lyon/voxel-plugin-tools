@@ -11,7 +11,7 @@ interface Options extends VolumeSculptOptions {
 }
 
 /**
- * Atomic. Add or remove a (rounded, rotated) cube on an `AVoxelVolumeSculptActor`.
+ * Add or remove a (rounded, rotated) cube on an `AVoxelVolumeSculptActor`.
  * `VoxelVolumeSculptBlueprintLibrary::SculptCube`. Wraps editor.execute_python.
  */
 export default class VolumeSculptCube extends VolumeSculptOp<Options> {

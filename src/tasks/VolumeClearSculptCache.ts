@@ -1,7 +1,7 @@
 import { SculptOp, type SculptActorOptions } from "./SculptOp.js";
 
 /**
- * Atomic. Free the sculpt cache on an `AVoxelVolumeSculptActor` (subsequent
+ * Free the sculpt cache on an `AVoxelVolumeSculptActor` (subsequent
  * edits a touch slower; does NOT clear sculpt data — see volume_clear_sculpt_data).
  *
  * This is a static library function (NOT an actor method — `invoke_function`

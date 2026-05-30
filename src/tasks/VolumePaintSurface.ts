@@ -11,7 +11,7 @@ interface Options extends VolumeSculptOptions {
 }
 
 /**
- * Atomic. Paint a surface type on a sculpt stamp of an `AVoxelVolumeSculptActor`
+ * Paint a surface type on a sculpt stamp of an `AVoxelVolumeSculptActor`
  * (metadata + brush left at defaults). `VoxelVolumeSculptBlueprintLibrary::PaintSurface`.
  * Wraps editor.execute_python.
  */

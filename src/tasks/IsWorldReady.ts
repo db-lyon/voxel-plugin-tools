@@ -1,7 +1,7 @@
 import { InvokeVoxelWorldFunction } from "./InvokeVoxelWorldFunction.js";
 
 /**
- * Atomic. Read `AVoxelWorld::IsVoxelWorldReady()` — the single most useful gate
+ * Read `AVoxelWorld::IsVoxelWorldReady()` — the single most useful gate
  * before scattering / stamping / sampling. Result at
  * `data.returnValues.ReturnValue` as `"true"`/`"false"`.
  *

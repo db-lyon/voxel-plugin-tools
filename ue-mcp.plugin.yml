@@ -11,260 +11,260 @@ inject:
     # ── Spawns (wrap level.place_actor) ──────────────────────────────────
     spawn_world:
       task: voxel.spawn_world
-      description: "Atomic. Drop an AVoxelWorld into the active level. Wraps level.place_actor with actorClass=/Script/Voxel.VoxelWorld. Property setup (LayerStack, MegaMaterial, VoxelSize) is a separate call — see voxel_set_world_* — or use the voxel_hello_world flow which chains the canonical defaults. Header: Voxel/Public/VoxelWorld.h. Params: label?, location? ({x,y,z}), rotation? ({x,y,z}), scale? ({x,y,z})."
+      description: "Drop an AVoxelWorld into the active level. Wraps level.place_actor with actorClass=/Script/Voxel.VoxelWorld. Property setup (LayerStack, MegaMaterial, VoxelSize) is a separate call — see voxel_set_world_* — or use the voxel_hello_world flow which chains the canonical defaults. Header: Voxel/Public/VoxelWorld.h. Params: label?, location? ({x,y,z}), rotation? ({x,y,z}), scale? ({x,y,z})."
       schema:
-        label:    { type: string }
+        label: { type: string }
         location: { type: object }
         rotation: { type: object }
-        scale:    { type: object }
+        scale: { type: object }
 
     spawn_stamp_actor:
       task: voxel.spawn_stamp_actor
-      description: "Atomic. Drop an AVoxelStampActor (a placement actor owning one stamp). Wraps level.place_actor with actorClass=/Script/Voxel.VoxelStampActor. Header: Voxel/Public/VoxelStampActor.h. Params: label?, location?, rotation?, scale?."
+      description: "Drop an AVoxelStampActor (a placement actor owning one stamp). Wraps level.place_actor with actorClass=/Script/Voxel.VoxelStampActor. Header: Voxel/Public/VoxelStampActor.h. Params: label?, location?, rotation?, scale?."
       schema:
-        label:    { type: string }
+        label: { type: string }
         location: { type: object }
         rotation: { type: object }
-        scale:    { type: object }
+        scale: { type: object }
 
     spawn_height_sculpt_actor:
       task: voxel.spawn_height_sculpt_actor
-      description: "Atomic. Drop an AVoxelHeightSculptActor — the target for 2D/height sculpting. Wraps level.place_actor with actorClass=/Script/Voxel.VoxelHeightSculptActor. Header: Voxel/Public/Sculpt/Height/VoxelHeightSculptActor.h. Params: label?, location?, rotation?, scale?."
+      description: "Drop an AVoxelHeightSculptActor — the target for 2D/height sculpting. Wraps level.place_actor with actorClass=/Script/Voxel.VoxelHeightSculptActor. Header: Voxel/Public/Sculpt/Height/VoxelHeightSculptActor.h. Params: label?, location?, rotation?, scale?."
       schema:
-        label:    { type: string }
+        label: { type: string }
         location: { type: object }
         rotation: { type: object }
-        scale:    { type: object }
+        scale: { type: object }
 
     spawn_volume_sculpt_actor:
       task: voxel.spawn_volume_sculpt_actor
-      description: "Atomic. Drop an AVoxelVolumeSculptActor — the target for 3D/volume sculpting. Wraps level.place_actor with actorClass=/Script/Voxel.VoxelVolumeSculptActor. Header: Voxel/Public/Sculpt/Volume/VoxelVolumeSculptActor.h. Params: label?, location?, rotation?, scale?."
+      description: "Drop an AVoxelVolumeSculptActor — the target for 3D/volume sculpting. Wraps level.place_actor with actorClass=/Script/Voxel.VoxelVolumeSculptActor. Header: Voxel/Public/Sculpt/Volume/VoxelVolumeSculptActor.h. Params: label?, location?, rotation?, scale?."
       schema:
-        label:    { type: string }
+        label: { type: string }
         location: { type: object }
         rotation: { type: object }
-        scale:    { type: object }
+        scale: { type: object }
 
     spawn_collision_baker:
       task: voxel.spawn_collision_baker
-      description: "Atomic. Drop an AVoxelCollisionBaker — bakes collision for a voxel layer within a radius. Wraps level.place_actor with actorClass=/Script/Voxel.VoxelCollisionBaker. Header: Voxel/Public/Collision/VoxelCollisionBaker.h. Params: label?, location?, rotation?, scale?."
+      description: "Drop an AVoxelCollisionBaker — bakes collision for a voxel layer within a radius. Wraps level.place_actor with actorClass=/Script/Voxel.VoxelCollisionBaker. Header: Voxel/Public/Collision/VoxelCollisionBaker.h. Params: label?, location?, rotation?, scale?."
       schema:
-        label:    { type: string }
+        label: { type: string }
         location: { type: object }
         rotation: { type: object }
-        scale:    { type: object }
+        scale: { type: object }
 
     spawn_debug_actor:
       task: voxel.spawn_debug_actor
-      description: "Atomic. Drop an AVoxelDebugActor — visualizes a voxel layer over a debug region (dev tool). Wraps level.place_actor with actorClass=/Script/Voxel.VoxelDebugActor. Header: Voxel/Public/VoxelDebugActor.h. Params: label?, location?, rotation?, scale?."
+      description: "Drop an AVoxelDebugActor — visualizes a voxel layer over a debug region (dev tool). Wraps level.place_actor with actorClass=/Script/Voxel.VoxelDebugActor. Header: Voxel/Public/VoxelDebugActor.h. Params: label?, location?, rotation?, scale?."
       schema:
-        label:    { type: string }
+        label: { type: string }
         location: { type: object }
         rotation: { type: object }
-        scale:    { type: object }
+        scale: { type: object }
 
     # ── Stamp / sculpt instance methods + components ──────────────────────
     add_stamp_component:
       task: voxel.add_stamp_component
-      description: "Atomic. Attach a UVoxelStampComponent to an existing actor (carry a voxel stamp). Wraps level.add_component with componentClass=/Script/Voxel.VoxelStampComponent. Header: Voxel/Public/VoxelStampComponent.h. Params: actorLabel, componentName?."
+      description: "Attach a UVoxelStampComponent to an existing actor (carry a voxel stamp). Wraps level.add_component with componentClass=/Script/Voxel.VoxelStampComponent. Header: Voxel/Public/VoxelStampComponent.h. Params: actorLabel, componentName?."
       schema:
-        actorLabel:    { type: string, required: true }
+        actorLabel: { type: string, required: true }
         componentName: { type: string }
 
     update_stamp_actor:
       task: voxel.update_stamp_actor
-      description: "Atomic. Call AVoxelStampActor::UpdateStamp() — re-apply the actor's stamp after its properties change. Wraps editor.invoke_function. Header: Voxel/Public/VoxelStampActor.h. Params: actorLabel, world? (editor|pie)."
+      description: "Call AVoxelStampActor::UpdateStamp() — re-apply the actor's stamp after its properties change. Wraps editor.invoke_function. Header: Voxel/Public/VoxelStampActor.h. Params: actorLabel, world? (editor|pie)."
       schema:
         actorLabel: { type: string, required: true }
-        world:      { type: string }
+        world: { type: string }
 
     volume_clear_sculpt_cache:
       task: voxel.volume_clear_sculpt_cache
-      description: "Atomic. Free the sculpt cache on an AVoxelVolumeSculptActor (not the data; see volume_clear_sculpt_data). Static lib on base VoxelVolumeSculptBlueprintLibrary. Wraps editor.execute_python. Params: actorLabel."
+      description: "Free the sculpt cache on an AVoxelVolumeSculptActor (not the data; see volume_clear_sculpt_data). Static lib on base VoxelVolumeSculptBlueprintLibrary. Wraps editor.execute_python. Params: actorLabel."
       schema:
         actorLabel: { type: string, required: true }
 
     height_clear_sculpt_cache:
       task: voxel.height_clear_sculpt_cache
-      description: "Atomic. Free the sculpt cache on an AVoxelHeightSculptActor (not the data; see height_clear_sculpt_data). Static lib on base VoxelHeightSculptBlueprintLibrary. Wraps editor.execute_python. Params: actorLabel."
+      description: "Free the sculpt cache on an AVoxelHeightSculptActor (not the data; see height_clear_sculpt_data). Static lib on base VoxelHeightSculptBlueprintLibrary. Wraps editor.execute_python. Params: actorLabel."
       schema:
         actorLabel: { type: string, required: true }
 
     # ── World lifecycle / status (wrap editor.invoke_function) ────────────
     is_world_ready:
       task: voxel.is_world_ready
-      description: "Atomic. Read AVoxelWorld::IsVoxelWorldReady() — the single most useful gate before scattering / stamping / sampling. Wraps editor.invoke_function. Result at data.returnValues.ReturnValue as 'true'/'false'. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
+      description: "Read AVoxelWorld::IsVoxelWorldReady() — the single most useful gate before scattering / stamping / sampling. Wraps editor.invoke_function. Result at data.returnValues.ReturnValue as 'true'/'false'. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
       schema:
         actorLabel: { type: string, required: true }
-        world:      { type: string }
+        world: { type: string }
 
     get_world_progress:
       task: voxel.get_world_progress
-      description: "Atomic. Read AVoxelWorld::GetProgress() — 0..1 while processing, 1 when idle. Wraps editor.invoke_function. Result at data.returnValues.ReturnValue (float string). Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
+      description: "Read AVoxelWorld::GetProgress() — 0..1 while processing, 1 when idle. Wraps editor.invoke_function. Result at data.returnValues.ReturnValue (float string). Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
       schema:
         actorLabel: { type: string, required: true }
-        world:      { type: string }
+        world: { type: string }
 
     is_runtime_created:
       task: voxel.is_runtime_created
-      description: "Atomic. Read AVoxelWorld::IsRuntimeCreated() — runtime initialized (distinct from fully-rendered; see voxel_is_world_ready). Wraps editor.invoke_function. Result 'true'/'false' at data.returnValues.ReturnValue. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
+      description: "Read AVoxelWorld::IsRuntimeCreated() — runtime initialized (distinct from fully-rendered; see voxel_is_world_ready). Wraps editor.invoke_function. Result 'true'/'false' at data.returnValues.ReturnValue. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
       schema:
         actorLabel: { type: string, required: true }
-        world:      { type: string }
+        world: { type: string }
 
     is_processing_new_state:
       task: voxel.is_processing_new_state
-      description: "Atomic. Read AVoxelWorld::IsProcessingNewState() — a regeneration is in flight. Wraps editor.invoke_function. Result 'true'/'false' at data.returnValues.ReturnValue. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
+      description: "Read AVoxelWorld::IsProcessingNewState() — a regeneration is in flight. Wraps editor.invoke_function. Result 'true'/'false' at data.returnValues.ReturnValue. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
       schema:
         actorLabel: { type: string, required: true }
-        world:      { type: string }
+        world: { type: string }
 
     get_num_pending_tasks:
       task: voxel.get_num_pending_tasks
-      description: "Atomic. Read AVoxelWorld::GetNumPendingTasks() — queued background task count; coarse 'work left' signal. Wraps editor.invoke_function. Result at data.returnValues.ReturnValue (int string). Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
+      description: "Read AVoxelWorld::GetNumPendingTasks() — queued background task count; coarse 'work left' signal. Wraps editor.invoke_function. Result at data.returnValues.ReturnValue (int string). Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
       schema:
         actorLabel: { type: string, required: true }
-        world:      { type: string }
+        world: { type: string }
 
     create_runtime:
       task: voxel.create_runtime
-      description: "Atomic. Call AVoxelWorld::CreateRuntime() — explicitly initialize the voxel runtime (e.g. when bCreateRuntimeOnBeginPlay is off). No return value. Wraps editor.invoke_function. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
+      description: "Call AVoxelWorld::CreateRuntime() — explicitly initialize the voxel runtime (e.g. when bCreateRuntimeOnBeginPlay is off). No return value. Wraps editor.invoke_function. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
       schema:
         actorLabel: { type: string, required: true }
-        world:      { type: string }
+        world: { type: string }
 
     destroy_runtime:
       task: voxel.destroy_runtime
-      description: "Atomic. Call AVoxelWorld::DestroyRuntime() — tear down the voxel runtime (frees meshes/collision/nav until re-created). No return value. Wraps editor.invoke_function. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
+      description: "Call AVoxelWorld::DestroyRuntime() — tear down the voxel runtime (frees meshes/collision/nav until re-created). No return value. Wraps editor.invoke_function. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
       schema:
         actorLabel: { type: string, required: true }
-        world:      { type: string }
+        world: { type: string }
 
     # ── AVoxelWorld config (wrap level.set_actor_property) ────────────────
     set_world_layer_stack:
       task: voxel.set_world_layer_stack
-      description: "Atomic. Set AVoxelWorld::LayerStack — the UVoxelLayerStack asset defining what the world generates/renders (without it the world renders nothing). Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (asset object path, e.g. /Voxel/Default/DefaultStack.DefaultStack)."
+      description: "Set AVoxelWorld::LayerStack — the UVoxelLayerStack asset defining what the world generates/renders (without it the world renders nothing). Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (asset object path, e.g. /Voxel/Default/DefaultStack.DefaultStack)."
       schema:
         actorLabel: { type: string, required: true }
-        value:      { type: string, required: true }
+        value: { type: string, required: true }
 
     set_world_mega_material:
       task: voxel.set_world_mega_material
-      description: "Atomic. Set AVoxelWorld::MegaMaterial — the UVoxelMegaMaterial asset driving surface shading. Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (asset object path)."
+      description: "Set AVoxelWorld::MegaMaterial — the UVoxelMegaMaterial asset driving surface shading. Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (asset object path)."
       schema:
         actorLabel: { type: string, required: true }
-        value:      { type: string, required: true }
+        value: { type: string, required: true }
 
     set_world_voxel_size:
       task: voxel.set_world_voxel_size
-      description: "Atomic. Set AVoxelWorld::VoxelSize — edge length of one voxel in cm (default 100; lower = finer + heavier). Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (integer cm)."
+      description: "Set AVoxelWorld::VoxelSize — edge length of one voxel in cm (default 100; lower = finer + heavier). Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (integer cm)."
       schema:
         actorLabel: { type: string, required: true }
-        value:      { type: number, required: true }
+        value: { type: number, required: true }
 
     set_world_enable_nanite:
       task: voxel.set_world_enable_nanite
-      description: "Atomic. Set AVoxelWorld::bEnableNanite — Nanite rendering of voxel meshes (default true). Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (bool)."
+      description: "Set AVoxelWorld::bEnableNanite — Nanite rendering of voxel meshes (default true). Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (bool)."
       schema:
         actorLabel: { type: string, required: true }
-        value:      { type: boolean, required: true }
+        value: { type: boolean, required: true }
 
     set_world_enable_navigation:
       task: voxel.set_world_enable_navigation
-      description: "Atomic. Set AVoxelWorld::bEnableNavigation — navmesh over the voxel surface (default true; needed for AI pathfinding). Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (bool)."
+      description: "Set AVoxelWorld::bEnableNavigation — navmesh over the voxel surface (default true; needed for AI pathfinding). Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (bool)."
       schema:
         actorLabel: { type: string, required: true }
-        value:      { type: boolean, required: true }
+        value: { type: boolean, required: true }
 
     set_world_enable_lumen:
       task: voxel.set_world_enable_lumen
-      description: "Atomic. Set AVoxelWorld::bEnableLumen — Lumen GI on voxel meshes (default false; expensive). Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (bool)."
+      description: "Set AVoxelWorld::bEnableLumen — Lumen GI on voxel meshes (default false; expensive). Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (bool)."
       schema:
         actorLabel: { type: string, required: true }
-        value:      { type: boolean, required: true }
+        value: { type: boolean, required: true }
 
     # ── Volume sculpting (static VoxelVolumeSculptBlueprintLibrary; ──────────
     #    wrap editor.execute_python — no native static-library invoke exists).
     #    All target an AVoxelVolumeSculptActor by label; center is world-space.
     volume_sculpt_sphere:
       task: voxel.volume_sculpt_sphere
-      description: "Atomic. Add/remove a sphere on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::SculptSphere. Header: Voxel/Public/Sculpt/Volume/VoxelVolumeSculptBlueprintLibrary.h. Params: actorLabel, center ({x,y,z}), radius? (cm, def 1000), mode? (add|remove), smoothness? (def 0)."
+      description: "Add/remove a sphere on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::SculptSphere. Header: Voxel/Public/Sculpt/Volume/VoxelVolumeSculptBlueprintLibrary.h. Params: actorLabel, center ({x,y,z}), radius? (cm, def 1000), mode? (add|remove), smoothness? (def 0)."
       schema:
         actorLabel: { type: string, required: true }
-        center:     { type: object, required: true }
-        radius:     { type: number }
-        mode:       { type: string }
+        center: { type: object, required: true }
+        radius: { type: number }
+        mode: { type: string }
         smoothness: { type: number }
 
     volume_sculpt_cube:
       task: voxel.volume_sculpt_cube
-      description: "Atomic. Add/remove a rounded, rotated cube on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::SculptCube. Params: actorLabel, center ({x,y,z}), size? ({x,y,z}, def 1000^3), rotation? ({pitch,yaw,roll}), roundness? (def 0), mode? (add|remove), smoothness? (def 0)."
+      description: "Add/remove a rounded, rotated cube on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::SculptCube. Params: actorLabel, center ({x,y,z}), size? ({x,y,z}, def 1000^3), rotation? ({pitch,yaw,roll}), roundness? (def 0), mode? (add|remove), smoothness? (def 0)."
       schema:
         actorLabel: { type: string, required: true }
-        center:     { type: object, required: true }
-        size:       { type: object }
-        rotation:   { type: object }
-        roundness:  { type: number }
-        mode:       { type: string }
+        center: { type: object, required: true }
+        size: { type: object }
+        rotation: { type: object }
+        roundness: { type: number }
+        mode: { type: string }
         smoothness: { type: number }
 
     volume_flatten:
       task: voxel.volume_flatten
-      description: "Atomic. Flatten a voxel surface along a normal on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::Flatten. Params: actorLabel, center ({x,y,z}), normal? ({x,y,z}, def (0,0,1)), radius? (def 500), height? (def 1000), falloff? (0..1, def 0.1), type? (additive|subtractive|both)."
+      description: "Flatten a voxel surface along a normal on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::Flatten. Params: actorLabel, center ({x,y,z}), normal? ({x,y,z}, def (0,0,1)), radius? (def 500), height? (def 1000), falloff? (0..1, def 0.1), type? (additive|subtractive|both)."
       schema:
         actorLabel: { type: string, required: true }
-        center:     { type: object, required: true }
-        normal:     { type: object }
-        radius:     { type: number }
-        height:     { type: number }
-        falloff:    { type: number }
-        type:       { type: string }
+        center: { type: object, required: true }
+        normal: { type: object }
+        radius: { type: number }
+        height: { type: number }
+        falloff: { type: number }
+        type: { type: string }
 
     volume_smooth:
       task: voxel.volume_smooth
-      description: "Atomic. Smooth/blur a region on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::Smooth. Params: actorLabel, center ({x,y,z}), radius? (def 1000), strength? (def 1)."
+      description: "Smooth/blur a region on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::Smooth. Params: actorLabel, center ({x,y,z}), radius? (def 1000), strength? (def 1)."
       schema:
         actorLabel: { type: string, required: true }
-        center:     { type: object, required: true }
-        radius:     { type: number }
-        strength:   { type: number }
+        center: { type: object, required: true }
+        radius: { type: number }
+        strength: { type: number }
 
     volume_sculpt_surface:
       task: voxel.volume_sculpt_surface
-      description: "Atomic. Progressively sculpt a voxel surface on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::SculptSurface. Params: actorLabel, center ({x,y,z}), radius? (def 500), strength? (def 0.5), mode? (add|remove)."
+      description: "Progressively sculpt a voxel surface on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::SculptSurface. Params: actorLabel, center ({x,y,z}), radius? (def 500), strength? (def 0.5), mode? (add|remove)."
       schema:
         actorLabel: { type: string, required: true }
-        center:     { type: object, required: true }
-        radius:     { type: number }
-        strength:   { type: number }
-        mode:       { type: string }
+        center: { type: object, required: true }
+        radius: { type: number }
+        strength: { type: number }
+        mode: { type: string }
 
     volume_sculpt_angle:
       task: voxel.volume_sculpt_angle
-      description: "Atomic. Move a voxel surface toward a plane (sculpt angles) on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::SculptAngle. Params: actorLabel, center ({x,y,z}), radius? (def 500), strength? (def 1), planePoint? ({x,y,z}), planeNormal? ({x,y,z}, def (0,0,1)), mergeMode? (intersection|override|union)."
+      description: "Move a voxel surface toward a plane (sculpt angles) on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::SculptAngle. Params: actorLabel, center ({x,y,z}), radius? (def 500), strength? (def 1), planePoint? ({x,y,z}), planeNormal? ({x,y,z}, def (0,0,1)), mergeMode? (intersection|override|union)."
       schema:
-        actorLabel:  { type: string, required: true }
-        center:      { type: object, required: true }
-        radius:      { type: number }
-        strength:    { type: number }
-        planePoint:  { type: object }
+        actorLabel: { type: string, required: true }
+        center: { type: object, required: true }
+        radius: { type: number }
+        strength: { type: number }
+        planePoint: { type: object }
         planeNormal: { type: object }
-        mergeMode:   { type: string }
+        mergeMode: { type: string }
 
     volume_paint_surface:
       task: voxel.volume_paint_surface
-      description: "Atomic. Paint a surface type on a sculpt stamp of an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::PaintSurface. Params: actorLabel, center ({x,y,z}), radius? (def 500), strength? (def 0.05), mode? (add|remove), surfaceType? (object path to a UVoxelSurfaceTypeInterface asset)."
+      description: "Paint a surface type on a sculpt stamp of an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::PaintSurface. Params: actorLabel, center ({x,y,z}), radius? (def 500), strength? (def 0.05), mode? (add|remove), surfaceType? (object path to a UVoxelSurfaceTypeInterface asset)."
       schema:
-        actorLabel:  { type: string, required: true }
-        center:      { type: object, required: true }
-        radius:      { type: number }
-        strength:    { type: number }
-        mode:        { type: string }
+        actorLabel: { type: string, required: true }
+        center: { type: object, required: true }
+        radius: { type: number }
+        strength: { type: number }
+        mode: { type: string }
         surfaceType: { type: string }
 
     volume_clear_sculpt_data:
       task: voxel.volume_clear_sculpt_data
-      description: "Atomic. Clear all sculpt data on an AVoxelVolumeSculptActor (resets edits). Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::ClearSculptData. Params: actorLabel."
+      description: "Clear all sculpt data on an AVoxelVolumeSculptActor (resets edits). Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::ClearSculptData. Params: actorLabel."
       schema:
         actorLabel: { type: string, required: true }
 
@@ -273,48 +273,48 @@ inject:
     #    label; center is 2D ({x,y}) world-space.
     height_sculpt_height:
       task: voxel.height_sculpt_height
-      description: "Atomic. Raise/lower height on an AVoxelHeightSculptActor. Wraps editor.execute_python -> VoxelHeightSculptBlueprintLibrary::SculptHeight. Header: Voxel/Public/Sculpt/Height/VoxelHeightSculptBlueprintLibrary.h. Params: actorLabel, center ({x,y}), radius? (def 500), strength? (def 0.5), mode? (add|remove)."
+      description: "Raise/lower height on an AVoxelHeightSculptActor. Wraps editor.execute_python -> VoxelHeightSculptBlueprintLibrary::SculptHeight. Header: Voxel/Public/Sculpt/Height/VoxelHeightSculptBlueprintLibrary.h. Params: actorLabel, center ({x,y}), radius? (def 500), strength? (def 0.5), mode? (add|remove)."
       schema:
         actorLabel: { type: string, required: true }
-        center:     { type: object, required: true }
-        radius:     { type: number }
-        strength:   { type: number }
-        mode:       { type: string }
+        center: { type: object, required: true }
+        radius: { type: number }
+        strength: { type: number }
+        mode: { type: string }
 
     height_flatten:
       task: voxel.height_flatten
-      description: "Atomic. Flatten a height region toward a target height on an AVoxelHeightSculptActor. Wraps editor.execute_python -> VoxelHeightSculptBlueprintLibrary::Flatten. Params: actorLabel, center ({x,y}), radius? (def 500), falloff? (0..1, def 0.1), type? (additive|subtractive|both), targetHeight? (def 0)."
+      description: "Flatten a height region toward a target height on an AVoxelHeightSculptActor. Wraps editor.execute_python -> VoxelHeightSculptBlueprintLibrary::Flatten. Params: actorLabel, center ({x,y}), radius? (def 500), falloff? (0..1, def 0.1), type? (additive|subtractive|both), targetHeight? (def 0)."
       schema:
-        actorLabel:   { type: string, required: true }
-        center:       { type: object, required: true }
-        radius:       { type: number }
-        falloff:      { type: number }
-        type:         { type: string }
+        actorLabel: { type: string, required: true }
+        center: { type: object, required: true }
+        radius: { type: number }
+        falloff: { type: number }
+        type: { type: string }
         targetHeight: { type: number }
 
     height_smooth:
       task: voxel.height_smooth
-      description: "Atomic. Smooth/blur a height region on an AVoxelHeightSculptActor. Wraps editor.execute_python -> VoxelHeightSculptBlueprintLibrary::Smooth. Params: actorLabel, center ({x,y}), radius? (def 1000), strength? (def 1)."
+      description: "Smooth/blur a height region on an AVoxelHeightSculptActor. Wraps editor.execute_python -> VoxelHeightSculptBlueprintLibrary::Smooth. Params: actorLabel, center ({x,y}), radius? (def 1000), strength? (def 1)."
       schema:
         actorLabel: { type: string, required: true }
-        center:     { type: object, required: true }
-        radius:     { type: number }
-        strength:   { type: number }
+        center: { type: object, required: true }
+        radius: { type: number }
+        strength: { type: number }
 
     height_paint_surface:
       task: voxel.height_paint_surface
-      description: "Atomic. Paint a surface type on a height sculpt stamp of an AVoxelHeightSculptActor. Wraps editor.execute_python -> VoxelHeightSculptBlueprintLibrary::PaintSurface. Params: actorLabel, center ({x,y}), radius? (def 500), strength? (def 0.05), mode? (add|remove), surfaceType? (object path to a UVoxelSurfaceTypeInterface asset)."
+      description: "Paint a surface type on a height sculpt stamp of an AVoxelHeightSculptActor. Wraps editor.execute_python -> VoxelHeightSculptBlueprintLibrary::PaintSurface. Params: actorLabel, center ({x,y}), radius? (def 500), strength? (def 0.05), mode? (add|remove), surfaceType? (object path to a UVoxelSurfaceTypeInterface asset)."
       schema:
-        actorLabel:  { type: string, required: true }
-        center:      { type: object, required: true }
-        radius:      { type: number }
-        strength:    { type: number }
-        mode:        { type: string }
+        actorLabel: { type: string, required: true }
+        center: { type: object, required: true }
+        radius: { type: number }
+        strength: { type: number }
+        mode: { type: string }
         surfaceType: { type: string }
 
     height_clear_sculpt_data:
       task: voxel.height_clear_sculpt_data
-      description: "Atomic. Clear all sculpt data on an AVoxelHeightSculptActor (resets edits). Wraps editor.execute_python -> VoxelHeightSculptBlueprintLibrary::ClearSculptData. Params: actorLabel."
+      description: "Clear all sculpt data on an AVoxelHeightSculptActor (resets edits). Wraps editor.execute_python -> VoxelHeightSculptBlueprintLibrary::ClearSculptData. Params: actorLabel."
       schema:
         actorLabel: { type: string, required: true }
 
