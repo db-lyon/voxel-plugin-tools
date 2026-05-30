@@ -9,7 +9,7 @@ interface Options extends HeightSculptOptions {
 }
 
 /**
- * Atomic. Apply a height sculpt graph at a location on an `AVoxelHeightSculptActor`
+ * Apply a height sculpt graph at a location on an `AVoxelHeightSculptActor`
  * (centre is 2D). The `FVoxelHeightSculptGraphWrapper` is built from the graph
  * asset via positional struct construction.
  * `VoxelHeightSculptBlueprintLibrary::ApplySculptGraph`. Wraps editor.execute_python.

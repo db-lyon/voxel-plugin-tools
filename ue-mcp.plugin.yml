@@ -358,6 +358,18 @@ inject:
         layerIndex:   { type: number }
         gradientStep: { type: number }
 
+    export_voxel_data_to_render_target:
+      task: voxel.export_voxel_data_to_render_target
+      description: "Query a voxel height layer over a 2D zone and write it into a UTextureRenderTarget2D (RGB=value, A=1); returns success on a VOXEL_EXPORT_OK= line. Static lib building an FVoxelColorQuery from QueryHeight/MakeConstant -> wraps editor.execute_python. Header: Voxel/Public/VoxelQueryBlueprintLibrary.h. Params: renderTarget (UTextureRenderTarget2D object path), min ({x,y}), max ({x,y}), stack? (default DefaultStack), layerIndex? (default 0), query? (height|constant, default height), constant? (when query=constant)."
+      schema:
+        renderTarget: { type: string, required: true }
+        min:          { type: object, required: true }
+        max:          { type: object, required: true }
+        stack:        { type: string }
+        layerIndex:   { type: number }
+        query:        { type: string }
+        constant:     { type: number }
+
 knowledge: {}
 
 tasks:
@@ -382,6 +394,9 @@ tasks:
   voxel.multi_query_voxel_layer:
     class_path: tasks/QueryVoxelLayerMulti
     description: "Batch-sample many points of a voxel layer (atomic)"
+  voxel.export_voxel_data_to_render_target:
+    class_path: tasks/ExportVoxelDataToRenderTarget
+    description: "Export a voxel height layer into a render target (atomic)"
   voxel.spawn_stamp_actor:
     class_path: tasks/SpawnStampActor
     description: "Spawn an AVoxelStampActor (atomic)"

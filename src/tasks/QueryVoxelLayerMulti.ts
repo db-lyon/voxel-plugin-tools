@@ -15,7 +15,7 @@ interface Options {
 }
 
 /**
- * Atomic. Batch-sample many points of a voxel layer in one call — returns the
+ * Batch-sample many points of a voxel layer in one call — returns the
  * array of `FVoxelQueryResult` as JSON on a `VOXEL_QUERY_RESULT=` line. Cheaper
  * than N single queries (one layer resolution, one round-trip).
  *

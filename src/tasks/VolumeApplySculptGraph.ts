@@ -10,7 +10,7 @@ interface Options extends VolumeSculptOptions {
 }
 
 /**
- * Atomic. Apply a volume sculpt graph at a location on an `AVoxelVolumeSculptActor`.
+ * Apply a volume sculpt graph at a location on an `AVoxelVolumeSculptActor`.
  * The `FVoxelVolumeSculptGraphWrapper` is built from the graph asset via positional
  * struct construction (its make-fn isn't Python-exposed).
  * `VoxelVolumeSculptBlueprintLibrary::ApplySculptGraph`. Wraps editor.execute_python.
