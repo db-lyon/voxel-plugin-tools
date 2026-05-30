@@ -262,6 +262,16 @@ inject:
         mode: { type: string }
         surfaceType: { type: string }
 
+    volume_apply_sculpt_graph:
+      task: voxel.volume_apply_sculpt_graph
+      description: "Apply a volume sculpt graph at a location on an AVoxelVolumeSculptActor. Builds FVoxelVolumeSculptGraphWrapper from the graph asset. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::ApplySculptGraph. Params: actorLabel, center ({x,y,z}), graph (object path to a UVoxelVolumeSculptGraph), radius? (def 500), rotation? ({pitch,yaw,roll})."
+      schema:
+        actorLabel: { type: string, required: true }
+        center:     { type: object, required: true }
+        graph:      { type: string, required: true }
+        radius:     { type: number }
+        rotation:   { type: object }
+
     volume_clear_sculpt_data:
       task: voxel.volume_clear_sculpt_data
       description: "Clear all sculpt data on an AVoxelVolumeSculptActor (resets edits). Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::ClearSculptData. Params: actorLabel."
@@ -311,6 +321,15 @@ inject:
         strength: { type: number }
         mode: { type: string }
         surfaceType: { type: string }
+
+    height_apply_sculpt_graph:
+      task: voxel.height_apply_sculpt_graph
+      description: "Apply a height sculpt graph at a location on an AVoxelHeightSculptActor. Builds FVoxelHeightSculptGraphWrapper from the graph asset. Wraps editor.execute_python -> VoxelHeightSculptBlueprintLibrary::ApplySculptGraph. Params: actorLabel, center ({x,y}), graph (object path to a UVoxelHeightSculptGraph), radius? (def 500)."
+      schema:
+        actorLabel: { type: string, required: true }
+        center:     { type: object, required: true }
+        graph:      { type: string, required: true }
+        radius:     { type: number }
 
     height_clear_sculpt_data:
       task: voxel.height_clear_sculpt_data
@@ -441,6 +460,12 @@ tasks:
   voxel.volume_clear_sculpt_data:
     class_path: tasks/VolumeClearSculptData
     description: "Volume sculpt: clear all sculpt data (atomic)"
+  voxel.volume_apply_sculpt_graph:
+    class_path: tasks/VolumeApplySculptGraph
+    description: "Volume sculpt: apply a sculpt graph (atomic)"
+  voxel.height_apply_sculpt_graph:
+    class_path: tasks/HeightApplySculptGraph
+    description: "Height sculpt: apply a sculpt graph (atomic)"
   voxel.height_sculpt_height:
     class_path: tasks/HeightSculptHeight
     description: "Height sculpt: raise/lower height (atomic)"

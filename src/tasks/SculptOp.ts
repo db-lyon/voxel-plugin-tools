@@ -22,6 +22,9 @@ export abstract class SculptOp<TOpts extends SculptActorOptions> extends UeMcpTa
   /** Python arg expressions AFTER the `_actor` positional (centre, kwargs, …). */
   protected abstract callArgs(): string[];
 
+  /** Python statements to run before the call (e.g. build a graph wrapper into `_graph`). */
+  protected setupLines(): string[] { return []; }
+
   protected validate(): void {
     if (!this.options.actorLabel) throw new Error("actorLabel is required");
   }
@@ -29,6 +32,7 @@ export abstract class SculptOp<TOpts extends SculptActorOptions> extends UeMcpTa
   async execute(): Promise<TaskResult> {
     const args = ["_actor", ...this.callArgs()].join(", ");
     const code = withResolvedActor(this.options.actorLabel, [
+      ...this.setupLines(),
       `unreal.${this.libraryClass}.${this.functionName}(${args})`,
       `print(${JSON.stringify(`voxel.${this.functionName}: applied to `)} + _actor.get_actor_label())`,
     ]);
