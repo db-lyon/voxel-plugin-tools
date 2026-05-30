@@ -1,6 +1,6 @@
 ue-mcp:
   version: 1
-  contentRoots:
-    - /Game/
+plugins:
+  - name: voxel-plugin-tools
 tasks: {}
 flows: {}
