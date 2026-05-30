@@ -6,7 +6,7 @@ export interface SetVoxelWorldPropertyOptions {
 }
 
 /**
- * Base for atomic "set one `AVoxelWorld` UPROPERTY" tasks. Each subclass bakes
+ * Base for "set one `AVoxelWorld` UPROPERTY" tasks. Each subclass bakes
  * exactly one property name; the body wraps exactly one host call —
  * `level.set_actor_property`. Header for all: `Voxel/Public/VoxelWorld.h`.
  */

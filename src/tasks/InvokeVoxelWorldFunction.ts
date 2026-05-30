@@ -6,7 +6,7 @@ export interface VoxelWorldFunctionOptions {
 }
 
 /**
- * Base for atomic "invoke a no-arg UFUNCTION on a Voxel actor (by label)" tasks
+ * Base for "invoke a no-arg UFUNCTION on a Voxel actor (by label)" tasks
  * — `AVoxelWorld`, `AVoxelStampActor`, the sculpt actors, etc. Each subclass
  * bakes exactly one function name; the body wraps exactly one host call —
  * `editor.invoke_function`.

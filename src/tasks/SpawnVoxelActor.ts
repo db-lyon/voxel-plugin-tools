@@ -10,7 +10,7 @@ export interface SpawnOptions {
 }
 
 /**
- * Base for atomic "spawn a Voxel actor" tasks. Each concrete subclass bakes
+ * Base for "spawn a Voxel actor" tasks. Each concrete subclass bakes
  * exactly one `/Script/<Module>.<Class>` path; the body wraps exactly one
  * host call — `level.place_actor` — with that class baked in.
  *

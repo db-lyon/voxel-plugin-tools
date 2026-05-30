@@ -4,13 +4,13 @@
 
 ## Design
 
-**Every action is atomic — exactly one host ue-mcp call per task.** Orchestrations (spawn-then-configure, build-this-PCG-graph, splice-a-node) ship as **flows**, not as composite tasks. That keeps each action small, predictable, and rollback-friendly; the orchestration layer is where multi-step semantics live.
+**Every action wraps exactly one host ue-mcp call.** Orchestrations (spawn-then-configure, build-this-PCG-graph, splice-a-node) ship as **flows**, not as composite tasks. That keeps each action small, predictable, and rollback-friendly; the orchestration layer is where multi-step semantics live.
 
 Full Voxel Plugin API reference under [`docs/`](docs/).
 
 ## What ships
 
-### Atomic actions
+### Actions
 
 | Category | Action                 | Wraps                                                  | Header |
 |----------|------------------------|--------------------------------------------------------|--------|

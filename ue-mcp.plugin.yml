@@ -2,7 +2,7 @@ actionPrefix: voxel
 minServerVersion: 1.0.15
 uePluginDependency: Voxel
 
-# Tools here are STRICTLY ATOMIC — each wraps exactly one host ue-mcp call.
+# Each tool wraps exactly one host ue-mcp call.
 # Orchestrations live under `flows:` below, not inside task bodies.
 # Every action cites the Voxel Plugin C++ header it wraps.
 
@@ -461,6 +461,24 @@ inject:
         query:        { type: string }
         constant:     { type: number }
 
+  asset:
+    create:
+      task: voxel.create_asset
+      description: "Create a new Voxel asset by type (surface_type, smart_surface_type, layer_stack, mega_material, heightmap, static_mesh, height_graph, volume_graph, scatter_graph, height_spline_graph, volume_spline_graph, height_sculpt_graph, volume_sculpt_graph, surface_type_graph, height_sculpt_save, volume_sculpt_save, pcg_graph). The host asset tools can't create a UObject by class. Wraps editor.execute_python; returns the path on a VOXEL_CREATED_ASSET= line. Params: name, type, packagePath? (default /Game)."
+      schema:
+        name:        { type: string, required: true }
+        type:        { type: string, required: true }
+        packagePath: { type: string }
+
+    set_property:
+      task: voxel.set_asset_property
+      description: "Set one editor property on a Voxel asset and save it (e.g. a surface type's material/blend_smoothness, a heightmap's scale_xy). Wraps editor.execute_python (load_asset -> set_editor_property -> save). Params: assetPath, propertyName (snake_case), value (string|number|bool), valueIsAsset? (set true when the property holds a UObject ref, e.g. a Material — value is then an object path)."
+      schema:
+        assetPath:    { type: string, required: true }
+        propertyName: { type: string, required: true }
+        value:        {}
+        valueIsAsset: { type: boolean }
+
   pcg:
     add_node:
       task: voxel.pcg_add_node
@@ -475,154 +493,160 @@ knowledge: {}
 tasks:
   voxel.spawn_world:
     class_path: tasks/SpawnWorld
-    description: "Spawn an AVoxelWorld actor (atomic)"
+    description: "Spawn an AVoxelWorld actor"
   voxel.add_stamp_component:
     class_path: tasks/AddStampComponent
-    description: "Attach a UVoxelStampComponent to an actor (atomic)"
+    description: "Attach a UVoxelStampComponent to an actor"
   voxel.set_heightmap_stamp:
     class_path: tasks/SetHeightmapStamp
-    description: "Build + apply a heightmap stamp to a stamp actor (atomic)"
+    description: "Build + apply a heightmap stamp to a stamp actor"
   voxel.set_height_graph_stamp:
     class_path: tasks/SetHeightGraphStamp
-    description: "Build + apply a height-graph stamp (atomic)"
+    description: "Build + apply a height-graph stamp"
   voxel.set_volume_graph_stamp:
     class_path: tasks/SetVolumeGraphStamp
-    description: "Build + apply a volume-graph stamp (atomic)"
+    description: "Build + apply a volume-graph stamp"
   voxel.set_mesh_stamp:
     class_path: tasks/SetMeshStamp
-    description: "Build + apply a mesh stamp (atomic)"
+    description: "Build + apply a mesh stamp"
   voxel.set_height_spline_stamp:
     class_path: tasks/SetHeightSplineStamp
-    description: "Build + apply a height-spline stamp (atomic)"
+    description: "Build + apply a height-spline stamp"
   voxel.set_volume_spline_stamp:
     class_path: tasks/SetVolumeSplineStamp
-    description: "Build + apply a volume-spline stamp (atomic)"
+    description: "Build + apply a volume-spline stamp"
   voxel.update_stamp_actor:
     class_path: tasks/UpdateStampActor
-    description: "Call UpdateStamp on an AVoxelStampActor (atomic)"
+    description: "Call UpdateStamp on an AVoxelStampActor"
   voxel.set_sculpt_save_asset:
     class_path: tasks/SetSculptSaveAsset
-    description: "Link a sculpt actor to an external save asset (atomic)"
+    description: "Link a sculpt actor to an external save asset"
   voxel.get_sculpt_save_asset:
     class_path: tasks/GetSculptSaveAsset
-    description: "Read a sculpt actor's external save asset (atomic)"
+    description: "Read a sculpt actor's external save asset"
   voxel.volume_clear_sculpt_cache:
     class_path: tasks/VolumeClearSculptCache
-    description: "Volume sculpt: free the sculpt cache (atomic)"
+    description: "Volume sculpt: free the sculpt cache"
   voxel.height_clear_sculpt_cache:
     class_path: tasks/HeightClearSculptCache
-    description: "Height sculpt: free the sculpt cache (atomic)"
+    description: "Height sculpt: free the sculpt cache"
   voxel.query_voxel_layer:
     class_path: tasks/QueryVoxelLayer
-    description: "Sample one point of a voxel layer (atomic)"
+    description: "Sample one point of a voxel layer"
   voxel.multi_query_voxel_layer:
     class_path: tasks/QueryVoxelLayerMulti
-    description: "Batch-sample many points of a voxel layer (atomic)"
+    description: "Batch-sample many points of a voxel layer"
   voxel.export_voxel_data_to_render_target:
     class_path: tasks/ExportVoxelDataToRenderTarget
-    description: "Export a voxel height layer into a render target (atomic)"
+    description: "Export a voxel height layer into a render target"
   voxel.pcg_add_node:
     class_path: tasks/PcgAddNode
-    description: "Add a VoxelPCG node to a PCG graph (atomic)"
+    description: "Add a VoxelPCG node to a PCG graph"
+  voxel.create_asset:
+    class_path: tasks/CreateVoxelAsset
+    description: "Create a new Voxel asset by type"
+  voxel.set_asset_property:
+    class_path: tasks/SetVoxelAssetProperty
+    description: "Set one editor property on a Voxel asset"
   voxel.spawn_stamp_actor:
     class_path: tasks/SpawnStampActor
-    description: "Spawn an AVoxelStampActor (atomic)"
+    description: "Spawn an AVoxelStampActor"
   voxel.spawn_height_sculpt_actor:
     class_path: tasks/SpawnHeightSculptActor
-    description: "Spawn an AVoxelHeightSculptActor (atomic)"
+    description: "Spawn an AVoxelHeightSculptActor"
   voxel.spawn_volume_sculpt_actor:
     class_path: tasks/SpawnVolumeSculptActor
-    description: "Spawn an AVoxelVolumeSculptActor (atomic)"
+    description: "Spawn an AVoxelVolumeSculptActor"
   voxel.spawn_collision_baker:
     class_path: tasks/SpawnCollisionBaker
-    description: "Spawn an AVoxelCollisionBaker (atomic)"
+    description: "Spawn an AVoxelCollisionBaker"
   voxel.spawn_debug_actor:
     class_path: tasks/SpawnDebugActor
-    description: "Spawn an AVoxelDebugActor (atomic)"
+    description: "Spawn an AVoxelDebugActor"
   voxel.is_world_ready:
     class_path: tasks/IsWorldReady
-    description: "Read IsVoxelWorldReady on an AVoxelWorld actor (atomic)"
+    description: "Read IsVoxelWorldReady on an AVoxelWorld actor"
   voxel.get_world_progress:
     class_path: tasks/GetWorldProgress
-    description: "Read GetProgress on an AVoxelWorld actor (atomic)"
+    description: "Read GetProgress on an AVoxelWorld actor"
   voxel.is_runtime_created:
     class_path: tasks/IsRuntimeCreated
-    description: "Read IsRuntimeCreated on an AVoxelWorld actor (atomic)"
+    description: "Read IsRuntimeCreated on an AVoxelWorld actor"
   voxel.is_processing_new_state:
     class_path: tasks/IsProcessingNewState
-    description: "Read IsProcessingNewState on an AVoxelWorld actor (atomic)"
+    description: "Read IsProcessingNewState on an AVoxelWorld actor"
   voxel.get_num_pending_tasks:
     class_path: tasks/GetNumPendingTasks
-    description: "Read GetNumPendingTasks on an AVoxelWorld actor (atomic)"
+    description: "Read GetNumPendingTasks on an AVoxelWorld actor"
   voxel.create_runtime:
     class_path: tasks/CreateRuntime
-    description: "Call CreateRuntime on an AVoxelWorld actor (atomic)"
+    description: "Call CreateRuntime on an AVoxelWorld actor"
   voxel.destroy_runtime:
     class_path: tasks/DestroyRuntime
-    description: "Call DestroyRuntime on an AVoxelWorld actor (atomic)"
+    description: "Call DestroyRuntime on an AVoxelWorld actor"
   voxel.set_world_layer_stack:
     class_path: tasks/SetLayerStack
-    description: "Set AVoxelWorld::LayerStack (atomic)"
+    description: "Set AVoxelWorld::LayerStack"
   voxel.set_world_mega_material:
     class_path: tasks/SetMegaMaterial
-    description: "Set AVoxelWorld::MegaMaterial (atomic)"
+    description: "Set AVoxelWorld::MegaMaterial"
   voxel.set_world_voxel_size:
     class_path: tasks/SetVoxelSize
-    description: "Set AVoxelWorld::VoxelSize (atomic)"
+    description: "Set AVoxelWorld::VoxelSize"
   voxel.set_world_enable_nanite:
     class_path: tasks/SetEnableNanite
-    description: "Set AVoxelWorld::bEnableNanite (atomic)"
+    description: "Set AVoxelWorld::bEnableNanite"
   voxel.set_world_enable_navigation:
     class_path: tasks/SetEnableNavigation
-    description: "Set AVoxelWorld::bEnableNavigation (atomic)"
+    description: "Set AVoxelWorld::bEnableNavigation"
   voxel.set_world_enable_lumen:
     class_path: tasks/SetEnableLumen
-    description: "Set AVoxelWorld::bEnableLumen (atomic)"
+    description: "Set AVoxelWorld::bEnableLumen"
   voxel.volume_sculpt_sphere:
     class_path: tasks/VolumeSculptSphere
-    description: "Volume sculpt: add/remove a sphere (atomic)"
+    description: "Volume sculpt: add/remove a sphere"
   voxel.volume_sculpt_cube:
     class_path: tasks/VolumeSculptCube
-    description: "Volume sculpt: add/remove a cube (atomic)"
+    description: "Volume sculpt: add/remove a cube"
   voxel.volume_flatten:
     class_path: tasks/VolumeFlatten
-    description: "Volume sculpt: flatten along a normal (atomic)"
+    description: "Volume sculpt: flatten along a normal"
   voxel.volume_smooth:
     class_path: tasks/VolumeSmooth
-    description: "Volume sculpt: smooth a region (atomic)"
+    description: "Volume sculpt: smooth a region"
   voxel.volume_sculpt_surface:
     class_path: tasks/VolumeSculptSurface
-    description: "Volume sculpt: progressively sculpt a surface (atomic)"
+    description: "Volume sculpt: progressively sculpt a surface"
   voxel.volume_sculpt_angle:
     class_path: tasks/VolumeSculptAngle
-    description: "Volume sculpt: angle a surface toward a plane (atomic)"
+    description: "Volume sculpt: angle a surface toward a plane"
   voxel.volume_paint_surface:
     class_path: tasks/VolumePaintSurface
-    description: "Volume sculpt: paint a surface type (atomic)"
+    description: "Volume sculpt: paint a surface type"
   voxel.volume_clear_sculpt_data:
     class_path: tasks/VolumeClearSculptData
-    description: "Volume sculpt: clear all sculpt data (atomic)"
+    description: "Volume sculpt: clear all sculpt data"
   voxel.volume_apply_sculpt_graph:
     class_path: tasks/VolumeApplySculptGraph
-    description: "Volume sculpt: apply a sculpt graph (atomic)"
+    description: "Volume sculpt: apply a sculpt graph"
   voxel.height_apply_sculpt_graph:
     class_path: tasks/HeightApplySculptGraph
-    description: "Height sculpt: apply a sculpt graph (atomic)"
+    description: "Height sculpt: apply a sculpt graph"
   voxel.height_sculpt_height:
     class_path: tasks/HeightSculptHeight
-    description: "Height sculpt: raise/lower height (atomic)"
+    description: "Height sculpt: raise/lower height"
   voxel.height_flatten:
     class_path: tasks/HeightFlatten
-    description: "Height sculpt: flatten toward a target height (atomic)"
+    description: "Height sculpt: flatten toward a target height"
   voxel.height_smooth:
     class_path: tasks/HeightSmooth
-    description: "Height sculpt: smooth a region (atomic)"
+    description: "Height sculpt: smooth a region"
   voxel.height_paint_surface:
     class_path: tasks/HeightPaintSurface
-    description: "Height sculpt: paint a surface type (atomic)"
+    description: "Height sculpt: paint a surface type"
   voxel.height_clear_sculpt_data:
     class_path: tasks/HeightClearSculptData
-    description: "Height sculpt: clear all sculpt data (atomic)"
+    description: "Height sculpt: clear all sculpt data"
 
 flows:
   voxel_hello_world:

@@ -7,7 +7,7 @@ export interface SculptActorOptions {
 }
 
 /**
- * Base for atomic "run one sculpt-library operation" tasks. Voxel's sculpt ops
+ * Base for "run one sculpt-library operation" tasks. Voxel's sculpt ops
  * are static functions on UHT-generated `*_BlueprintOnly` libraries — the host
  * `editor.invoke_function` only targets actor/component instances, so each op
  * wraps exactly one `editor.execute_python` call. Subclasses bake the library
