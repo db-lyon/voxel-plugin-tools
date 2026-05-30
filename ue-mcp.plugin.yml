@@ -4,24 +4,136 @@ uePluginDependency: Voxel
 
 # Tools here are STRICTLY ATOMIC — each wraps exactly one host ue-mcp call.
 # Orchestrations live under `flows:` below, not inside task bodies.
+# Every action cites the Voxel Plugin C++ header it wraps.
 
 inject:
   level:
+    # ── Spawns (wrap level.place_actor) ──────────────────────────────────
     spawn_world:
       task: voxel.spawn_world
-      description: "Atomic. Drop an AVoxelWorld into the active level. Wraps level.place_actor with actorClass=/Script/Voxel.VoxelWorld. Property setup (LayerStack, MegaMaterial, voxelSize) is a separate level.set_actor_property call — or use the voxel_hello_world flow which chains the canonical defaults. Header: Voxel/Public/VoxelWorld.h. Params: label?, location? ({x,y,z}), rotation? ({x,y,z}), scale? ({x,y,z})."
+      description: "Atomic. Drop an AVoxelWorld into the active level. Wraps level.place_actor with actorClass=/Script/Voxel.VoxelWorld. Property setup (LayerStack, MegaMaterial, VoxelSize) is a separate call — see voxel_set_world_* — or use the voxel_hello_world flow which chains the canonical defaults. Header: Voxel/Public/VoxelWorld.h. Params: label?, location? ({x,y,z}), rotation? ({x,y,z}), scale? ({x,y,z})."
       schema:
         label:    { type: string }
         location: { type: object }
         rotation: { type: object }
         scale:    { type: object }
 
+    spawn_stamp_actor:
+      task: voxel.spawn_stamp_actor
+      description: "Atomic. Drop an AVoxelStampActor (a placement actor owning one stamp). Wraps level.place_actor with actorClass=/Script/Voxel.VoxelStampActor. Header: Voxel/Public/VoxelStampActor.h. Params: label?, location?, rotation?, scale?."
+      schema:
+        label:    { type: string }
+        location: { type: object }
+        rotation: { type: object }
+        scale:    { type: object }
+
+    spawn_height_sculpt_actor:
+      task: voxel.spawn_height_sculpt_actor
+      description: "Atomic. Drop an AVoxelHeightSculptActor — the target for 2D/height sculpting. Wraps level.place_actor with actorClass=/Script/Voxel.VoxelHeightSculptActor. Header: Voxel/Public/Sculpt/Height/VoxelHeightSculptActor.h. Params: label?, location?, rotation?, scale?."
+      schema:
+        label:    { type: string }
+        location: { type: object }
+        rotation: { type: object }
+        scale:    { type: object }
+
+    spawn_volume_sculpt_actor:
+      task: voxel.spawn_volume_sculpt_actor
+      description: "Atomic. Drop an AVoxelVolumeSculptActor — the target for 3D/volume sculpting. Wraps level.place_actor with actorClass=/Script/Voxel.VoxelVolumeSculptActor. Header: Voxel/Public/Sculpt/Volume/VoxelVolumeSculptActor.h. Params: label?, location?, rotation?, scale?."
+      schema:
+        label:    { type: string }
+        location: { type: object }
+        rotation: { type: object }
+        scale:    { type: object }
+
+    spawn_collision_baker:
+      task: voxel.spawn_collision_baker
+      description: "Atomic. Drop an AVoxelCollisionBaker — bakes collision for a voxel layer within a radius. Wraps level.place_actor with actorClass=/Script/Voxel.VoxelCollisionBaker. Header: Voxel/Public/Collision/VoxelCollisionBaker.h. Params: label?, location?, rotation?, scale?."
+      schema:
+        label:    { type: string }
+        location: { type: object }
+        rotation: { type: object }
+        scale:    { type: object }
+
+    spawn_debug_actor:
+      task: voxel.spawn_debug_actor
+      description: "Atomic. Drop an AVoxelDebugActor — visualizes a voxel layer over a debug region (dev tool). Wraps level.place_actor with actorClass=/Script/Voxel.VoxelDebugActor. Header: Voxel/Public/VoxelDebugActor.h. Params: label?, location?, rotation?, scale?."
+      schema:
+        label:    { type: string }
+        location: { type: object }
+        rotation: { type: object }
+        scale:    { type: object }
+
+    # ── World lifecycle / status (wrap editor.invoke_function) ────────────
     is_world_ready:
       task: voxel.is_world_ready
-      description: "Atomic. Read AVoxelWorld::IsVoxelWorldReady() — the single most useful gate before scattering / stamping / sampling. Wraps editor.invoke_function. Returns the standard invoke_function result; the bool lands at data.returnValues.ReturnValue as the string 'true' or 'false'. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
+      description: "Atomic. Read AVoxelWorld::IsVoxelWorldReady() — the single most useful gate before scattering / stamping / sampling. Wraps editor.invoke_function. Result at data.returnValues.ReturnValue as 'true'/'false'. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
       schema:
         actorLabel: { type: string, required: true }
         world:      { type: string }
+
+    get_world_progress:
+      task: voxel.get_world_progress
+      description: "Atomic. Read AVoxelWorld::GetProgress() — 0..1 while processing, 1 when idle. Wraps editor.invoke_function. Result at data.returnValues.ReturnValue (float string). Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
+      schema:
+        actorLabel: { type: string, required: true }
+        world:      { type: string }
+
+    is_runtime_created:
+      task: voxel.is_runtime_created
+      description: "Atomic. Read AVoxelWorld::IsRuntimeCreated() — runtime initialized (distinct from fully-rendered; see voxel_is_world_ready). Wraps editor.invoke_function. Result 'true'/'false' at data.returnValues.ReturnValue. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
+      schema:
+        actorLabel: { type: string, required: true }
+        world:      { type: string }
+
+    is_processing_new_state:
+      task: voxel.is_processing_new_state
+      description: "Atomic. Read AVoxelWorld::IsProcessingNewState() — a regeneration is in flight. Wraps editor.invoke_function. Result 'true'/'false' at data.returnValues.ReturnValue. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
+      schema:
+        actorLabel: { type: string, required: true }
+        world:      { type: string }
+
+    get_num_pending_tasks:
+      task: voxel.get_num_pending_tasks
+      description: "Atomic. Read AVoxelWorld::GetNumPendingTasks() — queued background task count; coarse 'work left' signal. Wraps editor.invoke_function. Result at data.returnValues.ReturnValue (int string). Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
+      schema:
+        actorLabel: { type: string, required: true }
+        world:      { type: string }
+
+    create_runtime:
+      task: voxel.create_runtime
+      description: "Atomic. Call AVoxelWorld::CreateRuntime() — explicitly initialize the voxel runtime (e.g. when bCreateRuntimeOnBeginPlay is off). No return value. Wraps editor.invoke_function. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
+      schema:
+        actorLabel: { type: string, required: true }
+        world:      { type: string }
+
+    destroy_runtime:
+      task: voxel.destroy_runtime
+      description: "Atomic. Call AVoxelWorld::DestroyRuntime() — tear down the voxel runtime (frees meshes/collision/nav until re-created). No return value. Wraps editor.invoke_function. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
+      schema:
+        actorLabel: { type: string, required: true }
+        world:      { type: string }
+
+    # ── AVoxelWorld config (wrap level.set_actor_property) ────────────────
+    set_world_layer_stack:
+      task: voxel.set_world_layer_stack
+      description: "Atomic. Set AVoxelWorld::LayerStack — the UVoxelLayerStack asset defining what the world generates/renders (without it the world renders nothing). Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (asset object path, e.g. /Voxel/Default/DefaultStack.DefaultStack)."
+      schema:
+        actorLabel: { type: string, required: true }
+        value:      { type: string, required: true }
+
+    set_world_mega_material:
+      task: voxel.set_world_mega_material
+      description: "Atomic. Set AVoxelWorld::MegaMaterial — the UVoxelMegaMaterial asset driving surface shading. Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (asset object path)."
+      schema:
+        actorLabel: { type: string, required: true }
+        value:      { type: string, required: true }
+
+    set_world_voxel_size:
+      task: voxel.set_world_voxel_size
+      description: "Atomic. Set AVoxelWorld::VoxelSize — edge length of one voxel in cm (default 100; lower = finer + heavier). Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (integer cm)."
+      schema:
+        actorLabel: { type: string, required: true }
+        value:      { type: number, required: true }
 
 knowledge: {}
 
@@ -29,9 +141,51 @@ tasks:
   voxel.spawn_world:
     class_path: tasks/SpawnWorld
     description: "Spawn an AVoxelWorld actor (atomic)"
+  voxel.spawn_stamp_actor:
+    class_path: tasks/SpawnStampActor
+    description: "Spawn an AVoxelStampActor (atomic)"
+  voxel.spawn_height_sculpt_actor:
+    class_path: tasks/SpawnHeightSculptActor
+    description: "Spawn an AVoxelHeightSculptActor (atomic)"
+  voxel.spawn_volume_sculpt_actor:
+    class_path: tasks/SpawnVolumeSculptActor
+    description: "Spawn an AVoxelVolumeSculptActor (atomic)"
+  voxel.spawn_collision_baker:
+    class_path: tasks/SpawnCollisionBaker
+    description: "Spawn an AVoxelCollisionBaker (atomic)"
+  voxel.spawn_debug_actor:
+    class_path: tasks/SpawnDebugActor
+    description: "Spawn an AVoxelDebugActor (atomic)"
   voxel.is_world_ready:
     class_path: tasks/IsWorldReady
     description: "Read IsVoxelWorldReady on an AVoxelWorld actor (atomic)"
+  voxel.get_world_progress:
+    class_path: tasks/GetWorldProgress
+    description: "Read GetProgress on an AVoxelWorld actor (atomic)"
+  voxel.is_runtime_created:
+    class_path: tasks/IsRuntimeCreated
+    description: "Read IsRuntimeCreated on an AVoxelWorld actor (atomic)"
+  voxel.is_processing_new_state:
+    class_path: tasks/IsProcessingNewState
+    description: "Read IsProcessingNewState on an AVoxelWorld actor (atomic)"
+  voxel.get_num_pending_tasks:
+    class_path: tasks/GetNumPendingTasks
+    description: "Read GetNumPendingTasks on an AVoxelWorld actor (atomic)"
+  voxel.create_runtime:
+    class_path: tasks/CreateRuntime
+    description: "Call CreateRuntime on an AVoxelWorld actor (atomic)"
+  voxel.destroy_runtime:
+    class_path: tasks/DestroyRuntime
+    description: "Call DestroyRuntime on an AVoxelWorld actor (atomic)"
+  voxel.set_world_layer_stack:
+    class_path: tasks/SetLayerStack
+    description: "Set AVoxelWorld::LayerStack (atomic)"
+  voxel.set_world_mega_material:
+    class_path: tasks/SetMegaMaterial
+    description: "Set AVoxelWorld::MegaMaterial (atomic)"
+  voxel.set_world_voxel_size:
+    class_path: tasks/SetVoxelSize
+    description: "Set AVoxelWorld::VoxelSize (atomic)"
 
 flows:
   voxel_hello_world:
