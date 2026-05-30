@@ -38,9 +38,20 @@ tests/voxel_plugin_tools/.claude/
 
 ## Deployed bridge plugin (source of truth lives in plugin/; scripts/deploy.mjs regenerates this on every build)
 tests/voxel_plugin_tools/Plugins/voxel_plugin_tools_Bridge/
+tests/voxel_plugin_tools/Plugins/UE_MCP_Bridge/
 
 ## PIE_Studio lives in its own repo; never commit a test install here
 tests/voxel_plugin_tools/Plugins/PIE_Studio/
+
+## Vendored Voxel Plugin (clone locally per CONTRIBUTING.md; never committed to this repo)
+tests/voxel_plugin_tools/Plugins/Voxel/
+
+## Test-project local dev scaffolding (npm link target — see CONTRIBUTING.md)
+tests/voxel_plugin_tools/package.json
+tests/voxel_plugin_tools/package-lock.json
+
+## Visual Studio workload config
+*.vsconfig
 
 ## Kantext
 .kantext/
