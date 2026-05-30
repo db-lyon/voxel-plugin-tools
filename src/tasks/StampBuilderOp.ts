@@ -17,6 +17,12 @@ export interface StampOptions {
   blendMode?: string;
   priority?: number;
   smoothness?: number;
+  /**
+   * If set, the built stamp is APPENDED to the named UVoxelInstancedStampComponent
+   * on the actor (instanced/scatter workflow) instead of set as the actor's
+   * single stamp. Add the component first with voxel_add_instanced_stamp_component.
+   */
+  componentName?: string;
 }
 
 /**
@@ -37,6 +43,9 @@ export abstract class StampBuilderOp<TOpts extends StampOptions> extends UeMcpTa
   protected abstract readonly boundsExtension: number;
   /** make() args specific to this stamp type, referencing `_src` (the loaded source). */
   protected abstract leadingArgs(): string[];
+
+  /** Python statements to run after `_src` is loaded, before make (e.g. build `_dst`/`_wms`). */
+  protected setupLines(): string[] { return []; }
 
   protected validate(): void {
     if (!this.options.actorLabel) throw new Error("actorLabel is required");
@@ -66,18 +75,30 @@ export abstract class StampBuilderOp<TOpts extends StampOptions> extends UeMcpTa
       "apply_on_void=True",
       `bounds_extension=${pyFloat(this.boundsExtension)}`,
     ].join(", ");
+    const apply = o.componentName
+      ? [
+          `_comp = next((c for c in _actor.get_components_by_class(unreal.VoxelInstancedStampComponent) if c.get_name() == ${pyStr(o.componentName)}), None)`,
+          `if _comp is None:`,
+          `    raise Exception("instanced stamp component not found: " + ${pyStr(o.componentName)})`,
+          `_i = _comp.add_stamp(_stamp)`,
+          `print(${pyStr(`${this.taskName}: appended to `)} + _actor.get_actor_label() + " #" + str(_i))`,
+        ]
+      : [
+          `_actor.set_stamp(_stamp)`,
+          `_actor.update_stamp()`,
+          `print(${pyStr(`${this.taskName}: applied to `)} + _actor.get_actor_label())`,
+        ];
     const code = withResolvedActor(o.actorLabel, [
       `_src = unreal.load_asset(${src})`,
       `if _src is None:`,
       `    raise Exception("source asset not found: " + ${src})`,
+      ...this.setupLines(),
       `_t = unreal.Transform()`,
       `_t.set_editor_property("translation", ${pyVec3(o.location ?? { x: 0, y: 0, z: 0 })})`,
       `_t.set_editor_property("scale3d", ${pyVec3(o.scale ?? { x: 1, y: 1, z: 1 })})`,
       `_t.set_editor_property("rotation", ${pyRotator(o.rotation ?? { pitch: 0, yaw: 0, roll: 0 })}.quaternion())`,
       `_stamp = unreal.${this.makeClass}.make(${makeArgs})`,
-      `_actor.set_stamp(_stamp)`,
-      `_actor.update_stamp()`,
-      `print(${pyStr(`${this.taskName}: applied to `)} + _actor.get_actor_label())`,
+      ...apply,
     ]);
     return this.call("editor.execute_python", { code });
   }

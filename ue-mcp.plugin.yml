@@ -73,7 +73,7 @@ inject:
 
     set_heightmap_stamp:
       task: voxel.set_heightmap_stamp
-      description: "Build a heightmap stamp from a UVoxelHeightmap (source) and apply it to a stamp actor (Make -> SetStamp -> UpdateStamp). Wraps editor.execute_python. Header: Voxel/Public/Height/VoxelHeightmapStamp.h. Params: actorLabel (an AVoxelStampActor), source (UVoxelHeightmap object path), location?, rotation?, scale?, blendMode? (max|min|override, default max), priority?, smoothness?."
+      description: "Build a heightmap stamp from a UVoxelHeightmap (source) and apply it to a stamp actor. Supports a base surface type + per-weightmap-channel surface overrides (multi-material terrain). Wraps editor.execute_python -> VoxelHeightmapStamp.Make. Header: Voxel/Public/Height/VoxelHeightmapStamp.h. Params: actorLabel, source (UVoxelHeightmap path), location?, rotation?, scale?, blendMode? (max|min|override), priority?, smoothness?, defaultSurfaceType? (surface asset path), weightmaps? ([{index, surfaceType}]), componentName? (append to a UVoxelInstancedStampComponent instead of setting the single stamp)."
       schema:
         actorLabel: { type: string, required: true }
         source:     { type: string, required: true }
@@ -83,6 +83,9 @@ inject:
         blendMode:  { type: string }
         priority:   { type: number }
         smoothness: { type: number }
+        componentName:      { type: string }
+        defaultSurfaceType: { type: string }
+        weightmaps:         { type: array }
 
     set_height_graph_stamp:
       task: voxel.set_height_graph_stamp
@@ -96,6 +99,7 @@ inject:
         blendMode:  { type: string }
         priority:   { type: number }
         smoothness: { type: number }
+        componentName: { type: string }
 
     set_volume_graph_stamp:
       task: voxel.set_volume_graph_stamp
@@ -109,6 +113,7 @@ inject:
         blendMode:  { type: string }
         priority:   { type: number }
         smoothness: { type: number }
+        componentName: { type: string }
 
     set_mesh_stamp:
       task: voxel.set_mesh_stamp
@@ -122,6 +127,7 @@ inject:
         blendMode:  { type: string }
         priority:   { type: number }
         smoothness: { type: number }
+        componentName: { type: string }
 
     set_height_spline_stamp:
       task: voxel.set_height_spline_stamp
@@ -135,6 +141,7 @@ inject:
         blendMode:  { type: string }
         priority:   { type: number }
         smoothness: { type: number }
+        componentName: { type: string }
 
     set_volume_spline_stamp:
       task: voxel.set_volume_spline_stamp
@@ -148,6 +155,7 @@ inject:
         blendMode:  { type: string }
         priority:   { type: number }
         smoothness: { type: number }
+        componentName: { type: string }
 
     update_stamp_actor:
       task: voxel.update_stamp_actor
@@ -461,6 +469,69 @@ inject:
         query:        { type: string }
         constant:     { type: number }
 
+    add_instanced_stamp_component:
+      task: voxel.add_instanced_stamp_component
+      description: "Attach a UVoxelInstancedStampComponent to an actor — holds many stamps in one component (scatter without an actor each). Wraps level.add_component. Header: Voxel/Public/VoxelInstancedStampComponent.h. Params: actorLabel, componentName?."
+      schema:
+        actorLabel:    { type: string, required: true }
+        componentName: { type: string }
+
+    clear_instanced_stamps:
+      task: voxel.clear_instanced_stamps
+      description: "Remove every stamp from a UVoxelInstancedStampComponent and refresh. Wraps editor.execute_python. Params: actorLabel, componentName."
+      schema:
+        actorLabel:    { type: string, required: true }
+        componentName: { type: string, required: true }
+
+    update_instanced_stamps:
+      task: voxel.update_instanced_stamps
+      description: "Refresh all stamps on a UVoxelInstancedStampComponent (apply pending edits). Wraps editor.execute_python. Params: actorLabel, componentName."
+      schema:
+        actorLabel:    { type: string, required: true }
+        componentName: { type: string, required: true }
+
+    count_instanced_stamps:
+      task: voxel.count_instanced_stamps
+      description: "Report a UVoxelInstancedStampComponent's stamp count on a VOXEL_STAMP_COUNT= line. Wraps editor.execute_python. Params: actorLabel, componentName."
+      schema:
+        actorLabel:    { type: string, required: true }
+        componentName: { type: string, required: true }
+
+    remove_instanced_stamp:
+      task: voxel.remove_instanced_stamp
+      description: "Remove one stamp (by index) from a UVoxelInstancedStampComponent and refresh. Wraps editor.execute_python. Params: actorLabel, componentName, index."
+      schema:
+        actorLabel:    { type: string, required: true }
+        componentName: { type: string, required: true }
+        index:         { type: number, required: true }
+
+    add_no_clipping_component:
+      task: voxel.add_no_clipping_component
+      description: "Attach a UVoxelNoClippingComponent to an actor — keeps the owner from clipping through voxel terrain (auto-teleports above solid ground). Wraps level.add_component. Header: Voxel/Public/VoxelNoClippingComponent.h. Params: actorLabel, componentName?."
+      schema:
+        actorLabel:    { type: string, required: true }
+        componentName: { type: string }
+
+    set_no_clipping_layer:
+      task: voxel.set_no_clipping_layer
+      description: "Configure a UVoxelNoClippingComponent: the voxel layer it treats as solid ground + auto-adjust. Wraps editor.execute_python (builds an FVoxelStackLayer). Params: actorLabel, componentName, stack? (default DefaultStack), layerType? (height|volume), layerIndex? (default 0), autoAdjustPlayer? (default true)."
+      schema:
+        actorLabel:       { type: string, required: true }
+        componentName:    { type: string, required: true }
+        stack:            { type: string }
+        layerType:        { type: string }
+        layerIndex:       { type: number }
+        autoAdjustPlayer: { type: boolean }
+
+    set_world_lod_quality:
+      task: voxel.set_world_lod_quality
+      description: "Set AVoxelWorld::LODQuality — detail-vs-performance beyond VoxelSize. editor_quality/game_quality are FFloatInterval (min/max) ranges; always_use_game_quality is a bool. Wraps editor.execute_python. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, editorQuality? ({min,max}), gameQuality? ({min,max}), alwaysUseGameQuality? (at least one)."
+      schema:
+        actorLabel:           { type: string, required: true }
+        editorQuality:        { type: object }
+        gameQuality:          { type: object }
+        alwaysUseGameQuality: { type: boolean }
+
   asset:
     create:
       task: voxel.create_asset
@@ -548,6 +619,30 @@ tasks:
   voxel.set_asset_property:
     class_path: tasks/SetVoxelAssetProperty
     description: "Set one editor property on a Voxel asset"
+  voxel.add_instanced_stamp_component:
+    class_path: tasks/AddInstancedStampComponent
+    description: "Attach a UVoxelInstancedStampComponent to an actor"
+  voxel.clear_instanced_stamps:
+    class_path: tasks/ClearInstancedStamps
+    description: "Clear all stamps on an instanced stamp component"
+  voxel.update_instanced_stamps:
+    class_path: tasks/UpdateInstancedStamps
+    description: "Refresh all stamps on an instanced stamp component"
+  voxel.count_instanced_stamps:
+    class_path: tasks/CountInstancedStamps
+    description: "Report an instanced stamp component's stamp count"
+  voxel.remove_instanced_stamp:
+    class_path: tasks/RemoveInstancedStamp
+    description: "Remove one stamp by index from an instanced stamp component"
+  voxel.add_no_clipping_component:
+    class_path: tasks/AddNoClippingComponent
+    description: "Attach a UVoxelNoClippingComponent to an actor"
+  voxel.set_no_clipping_layer:
+    class_path: tasks/SetNoClippingLayer
+    description: "Configure a UVoxelNoClippingComponent's layer + auto-adjust"
+  voxel.set_world_lod_quality:
+    class_path: tasks/SetWorldLodQuality
+    description: "Set AVoxelWorld::LODQuality fields"
   voxel.spawn_stamp_actor:
     class_path: tasks/SpawnStampActor
     description: "Spawn an AVoxelStampActor"
