@@ -8,20 +8,33 @@ KB: <https://docs.voxelplugin.com/knowledgebase/foliage/>.
 
 ## Integration pattern
 
-```
-   PCG framework (Epic)             VoxelPCG nodes              Voxel runtime
-   ────────────────────             ─────────────────              ─────────────
+```mermaid
+sequenceDiagram
+    participant PCG as PCG framework (Epic)
+    participant Node as VoxelPCG nodes
+    participant RT as Voxel runtime
 
-   point cloud  ────► PCGVoxelQuery / Sampler / Projection  ────► reads height/volume layers
-                ◄──── PCG augmented points with voxel attrs
+    Note over PCG,RT: PCGVoxelQuery / Sampler / Projection
+    PCG->>Node: point cloud
+    Node->>RT: read height/volume layers
+    RT-->>Node: layer values
+    Node-->>PCG: points + voxel attributes
 
-   point cloud  ────► PCGCallVoxelGraph                     ────► runs a UVoxelPCGGraph
-                ◄──── transformed points
+    Note over PCG,RT: PCGCallVoxelGraph
+    PCG->>Node: point cloud
+    Node->>RT: run UVoxelPCGGraph
+    RT-->>Node: transformed points
+    Node-->>PCG: transformed points
 
-   point cloud  ────► PCGVoxelStampSpawner                  ────► writes stamps via
-                                                                  UPCGManagedVoxelInstancedStampComponent
+    Note over PCG,RT: PCGVoxelStampSpawner
+    PCG->>Node: point cloud
+    Node->>RT: write stamps via UPCGManagedVoxelInstancedStampComponent
 
-   control flow ────► PCGWaitForVoxelWorld                  ────► blocks until ready
+    Note over PCG,RT: PCGWaitForVoxelWorld
+    PCG->>Node: control flow
+    Node->>RT: block until world ready
+    RT-->>Node: ready
+    Node-->>PCG: resume
 ```
 
 Every PCG-side node derives from `UVoxelPCGSettings` (extends `UPCGSettings`). Voxel-side point-graph nodes derive from `FVoxelNode` — they operate on `FVoxelPointSet` inside a voxel graph, distinct from the PCG-side wrappers.

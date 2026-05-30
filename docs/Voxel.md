@@ -8,20 +8,20 @@ Official knowledgebase covering usage (not API): <https://docs.voxelplugin.com/k
 
 ## Top-level flow
 
-```
-              AVoxelWorld (actor)
-                    │
-                    ├── FVoxelConfig         ← cached settings snapshot
-                    ├── FVoxelRuntime        ← ticker + state machine
-                    │     └── FVoxelState    ← immutable per-generation snapshot
-                    │           ├── FVoxelStampManager     ← layer → stamp registry
-                    │           ├── FVoxelRenderSubsystem  ← mesh proxies, Nanite
-                    │           ├── FVoxelCollisionSubsystem
-                    │           ├── FVoxelNavigationSubsystem
-                    │           └── FVoxelScatterSubsystem
-                    │
-                    ├── UVoxelLayerStack      ← what layers exist
-                    └── UVoxelMegaMaterial    ← surface-type catalogue + shader
+```mermaid
+flowchart TD
+    AVoxelWorld["AVoxelWorld (actor)"]
+    AVoxelWorld --> FVoxelConfig["FVoxelConfig (cached settings snapshot)"]
+    AVoxelWorld --> FVoxelRuntime["FVoxelRuntime (ticker + state machine)"]
+    AVoxelWorld --> UVoxelLayerStack["UVoxelLayerStack (what layers exist)"]
+    AVoxelWorld --> UVoxelMegaMaterial["UVoxelMegaMaterial (surface-type catalogue + shader)"]
+
+    FVoxelRuntime --> FVoxelState["FVoxelState (immutable per-generation snapshot)"]
+    FVoxelState --> FVoxelStampManager["FVoxelStampManager (layer to stamp registry)"]
+    FVoxelState --> FVoxelRenderSubsystem["FVoxelRenderSubsystem (mesh proxies, Nanite)"]
+    FVoxelState --> FVoxelCollisionSubsystem
+    FVoxelState --> FVoxelNavigationSubsystem
+    FVoxelState --> FVoxelScatterSubsystem
 ```
 
 A user authors **stamps** (sculpt strokes, spline curves, heightmaps, graphs). Stamps go into **layers** (height or volume). At runtime, the **stamp manager** snapshots the layer contents into a **state**, and **subsystems** evaluate that state into render meshes, colliders, and navmesh.
@@ -155,13 +155,15 @@ TSharedPtr<FVoxelHeightStamp> ptr = heightRef.ToSharedPtr<FVoxelHeightStamp>();
 
 ### Actor / component tier
 
-```cpp
-UVoxelStampComponentBase           ← shared base
-   ├── UVoxelStampComponent          single stamp; UPROPERTY split via SplitStampProperties
-   ├── UVoxelInstancedStampComponent TArray<FVoxelStampRef>; batch add/remove/update
-   └── UVoxelStampMeshPreviewComponent (editor gizmo)
+```mermaid
+flowchart TD
+    Base["UVoxelStampComponentBase (shared base)"]
+    Base --> Single["UVoxelStampComponent (single stamp; UPROPERTY split via SplitStampProperties)"]
+    Base --> Instanced["UVoxelInstancedStampComponent (TArray&lt;FVoxelStampRef&gt;; batch add/remove/update)"]
+    Base --> Preview["UVoxelStampMeshPreviewComponent (editor gizmo)"]
 
-AVoxelStampActor                     wraps a UVoxelStampComponent for standalone placement
+    Actor["AVoxelStampActor (wraps a UVoxelStampComponent for standalone placement)"]
+    Actor -.-> Single
 ```
 
 `UVoxelStampComponentInterface` is the contract anything implementing stamp-like behavior follows. `UVoxelStampBehavior` exposes the behavior bitmask to BP.

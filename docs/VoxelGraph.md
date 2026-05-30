@@ -8,29 +8,20 @@ Official KB on graph authoring (not API): <https://docs.voxelplugin.com/knowledg
 
 ## High-level pipeline
 
-```
-   UVoxelGraph  (asset)
-       │
-       ▼
-  Voxel::Graph::FGraph   (mutable compilation IR — FVoxelCompilationGraph.h)
-       │
-       │  passes: template expansion, passthrough removal,
-       │          local-var elimination, range-node injection, validation
-       ▼
-  FVoxelCompiledTerminalGraph   (immutable per-terminal)
-       │
-       ▼
-  FVoxelCompiledGraph           (root container, guid → terminal)
-       │     cached on UVoxelGraph with dependency tracking
-       │
-       ▼
-  Runtime evaluation:
-       FVoxelGraphContext  (TLS-bound, arena allocator, task chain)
-       FVoxelGraphQuery    (per-call parameters + buffer outputs)
-       FVoxelComputeNode   (ISPC-compiled nodes) / FVoxelNode (pure C++)
-       │
-       ▼
-  Typed buffers (FVoxelFloatBuffer, FVoxelVectorBuffer, …)
+```mermaid
+flowchart TD
+    Asset["UVoxelGraph (asset)"]
+    IR["Voxel::Graph::FGraph<br/>(mutable compilation IR — FVoxelCompilationGraph.h)"]
+    Terminal["FVoxelCompiledTerminalGraph (immutable per-terminal)"]
+    Root["FVoxelCompiledGraph<br/>(root container, guid to terminal;<br/>cached on UVoxelGraph with dependency tracking)"]
+    Runtime["Runtime evaluation:<br/>FVoxelGraphContext (TLS-bound, arena allocator, task chain)<br/>FVoxelGraphQuery (per-call parameters + buffer outputs)<br/>FVoxelComputeNode (ISPC-compiled nodes) / FVoxelNode (pure C++)"]
+    Buffers["Typed buffers (FVoxelFloatBuffer, FVoxelVectorBuffer, ...)"]
+
+    Asset --> IR
+    IR -- "passes: template expansion, passthrough removal,<br/>local-var elimination, range-node injection, validation" --> Terminal
+    Terminal --> Root
+    Root --> Runtime
+    Runtime --> Buffers
 ```
 
 A single voxel graph asset can contain multiple **terminal graphs** (an output graph plus subgraphs and function libraries). Each terminal compiles independently into a `FVoxelCompiledTerminalGraph`. At runtime, a query targets one terminal by guid.

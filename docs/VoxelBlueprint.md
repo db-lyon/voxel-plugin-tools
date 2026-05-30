@@ -80,13 +80,11 @@ The `ParameterName` pin renders as a combo of parameters discovered on the conne
 
 Reads a parameter value from a target graph.
 
-```
-┌─────────────────────────────────┐
-│ Get Voxel Graph Parameter       │
-├─────────────────────────────────┤
-│ ▶ Target Graph (UVoxelGraph*)  │ ─► (wildcard) Value
-│   Parameter Name (FName combo) │
-└─────────────────────────────────┘
+```mermaid
+flowchart LR
+    TargetGraph["Target Graph (UVoxelGraph*)"] --> Node["Get Voxel Graph Parameter"]
+    ParamName["Parameter Name (FName combo)"] --> Node
+    Node --> Value["(wildcard) Value"]
 ```
 
 There are concrete subclasses per graph type (`UK2Node_GetVoxel<Height|Volume|HeightSculpt|VolumeSculpt|...>GraphParameter`) — `GetGraphClassType()` returns the matching `UVoxelGraph` subclass so the picker only lists relevant parameters.
@@ -97,14 +95,12 @@ There are concrete subclasses per graph type (`UK2Node_GetVoxel<Height|Volume|He
 
 Writes a parameter value and returns the modified graph.
 
-```
-┌─────────────────────────────────────┐
-│ Set Voxel Graph Parameter           │
-├─────────────────────────────────────┤
-│ ▶ Target Graph (UVoxelGraph*)      │ ─► Out Graph (UVoxelGraph*)
-│   Parameter Name (FName combo)      │
-│   ▶ Value (wildcard, type inferred) │
-└─────────────────────────────────────┘
+```mermaid
+flowchart LR
+    TargetGraph["Target Graph (UVoxelGraph*)"] --> Node["Set Voxel Graph Parameter"]
+    ParamName["Parameter Name (FName combo)"] --> Node
+    Value["Value (wildcard, type inferred)"] --> Node
+    Node --> OutGraph["Out Graph (UVoxelGraph*)"]
 ```
 
 Compile expansion synthesizes both the get-current and assignment ops as native function calls.
@@ -129,26 +125,22 @@ class UK2Node_MakeBreakVoxelPinValueBase : public UK2Node_VoxelBaseNode
 
 Assembles individual field pins into a Voxel compound struct.
 
-```
-┌─────────────────────────────┐
-│ Make Voxel Box              │
-├─────────────────────────────┤
-│ ▶ Min (FVector)            │ ─► Value (FVoxelBox)
-│ ▶ Max (FVector)            │
-└─────────────────────────────┘
+```mermaid
+flowchart LR
+    Min["Min (FVector)"] --> Node["Make Voxel Box"]
+    Max["Max (FVector)"] --> Node
+    Node --> Value["Value (FVoxelBox)"]
 ```
 
 ### `UK2Node_BreakVoxelPinValueBase`
 
 Decomposes a Voxel compound struct into field pins.
 
-```
-┌─────────────────────────────┐
-│ Break Voxel Box             │
-├─────────────────────────────┤
-│ ▶ Value (FVoxelBox)        │ ─► Min (FVector)
-│                              │ ─► Max (FVector)
-└─────────────────────────────┘
+```mermaid
+flowchart LR
+    Value["Value (FVoxelBox)"] --> Node["Break Voxel Box"]
+    Node --> Min["Min (FVector)"]
+    Node --> Max["Max (FVector)"]
 ```
 
 Both expand at compile time into native field-access function calls. Because the type is wildcard-driven, **any** new `FVoxelPinType` automatically gets Make/Break support — no per-type editor work needed.

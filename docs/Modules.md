@@ -34,22 +34,25 @@ Everything else loads at the `Default` phase.
 
 ## Dependency graph
 
-```
-                              VoxelCore  ←─────────────────────────┐
-                                  ▲                                │
-                  ┌───────────────┼───────────────┐                │
-                  │               │               │                │
-              VoxelGraph        Voxel         VoxelPCG ───→ Voxel + VoxelGraph
-                  ▲               ▲               ▲                │
-                  │               │               │                │
-                  │               │               │                │
-            VoxelGraphEditor   VoxelEditor   VoxelPCGEditor        │
-                  ▲                                                │
-                  │                                                │
-            VoxelBlueprint ──→ Voxel + VoxelGraph + VoxelEditor + VoxelGraphEditor + VoxelCoreEditor
-                  ▲
-                  │
-            VoxelBlueprintEditor
+```mermaid
+flowchart TD
+    VoxelGraph --> VoxelCore
+    Voxel --> VoxelCore
+    VoxelPCG --> VoxelCore
+    VoxelPCG --> Voxel
+    VoxelPCG --> VoxelGraph
+
+    VoxelGraphEditor --> VoxelGraph
+    VoxelEditor --> Voxel
+    VoxelPCGEditor --> VoxelPCG
+
+    VoxelBlueprint --> VoxelGraphEditor
+    VoxelBlueprint --> Voxel
+    VoxelBlueprint --> VoxelGraph
+    VoxelBlueprint --> VoxelEditor
+    VoxelBlueprint --> VoxelCoreEditor
+
+    VoxelBlueprintEditor --> VoxelBlueprint
 ```
 
 (Arrow direction: A → B means A depends on B.)
