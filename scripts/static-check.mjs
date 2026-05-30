@@ -1,0 +1,106 @@
+// Static manifest <-> task consistency check (TODO Section C).
+// No editor needed. Run: node scripts/static-check.mjs
+import { readFileSync, existsSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import yaml from "js-yaml";
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const manifest = yaml.load(readFileSync(resolve(root, "ue-mcp.plugin.yml"), "utf8"));
+
+const errors = [];
+const warnings = [];
+const ok = (m) => console.log(`  ok  ${m}`);
+
+// Collect injected task refs: inject.<category>.<action>.task
+const injectedTasks = new Set();
+const injectActionToTask = {};
+for (const [cat, actions] of Object.entries(manifest.inject ?? {})) {
+  for (const [action, def] of Object.entries(actions)) {
+    if (!def || !def.task) {
+      errors.push(`inject.${cat}.${action} has no 'task' key`);
+      continue;
+    }
+    injectedTasks.add(def.task);
+    injectActionToTask[`${cat}.${action}`] = def.task;
+  }
+}
+
+// Tasks table
+const tasks = manifest.tasks ?? {};
+const taskKeys = new Set(Object.keys(tasks));
+
+// Flow task refs (only voxel.* are ours; host tasks like level.* are external)
+const flowTaskRefs = new Set();
+for (const [fname, fdef] of Object.entries(manifest.flows ?? {})) {
+  for (const [sidx, step] of Object.entries(fdef.steps ?? {})) {
+    if (step?.task) flowTaskRefs.add(step.task);
+  }
+}
+
+// ── C1: every injected task ref is a defined tasks: entry ──
+console.log("\n[C1] injected task refs resolve to a tasks: entry");
+for (const [action, t] of Object.entries(injectActionToTask)) {
+  if (!taskKeys.has(t)) errors.push(`C1: inject ${action} -> task '${t}' not defined in tasks:`);
+}
+for (const t of flowTaskRefs) {
+  if (t.startsWith("voxel.") && !taskKeys.has(t)) {
+    errors.push(`C1: flow step -> task '${t}' not defined in tasks:`);
+  }
+}
+if (!errors.some((e) => e.startsWith("C1"))) ok(`${Object.keys(injectActionToTask).length} injected refs all resolve`);
+
+// ── C4: no orphan tasks (defined but never injected, and not a flow-only ref) ──
+console.log("\n[C4] no orphan tasks (defined but not injected)");
+for (const t of taskKeys) {
+  if (!injectedTasks.has(t) && !flowTaskRefs.has(t)) {
+    warnings.push(`C4: task '${t}' defined but never injected or used in a flow`);
+  }
+}
+if (!warnings.some((w) => w.startsWith("C4"))) ok(`all ${taskKeys.size} tasks are injected or flow-referenced`);
+
+// ── C2: class_path resolves to a built dist file whose default export's taskName matches the key ──
+console.log("\n[C2] class_path -> dist file -> default export taskName matches key");
+let c2checked = 0;
+for (const [key, def] of Object.entries(tasks)) {
+  const cp = def.class_path;
+  if (!cp) { errors.push(`C2: task '${key}' has no class_path`); continue; }
+  const distJs = resolve(root, "dist", `${cp}.js`);
+  if (!existsSync(distJs)) {
+    errors.push(`C2: task '${key}' class_path '${cp}' -> missing dist file ${cp}.js`);
+    continue;
+  }
+  try {
+    const mod = await import(pathToFileURL(distJs).href);
+    const Cls = mod.default;
+    if (typeof Cls !== "function") {
+      errors.push(`C2: ${cp}.js has no default-exported class`);
+      continue;
+    }
+    // taskName is an instance getter; instantiate with a stub.
+    let inst;
+    try { inst = new Cls({}, {}); } catch { try { inst = new Cls(); } catch (e2) { inst = null; } }
+    const tn = inst && inst.taskName;
+    if (tn == null) {
+      warnings.push(`C2: ${cp}.js -> could not read taskName (instantiation needs args); skipped name match`);
+    } else if (tn !== key) {
+      errors.push(`C2: ${cp}.js taskName '${tn}' != tasks key '${key}'`);
+    } else {
+      c2checked++;
+    }
+  } catch (e) {
+    errors.push(`C2: import ${cp}.js failed: ${e.message}`);
+  }
+}
+ok(`${c2checked}/${Object.keys(tasks).length} tasks: dist present + taskName matches`);
+
+// ── Summary ──
+console.log("\n──────── SUMMARY ────────");
+console.log(`injected actions: ${Object.keys(injectActionToTask).length}`);
+console.log(`tasks defined:    ${taskKeys.size}`);
+console.log(`flows:            ${Object.keys(manifest.flows ?? {}).length}`);
+console.log(`warnings: ${warnings.length}, errors: ${errors.length}`);
+for (const w of warnings) console.log(`  WARN  ${w}`);
+for (const e of errors) console.log(`  ERR   ${e}`);
+process.exit(errors.length ? 1 : 0);
