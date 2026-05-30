@@ -73,10 +73,75 @@ inject:
 
     set_heightmap_stamp:
       task: voxel.set_heightmap_stamp
-      description: "Build a heightmap stamp from a UVoxelHeightmap and apply it to a stamp actor (VoxelHeightmapStamp.Make -> SetStamp -> UpdateStamp). Wraps editor.execute_python. Header: Voxel/Public/Height/VoxelHeightmapStamp.h. Params: actorLabel (an AVoxelStampActor), heightmap (UVoxelHeightmap object path), location? ({x,y,z}), rotation? ({pitch,yaw,roll}), scale? ({x,y,z}), blendMode? (max|min|override, default max), priority? (default 0), smoothness? (default 100)."
+      description: "Build a heightmap stamp from a UVoxelHeightmap (source) and apply it to a stamp actor (Make -> SetStamp -> UpdateStamp). Wraps editor.execute_python. Header: Voxel/Public/Height/VoxelHeightmapStamp.h. Params: actorLabel (an AVoxelStampActor), source (UVoxelHeightmap object path), location?, rotation?, scale?, blendMode? (max|min|override, default max), priority?, smoothness?."
       schema:
         actorLabel: { type: string, required: true }
-        heightmap:  { type: string, required: true }
+        source:     { type: string, required: true }
+        location:   { type: object }
+        rotation:   { type: object }
+        scale:      { type: object }
+        blendMode:  { type: string }
+        priority:   { type: number }
+        smoothness: { type: number }
+
+    set_height_graph_stamp:
+      task: voxel.set_height_graph_stamp
+      description: "Build a height-graph stamp from a UVoxelHeightGraph (source) and apply it to a stamp actor. Wraps editor.execute_python -> VoxelHeightGraphStamp.Make. Params: actorLabel, source (UVoxelHeightGraph path), location?, rotation?, scale?, blendMode? (max|min|override), priority?, smoothness?."
+      schema:
+        actorLabel: { type: string, required: true }
+        source:     { type: string, required: true }
+        location:   { type: object }
+        rotation:   { type: object }
+        scale:      { type: object }
+        blendMode:  { type: string }
+        priority:   { type: number }
+        smoothness: { type: number }
+
+    set_volume_graph_stamp:
+      task: voxel.set_volume_graph_stamp
+      description: "Build a volume-graph stamp from a UVoxelVolumeGraph (source) and apply it to a stamp actor. Wraps editor.execute_python -> VoxelVolumeGraphStamp.Make. Params: actorLabel, source (UVoxelVolumeGraph path), location?, rotation?, scale?, blendMode? (additive|subtractive|intersect|override), priority?, smoothness?."
+      schema:
+        actorLabel: { type: string, required: true }
+        source:     { type: string, required: true }
+        location:   { type: object }
+        rotation:   { type: object }
+        scale:      { type: object }
+        blendMode:  { type: string }
+        priority:   { type: number }
+        smoothness: { type: number }
+
+    set_mesh_stamp:
+      task: voxel.set_mesh_stamp
+      description: "Build a mesh stamp from a UVoxelStaticMesh (source) and apply it to a stamp actor (tricubic on). Wraps editor.execute_python -> VoxelMeshStamp.Make. Params: actorLabel, source (UVoxelStaticMesh path), location?, rotation?, scale?, blendMode? (additive|subtractive|intersect|override), priority?, smoothness?."
+      schema:
+        actorLabel: { type: string, required: true }
+        source:     { type: string, required: true }
+        location:   { type: object }
+        rotation:   { type: object }
+        scale:      { type: object }
+        blendMode:  { type: string }
+        priority:   { type: number }
+        smoothness: { type: number }
+
+    set_height_spline_stamp:
+      task: voxel.set_height_spline_stamp
+      description: "Build a height-spline stamp from a UVoxelHeightSplineGraph (source) and apply it to a stamp actor. Wraps editor.execute_python -> VoxelHeightSplineStamp.Make. Params: actorLabel, source (UVoxelHeightSplineGraph path), location?, rotation?, scale?, blendMode? (max|min|override), priority?, smoothness?."
+      schema:
+        actorLabel: { type: string, required: true }
+        source:     { type: string, required: true }
+        location:   { type: object }
+        rotation:   { type: object }
+        scale:      { type: object }
+        blendMode:  { type: string }
+        priority:   { type: number }
+        smoothness: { type: number }
+
+    set_volume_spline_stamp:
+      task: voxel.set_volume_spline_stamp
+      description: "Build a volume-spline stamp from a UVoxelVolumeSplineGraph (source) and apply it to a stamp actor. Wraps editor.execute_python -> VoxelVolumeSplineStamp.Make. Params: actorLabel, source (UVoxelVolumeSplineGraph path), location?, rotation?, scale?, blendMode? (additive|subtractive|intersect|override), priority?, smoothness?."
+      schema:
+        actorLabel: { type: string, required: true }
+        source:     { type: string, required: true }
         location:   { type: object }
         rotation:   { type: object }
         scale:      { type: object }
@@ -408,6 +473,21 @@ tasks:
   voxel.set_heightmap_stamp:
     class_path: tasks/SetHeightmapStamp
     description: "Build + apply a heightmap stamp to a stamp actor (atomic)"
+  voxel.set_height_graph_stamp:
+    class_path: tasks/SetHeightGraphStamp
+    description: "Build + apply a height-graph stamp (atomic)"
+  voxel.set_volume_graph_stamp:
+    class_path: tasks/SetVolumeGraphStamp
+    description: "Build + apply a volume-graph stamp (atomic)"
+  voxel.set_mesh_stamp:
+    class_path: tasks/SetMeshStamp
+    description: "Build + apply a mesh stamp (atomic)"
+  voxel.set_height_spline_stamp:
+    class_path: tasks/SetHeightSplineStamp
+    description: "Build + apply a height-spline stamp (atomic)"
+  voxel.set_volume_spline_stamp:
+    class_path: tasks/SetVolumeSplineStamp
+    description: "Build + apply a volume-spline stamp (atomic)"
   voxel.update_stamp_actor:
     class_path: tasks/UpdateStampActor
     description: "Call UpdateStamp on an AVoxelStampActor (atomic)"
