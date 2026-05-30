@@ -71,6 +71,19 @@ inject:
         actorLabel: { type: string, required: true }
         componentName: { type: string }
 
+    set_heightmap_stamp:
+      task: voxel.set_heightmap_stamp
+      description: "Build a heightmap stamp from a UVoxelHeightmap and apply it to a stamp actor (VoxelHeightmapStamp.Make -> SetStamp -> UpdateStamp). Wraps editor.execute_python. Header: Voxel/Public/Height/VoxelHeightmapStamp.h. Params: actorLabel (an AVoxelStampActor), heightmap (UVoxelHeightmap object path), location? ({x,y,z}), rotation? ({pitch,yaw,roll}), scale? ({x,y,z}), blendMode? (max|min|override, default max), priority? (default 0), smoothness? (default 100)."
+      schema:
+        actorLabel: { type: string, required: true }
+        heightmap:  { type: string, required: true }
+        location:   { type: object }
+        rotation:   { type: object }
+        scale:      { type: object }
+        blendMode:  { type: string }
+        priority:   { type: number }
+        smoothness: { type: number }
+
     update_stamp_actor:
       task: voxel.update_stamp_actor
       description: "Call AVoxelStampActor::UpdateStamp() — re-apply the actor's stamp after its properties change. Wraps editor.invoke_function. Header: Voxel/Public/VoxelStampActor.h. Params: actorLabel, world? (editor|pie)."
@@ -392,6 +405,9 @@ tasks:
   voxel.add_stamp_component:
     class_path: tasks/AddStampComponent
     description: "Attach a UVoxelStampComponent to an actor (atomic)"
+  voxel.set_heightmap_stamp:
+    class_path: tasks/SetHeightmapStamp
+    description: "Build + apply a heightmap stamp to a stamp actor (atomic)"
   voxel.update_stamp_actor:
     class_path: tasks/UpdateStampActor
     description: "Call UpdateStamp on an AVoxelStampActor (atomic)"
