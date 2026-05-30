@@ -83,6 +83,43 @@ for (const t of taskKeys) {
 }
 if (!warnings.some((w) => w.startsWith("C4"))) ok(`all ${taskKeys.size} tasks are injected or flow-referenced`);
 
+// ── C5: no injected field uses `required: true` ──
+// The host lifts every action's schema fields to ONE flat schema per category
+// ("action selects which params apply"), and compileSchemaFields keeps a
+// `required` field non-optional — so it becomes required for the WHOLE category
+// tool (every sibling action, built-ins included). Requiredness must be enforced
+// by each task's validate() at runtime, not in the manifest.
+console.log("\n[C5] no injected schema field is marked required:true");
+let c5 = 0;
+for (const [cat, actions] of Object.entries(manifest.inject ?? {})) {
+  for (const [action, def] of Object.entries(actions)) {
+    for (const [f, spec] of Object.entries(def.schema ?? {})) {
+      if (spec && spec.required === true) errors.push(`C5: inject.${cat}.${action}.${f} is required:true — makes '${f}' required for the entire '${cat}' tool`);
+      else c5++;
+    }
+  }
+}
+if (!errors.some((e) => e.startsWith("C5"))) ok(`${c5} injected fields, none required:true`);
+
+// ── C6: within a category, a reused field name must keep one type ──
+// Fields merge by name into the flat category schema (first-wins). A name used
+// with two types across actions means one action's calls validate against the
+// wrong type. (Benign only when a built-in category field of compatible type
+// absorbs it — flagged as a warning to review, e.g. `value` on `level`.)
+console.log("\n[C6] no within-category field-name type collisions");
+for (const [cat, actions] of Object.entries(manifest.inject ?? {})) {
+  const types = {}; // field -> Set(type)
+  for (const def of Object.values(actions)) {
+    for (const [f, spec] of Object.entries(def.schema ?? {})) {
+      (types[f] ??= new Set()).add(spec?.type ?? "(none)");
+    }
+  }
+  for (const [f, set] of Object.entries(types)) {
+    if (set.size > 1) warnings.push(`C6: inject.${cat} field '${f}' has multiple types (${[...set].join("/")}) across actions — fine only if a built-in '${f}' of compatible type absorbs it`);
+  }
+}
+if (!warnings.some((w) => w.startsWith("C6"))) ok(`no field-name type collisions in any category`);
+
 // ── C2: class_path resolves to a built dist file whose default export's taskName matches the key ──
 console.log("\n[C2] class_path -> dist file -> default export taskName matches key");
 let c2checked = 0;
