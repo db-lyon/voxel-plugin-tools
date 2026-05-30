@@ -461,6 +461,15 @@ inject:
         query:        { type: string }
         constant:     { type: number }
 
+  pcg:
+    add_node:
+      task: voxel.pcg_add_node
+      description: "Add a VoxelPCG node to a PCG graph (e.g. sampler_v2 to sample the voxel surface into points, or call_graph to run a voxel graph). Wraps pcg.add_node with /Script/VoxelPCG.<Class>. Configure it afterwards with pcg.set_node_settings. Module: VoxelPCG. Params: assetPath (UPCGGraph object path), node (call_graph|sampler|sampler_v2|query|stamp_spawner|spawn_actor|apply_on_graph|create_spline|projection|elevation_isolines|wait_for_world|layer_sampler|landscape_sampler|landscape_projection|wait_for_landscape), nodeName?."
+      schema:
+        assetPath: { type: string, required: true }
+        node:      { type: string, required: true }
+        nodeName:  { type: string }
+
 knowledge: {}
 
 tasks:
@@ -512,6 +521,9 @@ tasks:
   voxel.export_voxel_data_to_render_target:
     class_path: tasks/ExportVoxelDataToRenderTarget
     description: "Export a voxel height layer into a render target (atomic)"
+  voxel.pcg_add_node:
+    class_path: tasks/PcgAddNode
+    description: "Add a VoxelPCG node to a PCG graph (atomic)"
   voxel.spawn_stamp_actor:
     class_path: tasks/SpawnStampActor
     description: "Spawn an AVoxelStampActor (atomic)"
