@@ -57,9 +57,13 @@ export default class QueryVoxelLayer extends UeMcpTask<Options> {
       `_success, _result = unreal.VoxelQueryBlueprintLibrary_BlueprintOnly.query_voxel_layer(`,
       `    _wco, _sl, ${pyVec3(o.position)}, [], gradient_step=${pyFloat(o.gradientStep ?? 100)})`,
       `_n = _result.get_editor_property("normal")`,
-      `_out = {"success": bool(_success), "value": _result.get_editor_property("value"),`,
-      `        "surface": _result.get_editor_property("surface"),`,
-      `        "normal": {"x": _n.x, "y": _n.y, "z": _n.z}}`,
+      // NaN -> None so the line is valid JSON (value/normal are NaN where the
+      // layer has no surface at the sample point, e.g. no runtime world yet).
+      `_f = lambda x: None if (isinstance(x, float) and x != x) else x`,
+      `_st = _result.get_editor_property("surface_type")`,
+      `_out = {"success": bool(_success), "value": _f(_result.get_editor_property("value")),`,
+      `        "surface_type": (_st.get_name() if _st is not None else None),`,
+      `        "normal": {"x": _f(_n.x), "y": _f(_n.y), "z": _f(_n.z)}}`,
       `print("VOXEL_QUERY_RESULT=" + json.dumps(_out))`,
     ].join("\n");
     return this.call("editor.execute_python", { code });

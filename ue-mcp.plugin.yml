@@ -318,6 +318,17 @@ inject:
       schema:
         actorLabel: { type: string, required: true }
 
+    # ── Query / sampling (static VoxelQueryBlueprintLibrary) ──────────────
+    query_voxel_layer:
+      task: voxel.query_voxel_layer
+      description: "Sample one point of a voxel layer; returns FVoxelQueryResult (value, surface_type, normal) as JSON on a VOXEL_QUERY_RESULT= line (value/normal are null where the layer has no surface there). Static lib taking an FVoxelStackLayer -> wraps editor.execute_python (resolves the layer from the stack asset, queries the editor world). Header: Voxel/Public/VoxelQueryBlueprintLibrary.h. Params: position ({x,y,z}), stack? (asset path, default DefaultStack), layerType? (height|volume, default volume), layerIndex? (default 0), gradientStep? (default 100)."
+      schema:
+        position:     { type: object, required: true }
+        stack:        { type: string }
+        layerType:    { type: string }
+        layerIndex:   { type: number }
+        gradientStep: { type: number }
+
 knowledge: {}
 
 tasks:
@@ -336,6 +347,9 @@ tasks:
   voxel.height_clear_sculpt_cache:
     class_path: tasks/HeightClearSculptCache
     description: "Height sculpt: free the sculpt cache (atomic)"
+  voxel.query_voxel_layer:
+    class_path: tasks/QueryVoxelLayer
+    description: "Sample one point of a voxel layer (atomic)"
   voxel.spawn_stamp_actor:
     class_path: tasks/SpawnStampActor
     description: "Spawn an AVoxelStampActor (atomic)"
