@@ -6,13 +6,13 @@ export interface VoxelWorldFunctionOptions {
 }
 
 /**
- * Base for atomic "invoke a no-arg `AVoxelWorld` UFUNCTION" tasks. Each
- * subclass bakes exactly one function name; the body wraps exactly one host
- * call — `editor.invoke_function`.
+ * Base for atomic "invoke a no-arg UFUNCTION on a Voxel actor (by label)" tasks
+ * — `AVoxelWorld`, `AVoxelStampActor`, the sculpt actors, etc. Each subclass
+ * bakes exactly one function name; the body wraps exactly one host call —
+ * `editor.invoke_function`.
  *
  * For functions that return a value, the result lands at
  * `data.returnValues.ReturnValue` (a string) — parse on the caller side.
- * Header for all: `Voxel/Public/VoxelWorld.h`.
  */
 export abstract class InvokeVoxelWorldFunction extends UeMcpTask<VoxelWorldFunctionOptions> {
   /** The `AVoxelWorld` UFUNCTION to invoke (must take no arguments). */
