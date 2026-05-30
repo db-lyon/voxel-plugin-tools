@@ -135,6 +135,91 @@ inject:
         actorLabel: { type: string, required: true }
         value:      { type: number, required: true }
 
+    # ── Volume sculpting (static VoxelVolumeSculptBlueprintLibrary; ──────────
+    #    wrap editor.execute_python — no native static-library invoke exists).
+    #    All target an AVoxelVolumeSculptActor by label; center is world-space.
+    volume_sculpt_sphere:
+      task: voxel.volume_sculpt_sphere
+      description: "Atomic. Add/remove a sphere on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::SculptSphere. Header: Voxel/Public/Sculpt/Volume/VoxelVolumeSculptBlueprintLibrary.h. Params: actorLabel, center ({x,y,z}), radius? (cm, def 1000), mode? (add|remove), smoothness? (def 0)."
+      schema:
+        actorLabel: { type: string, required: true }
+        center:     { type: object, required: true }
+        radius:     { type: number }
+        mode:       { type: string }
+        smoothness: { type: number }
+
+    volume_sculpt_cube:
+      task: voxel.volume_sculpt_cube
+      description: "Atomic. Add/remove a rounded, rotated cube on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::SculptCube. Params: actorLabel, center ({x,y,z}), size? ({x,y,z}, def 1000^3), rotation? ({pitch,yaw,roll}), roundness? (def 0), mode? (add|remove), smoothness? (def 0)."
+      schema:
+        actorLabel: { type: string, required: true }
+        center:     { type: object, required: true }
+        size:       { type: object }
+        rotation:   { type: object }
+        roundness:  { type: number }
+        mode:       { type: string }
+        smoothness: { type: number }
+
+    volume_flatten:
+      task: voxel.volume_flatten
+      description: "Atomic. Flatten a voxel surface along a normal on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::Flatten. Params: actorLabel, center ({x,y,z}), normal? ({x,y,z}, def (0,0,1)), radius? (def 500), height? (def 1000), falloff? (0..1, def 0.1), type? (additive|subtractive|both)."
+      schema:
+        actorLabel: { type: string, required: true }
+        center:     { type: object, required: true }
+        normal:     { type: object }
+        radius:     { type: number }
+        height:     { type: number }
+        falloff:    { type: number }
+        type:       { type: string }
+
+    volume_smooth:
+      task: voxel.volume_smooth
+      description: "Atomic. Smooth/blur a region on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::Smooth. Params: actorLabel, center ({x,y,z}), radius? (def 1000), strength? (def 1)."
+      schema:
+        actorLabel: { type: string, required: true }
+        center:     { type: object, required: true }
+        radius:     { type: number }
+        strength:   { type: number }
+
+    volume_sculpt_surface:
+      task: voxel.volume_sculpt_surface
+      description: "Atomic. Progressively sculpt a voxel surface on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::SculptSurface. Params: actorLabel, center ({x,y,z}), radius? (def 500), strength? (def 0.5), mode? (add|remove)."
+      schema:
+        actorLabel: { type: string, required: true }
+        center:     { type: object, required: true }
+        radius:     { type: number }
+        strength:   { type: number }
+        mode:       { type: string }
+
+    volume_sculpt_angle:
+      task: voxel.volume_sculpt_angle
+      description: "Atomic. Move a voxel surface toward a plane (sculpt angles) on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::SculptAngle. Params: actorLabel, center ({x,y,z}), radius? (def 500), strength? (def 1), planePoint? ({x,y,z}), planeNormal? ({x,y,z}, def (0,0,1)), mergeMode? (intersection|override|union)."
+      schema:
+        actorLabel:  { type: string, required: true }
+        center:      { type: object, required: true }
+        radius:      { type: number }
+        strength:    { type: number }
+        planePoint:  { type: object }
+        planeNormal: { type: object }
+        mergeMode:   { type: string }
+
+    volume_paint_surface:
+      task: voxel.volume_paint_surface
+      description: "Atomic. Paint a surface type on a sculpt stamp of an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::PaintSurface. Params: actorLabel, center ({x,y,z}), radius? (def 500), strength? (def 0.05), mode? (add|remove), surfaceType? (object path to a UVoxelSurfaceTypeInterface asset)."
+      schema:
+        actorLabel:  { type: string, required: true }
+        center:      { type: object, required: true }
+        radius:      { type: number }
+        strength:    { type: number }
+        mode:        { type: string }
+        surfaceType: { type: string }
+
+    volume_clear_sculpt_data:
+      task: voxel.volume_clear_sculpt_data
+      description: "Atomic. Clear all sculpt data on an AVoxelVolumeSculptActor (resets edits). Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::ClearSculptData. Params: actorLabel."
+      schema:
+        actorLabel: { type: string, required: true }
+
 knowledge: {}
 
 tasks:
@@ -186,6 +271,30 @@ tasks:
   voxel.set_world_voxel_size:
     class_path: tasks/SetVoxelSize
     description: "Set AVoxelWorld::VoxelSize (atomic)"
+  voxel.volume_sculpt_sphere:
+    class_path: tasks/VolumeSculptSphere
+    description: "Volume sculpt: add/remove a sphere (atomic)"
+  voxel.volume_sculpt_cube:
+    class_path: tasks/VolumeSculptCube
+    description: "Volume sculpt: add/remove a cube (atomic)"
+  voxel.volume_flatten:
+    class_path: tasks/VolumeFlatten
+    description: "Volume sculpt: flatten along a normal (atomic)"
+  voxel.volume_smooth:
+    class_path: tasks/VolumeSmooth
+    description: "Volume sculpt: smooth a region (atomic)"
+  voxel.volume_sculpt_surface:
+    class_path: tasks/VolumeSculptSurface
+    description: "Volume sculpt: progressively sculpt a surface (atomic)"
+  voxel.volume_sculpt_angle:
+    class_path: tasks/VolumeSculptAngle
+    description: "Volume sculpt: angle a surface toward a plane (atomic)"
+  voxel.volume_paint_surface:
+    class_path: tasks/VolumePaintSurface
+    description: "Volume sculpt: paint a surface type (atomic)"
+  voxel.volume_clear_sculpt_data:
+    class_path: tasks/VolumeClearSculptData
+    description: "Volume sculpt: clear all sculpt data (atomic)"
 
 flows:
   voxel_hello_world:
