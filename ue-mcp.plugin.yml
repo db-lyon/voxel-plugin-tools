@@ -90,6 +90,19 @@ inject:
       schema:
         actorLabel: { type: string, required: true }
 
+    set_sculpt_save_asset:
+      task: voxel.set_sculpt_save_asset
+      description: "Link a sculpt actor (height or volume) to an external save asset so edits persist (height->UVoxelHeightSculptSaveAsset, volume->UVoxelVolumeSculptSaveAsset; type must match the actor). Wraps editor.execute_python -> SetExternalSaveAsset. Params: actorLabel, savePath (save asset object path)."
+      schema:
+        actorLabel: { type: string, required: true }
+        savePath:   { type: string, required: true }
+
+    get_sculpt_save_asset:
+      task: voxel.get_sculpt_save_asset
+      description: "Read the external save asset linked to a sculpt actor; returns its object path (or None) on a VOXEL_SAVE_ASSET= line. Wraps editor.execute_python -> GetExternalSaveAsset. Params: actorLabel."
+      schema:
+        actorLabel: { type: string, required: true }
+
     # ── World lifecycle / status (wrap editor.invoke_function) ────────────
     is_world_ready:
       task: voxel.is_world_ready
@@ -382,6 +395,12 @@ tasks:
   voxel.update_stamp_actor:
     class_path: tasks/UpdateStampActor
     description: "Call UpdateStamp on an AVoxelStampActor (atomic)"
+  voxel.set_sculpt_save_asset:
+    class_path: tasks/SetSculptSaveAsset
+    description: "Link a sculpt actor to an external save asset (atomic)"
+  voxel.get_sculpt_save_asset:
+    class_path: tasks/GetSculptSaveAsset
+    description: "Read a sculpt actor's external save asset (atomic)"
   voxel.volume_clear_sculpt_cache:
     class_path: tasks/VolumeClearSculptCache
     description: "Volume sculpt: free the sculpt cache (atomic)"
