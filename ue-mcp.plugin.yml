@@ -543,11 +543,11 @@ inject:
 
     set_property:
       task: voxel.set_asset_property
-      description: "Set one editor property on a Voxel asset and save it (e.g. a surface type's material/blend_smoothness, a heightmap's scale_xy). Wraps editor.execute_python (load_asset -> set_editor_property -> save). Params: assetPath, propertyName (snake_case), value (string|number|bool), valueIsAsset? (set true when the property holds a UObject ref, e.g. a Material — value is then an object path)."
+      description: "Set one editor property on a Voxel asset and save it (e.g. a surface type's material/blend_smoothness, a heightmap's scale_xy). Wraps editor.execute_python (load_asset -> set_editor_property -> save). Params: assetPath, propertyName (snake_case), value (always passed as a string — non-asset values that look numeric or boolean are coerced to the matching Python type: \"0.5\" -> float, \"true\"/\"false\" -> bool, otherwise kept as a string), valueIsAsset? (set true when the property holds a UObject ref, e.g. a Material — value is then an object path)."
       schema:
         assetPath:    { type: string, required: true }
         propertyName: { type: string, required: true }
-        value:        {}
+        value:        { type: string, required: true }
         valueIsAsset: { type: boolean }
 
   pcg:

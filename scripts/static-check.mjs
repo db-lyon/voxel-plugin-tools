@@ -13,6 +13,29 @@ const errors = [];
 const warnings = [];
 const ok = (m) => console.log(`  ok  ${m}`);
 
+// ── C0: the manifest validates against the HOST's own zod schema ──
+// This is what the server runs at load time; a failure here means the plugin is
+// silently skipped (e.g. a schema field missing its required `type`). Validate
+// here so we catch it before a wasted reconnect.
+console.log("[C0] manifest validates against the host PluginManifestSchema");
+try {
+  // Import by absolute file path — ue-mcp's package "exports" map doesn't expose
+  // this internal module as a subpath, but the file is there and is the schema
+  // the server actually loads with.
+  const manifestJs = resolve(root, "node_modules/ue-mcp/dist/plugin/manifest.js");
+  const { PluginManifestSchema } = await import(pathToFileURL(manifestJs).href);
+  const r = PluginManifestSchema.safeParse(manifest);
+  if (!r.success) {
+    for (const issue of r.error.issues) {
+      errors.push(`C0: ${issue.path.join(".")}: ${issue.message} (${issue.code})`);
+    }
+  } else {
+    ok("manifest is valid per the host schema");
+  }
+} catch (e) {
+  warnings.push(`C0: could not load host PluginManifestSchema (${e.message}); skipped — host-side load is the real gate`);
+}
+
 // Collect injected task refs: inject.<category>.<action>.task
 const injectedTasks = new Set();
 const injectActionToTask = {};

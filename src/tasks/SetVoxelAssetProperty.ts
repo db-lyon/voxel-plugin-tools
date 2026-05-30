@@ -6,7 +6,14 @@ interface Options {
   assetPath: string;
   /** snake_case editor property name (e.g. "material", "blend_smoothness", "scale_xy"). */
   propertyName: string;
-  /** The value. A string, number, or boolean; an asset object path if valueIsAsset. */
+  /**
+   * The value. Carried as a string over the MCP boundary (the host plugin
+   * schema has no union/any type), though a number or boolean is still accepted
+   * if a caller supplies one directly. When `valueIsAsset` is false, a string
+   * that looks numeric or boolean is coerced to the matching Python type so the
+   * underlying `set_editor_property` gets a real float/int/bool; an asset object
+   * path when `valueIsAsset` is true.
+   */
   value: string | number | boolean;
   /** If true, `value` is an object path to load_asset and assign (e.g. a Material). */
   valueIsAsset?: boolean;
@@ -32,12 +39,23 @@ export default class SetVoxelAssetProperty extends UeMcpTask<Options> {
     let valueExpr: string;
     if (o.valueIsAsset) {
       valueExpr = `unreal.load_asset(${pyStr(String(o.value))})`;
-    } else if (typeof o.value === "string") {
-      valueExpr = pyStr(o.value);
+    } else if (typeof o.value === "number") {
+      valueExpr = String(o.value);
     } else if (typeof o.value === "boolean") {
       valueExpr = o.value ? "True" : "False";
     } else {
-      valueExpr = String(o.value);
+      // Arrives as a string over the MCP boundary; coerce numeric/boolean-looking
+      // strings to a real Python literal so float/int/bool properties get the
+      // right type. A genuine string (incl. one that isn't a clean number/bool)
+      // is passed through quoted.
+      const s = o.value.trim();
+      if (/^(true|false)$/i.test(s)) {
+        valueExpr = /^true$/i.test(s) ? "True" : "False";
+      } else if (/^[+-]?(\d+\.?\d*|\.\d+)$/.test(s)) {
+        valueExpr = s;
+      } else {
+        valueExpr = pyStr(o.value);
+      }
     }
     const ap = pyStr(o.assetPath);
     const code = [
