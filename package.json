@@ -1,6 +1,6 @@
 {
   "name": "voxel-plugin-tools",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Voxel Plugin actions for ue-mcp. Cited to the C++ headers each action wraps; full reference under docs/.",
   "type": "module",
   "main": "dist/index.js",
@@ -37,7 +37,8 @@
   "scripts": {
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "build": "npm run clean && tsc",
-    "prepublishOnly": "npm run build"
+    "check": "node scripts/static-check.mjs && node scripts/schema-drift-check.mjs",
+    "prepublishOnly": "npm run build && npm run check"
   },
   "engines": {
     "node": ">=18"
