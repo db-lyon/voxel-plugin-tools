@@ -220,6 +220,56 @@ inject:
       schema:
         actorLabel: { type: string, required: true }
 
+    # ── Height sculpting (static VoxelHeightSculptBlueprintLibrary; ─────────
+    #    wrap editor.execute_python). Target an AVoxelHeightSculptActor by
+    #    label; center is 2D ({x,y}) world-space.
+    height_sculpt_height:
+      task: voxel.height_sculpt_height
+      description: "Atomic. Raise/lower height on an AVoxelHeightSculptActor. Wraps editor.execute_python -> VoxelHeightSculptBlueprintLibrary::SculptHeight. Header: Voxel/Public/Sculpt/Height/VoxelHeightSculptBlueprintLibrary.h. Params: actorLabel, center ({x,y}), radius? (def 500), strength? (def 0.5), mode? (add|remove)."
+      schema:
+        actorLabel: { type: string, required: true }
+        center:     { type: object, required: true }
+        radius:     { type: number }
+        strength:   { type: number }
+        mode:       { type: string }
+
+    height_flatten:
+      task: voxel.height_flatten
+      description: "Atomic. Flatten a height region toward a target height on an AVoxelHeightSculptActor. Wraps editor.execute_python -> VoxelHeightSculptBlueprintLibrary::Flatten. Params: actorLabel, center ({x,y}), radius? (def 500), falloff? (0..1, def 0.1), type? (additive|subtractive|both), targetHeight? (def 0)."
+      schema:
+        actorLabel:   { type: string, required: true }
+        center:       { type: object, required: true }
+        radius:       { type: number }
+        falloff:      { type: number }
+        type:         { type: string }
+        targetHeight: { type: number }
+
+    height_smooth:
+      task: voxel.height_smooth
+      description: "Atomic. Smooth/blur a height region on an AVoxelHeightSculptActor. Wraps editor.execute_python -> VoxelHeightSculptBlueprintLibrary::Smooth. Params: actorLabel, center ({x,y}), radius? (def 1000), strength? (def 1)."
+      schema:
+        actorLabel: { type: string, required: true }
+        center:     { type: object, required: true }
+        radius:     { type: number }
+        strength:   { type: number }
+
+    height_paint_surface:
+      task: voxel.height_paint_surface
+      description: "Atomic. Paint a surface type on a height sculpt stamp of an AVoxelHeightSculptActor. Wraps editor.execute_python -> VoxelHeightSculptBlueprintLibrary::PaintSurface. Params: actorLabel, center ({x,y}), radius? (def 500), strength? (def 0.05), mode? (add|remove), surfaceType? (object path to a UVoxelSurfaceTypeInterface asset)."
+      schema:
+        actorLabel:  { type: string, required: true }
+        center:      { type: object, required: true }
+        radius:      { type: number }
+        strength:    { type: number }
+        mode:        { type: string }
+        surfaceType: { type: string }
+
+    height_clear_sculpt_data:
+      task: voxel.height_clear_sculpt_data
+      description: "Atomic. Clear all sculpt data on an AVoxelHeightSculptActor (resets edits). Wraps editor.execute_python -> VoxelHeightSculptBlueprintLibrary::ClearSculptData. Params: actorLabel."
+      schema:
+        actorLabel: { type: string, required: true }
+
 knowledge: {}
 
 tasks:
@@ -295,6 +345,21 @@ tasks:
   voxel.volume_clear_sculpt_data:
     class_path: tasks/VolumeClearSculptData
     description: "Volume sculpt: clear all sculpt data (atomic)"
+  voxel.height_sculpt_height:
+    class_path: tasks/HeightSculptHeight
+    description: "Height sculpt: raise/lower height (atomic)"
+  voxel.height_flatten:
+    class_path: tasks/HeightFlatten
+    description: "Height sculpt: flatten toward a target height (atomic)"
+  voxel.height_smooth:
+    class_path: tasks/HeightSmooth
+    description: "Height sculpt: smooth a region (atomic)"
+  voxel.height_paint_surface:
+    class_path: tasks/HeightPaintSurface
+    description: "Height sculpt: paint a surface type (atomic)"
+  voxel.height_clear_sculpt_data:
+    class_path: tasks/HeightClearSculptData
+    description: "Height sculpt: clear all sculpt data (atomic)"
 
 flows:
   voxel_hello_world:

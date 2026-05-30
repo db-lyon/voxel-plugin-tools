@@ -7,6 +7,7 @@
  * exact literal forms the `unreal` Python API expects.
  */
 
+export interface Vec2 { x: number; y: number; }
 export interface Vec3 { x: number; y: number; z: number; }
 export interface Rot3 { pitch: number; yaw: number; roll: number; }
 
@@ -24,6 +25,14 @@ export function pyVec3(v: Vec3): string {
     throw new Error(`expected a {x,y,z} vector, got ${JSON.stringify(v)}`);
   }
   return `unreal.Vector(${pyFloat(v.x)}, ${pyFloat(v.y)}, ${pyFloat(v.z)})`;
+}
+
+/** `unreal.Vector2D(x, y)` from a {x,y}. */
+export function pyVec2(v: Vec2): string {
+  if (!v || typeof v.x !== "number" || typeof v.y !== "number") {
+    throw new Error(`expected a {x,y} vector, got ${JSON.stringify(v)}`);
+  }
+  return `unreal.Vector2D(${pyFloat(v.x)}, ${pyFloat(v.y)})`;
 }
 
 /** `unreal.Rotator(roll=, pitch=, yaw=)` from a {pitch,yaw,roll}. */
