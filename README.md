@@ -4,7 +4,9 @@
 
 ## Design
 
-**Every action wraps exactly one host ue-mcp call.** Orchestrations (spawn-then-configure, build-this-PCG-graph, splice-a-node) ship as **flows**, not as composite tasks. That keeps each action small, predictable, and rollback-friendly; the orchestration layer is where multi-step semantics live.
+**Every action wraps exactly one host ue-mcp call.** 
+
+Several **flows** (spawn-then-configure, build-this-PCG-graph, splice-a-node) have been included for convenience and demonstration.
 
 Full Voxel Plugin API reference under [`docs/`](docs/).
 
