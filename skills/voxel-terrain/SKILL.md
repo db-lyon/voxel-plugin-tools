@@ -7,6 +7,12 @@ description: Build procedural Voxel Plugin 2 terrain through ue-mcp's voxel cate
 
 Every step below is a `voxel(action=...)` call. All of them run as native handlers; never fall back to Python for Voxel work.
 
+## 0. Preflight: shader hooks
+
+Run `voxel_shader_hooks_status` first. Voxel materials render only when Voxel's patches to the engine shaders are applied; without them every generated surface shader compiles its voxel code out, so terrain shows the gray grid checker (Nanite) or renders near-black (non-Nanite), and nothing logs an error. If `allActive` is false: close the editor, run `UnrealEditor-Cmd.exe <project>.uproject -run=ApplyVoxelShaderHooks`, restart (shaders recompile). The patch lives in the engine install, so every machine that compiles shaders needs it.
+
+A new mega material's `NonNaniteMaterialType` defaults to `Custom` with no material: set it to `Generated` (`voxel_mega_material_set_surfaces`, `nonNaniteMaterialType: "Generated"`) or non-Nanite rendering falls back to the grid.
+
 ## 1. Assets
 
 Create through `voxel_asset_create` so graph types come from their factory (a new height graph already has Advanced Noise 2D wired to Output Height):

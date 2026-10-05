@@ -2,6 +2,7 @@
 #include "MCPHandlerRegistration.h"
 #include "FileHelpers.h"
 #include "UObject/Package.h"
+#include "VoxelGraphTracker.h"
 #include "VoxelToolsCommon.h"
 
 namespace
@@ -9,6 +10,7 @@ namespace
 	// Read-only handlers skip the save bookkeeping. Must match `effect: read` in ue-mcp.plugin.yml (scripts/check.mjs).
 	const TSet<FString> ReadHandlers =
 	{
+		TEXT("voxel_shader_hooks_status"),
 		TEXT("voxel_world_status"),
 		TEXT("voxel_stamp_read"),
 		TEXT("voxel_sculpt_asset_get"),
@@ -54,6 +56,11 @@ namespace
 		bool bSuccess = false;
 		if (Object.IsValid() && Object->TryGetBoolField(TEXT("success"), bSuccess) && bSuccess && Touched.Num() > 0)
 		{
+			// Voxel rebuilds compiled graphs on its next tick; saving before that stores stale compiled data.
+			if (GVoxelGraphTracker)
+			{
+				GVoxelGraphTracker->Flush();
+			}
 			TArray<UPackage*> DirtyContent;
 			FEditorFileUtils::GetDirtyContentPackages(DirtyContent);
 			TArray<UPackage*> ToSave;

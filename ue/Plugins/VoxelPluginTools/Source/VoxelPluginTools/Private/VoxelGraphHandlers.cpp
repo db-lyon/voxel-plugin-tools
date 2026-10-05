@@ -89,6 +89,8 @@ namespace
 	{
 		Target.EdGraph->NotifyGraphChanged();
 		GVoxelGraphTracker->NotifyEdGraphChanged(*Target.EdGraph);
+		// Voxel rebuilds the saved compiled graph on its next tick; flush now or the save below stores the pre-edit one.
+		GVoxelGraphTracker->Flush();
 		Target.Graph->MarkPackageDirty();
 
 		bool bSaved = false;
