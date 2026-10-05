@@ -31,49 +31,90 @@ namespace VoxelPluginTools
 {
 namespace
 {
-	// JSON field name to the AVoxelWorld property it edits.
+	// The AVoxelWorld property a JSON field edits, and the field's contract; the field's name is Spec.Name.
 	struct FWorldField
 	{
-		const TCHAR* Json;
 		FName Property;
+		FMCPParamSpec Spec;
 	};
+
+	FMCPParamSpec WorldBool(const TCHAR* Name, const TCHAR* Description)
+	{
+		return MCPParam::Optional(Name, EMCPParamType::Boolean, Description);
+	}
+
+	// int32 properties with ClampMin = 1 (VoxelWorld.h); ParseInto refuses anything outside [1, MAX_int32].
+	FMCPParamSpec WorldCount(const TCHAR* Name, const TCHAR* Description)
+	{
+		return MCPParam::Optional(Name, EMCPParamType::Integer, Description).Range(1, MAX_int32);
+	}
+
+	// Object properties: ParseInto takes a path that must load as the property class, or "" / null to clear.
+	FMCPParamSpec WorldAsset(const TCHAR* Name, const TCHAR* Description)
+	{
+		return MCPParam::Optional(Name, EMCPParamType::String, Description).Nullable();
+	}
+
+	FMCPParamField IntervalField(const TCHAR* Name, const TCHAR* Description)
+	{
+		return MCPParam::OptionalField(Name, EMCPParamType::Object, Description).WithFields({
+			MCPParam::OptionalField(TEXT("min"), EMCPParamType::Number, TEXT("Lowest quality, > 0; default keeps the current value.")),
+			MCPParam::OptionalField(TEXT("max"), EMCPParamType::Number, TEXT("Highest quality, >= min; default keeps the current value.")),
+		});
+	}
 
 	const TArray<FWorldField>& WorldFields()
 	{
 		static const TArray<FWorldField> Fields =
 		{
-			{ TEXT("layerStack"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, LayerStack) },
-			{ TEXT("megaMaterial"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, MegaMaterial) },
-			{ TEXT("voxelSize"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, VoxelSize) },
-			{ TEXT("lodQuality"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, LODQuality) },
-			{ TEXT("qualityExponent"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, QualityExponent) },
-			{ TEXT("enableNanite"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, bEnableNanite) },
-			{ TEXT("enableTessellation"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, bEnableTessellation) },
-			{ TEXT("enableLumen"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, bEnableLumen) },
-			{ TEXT("enableRaytracing"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, bEnableRaytracing) },
-			{ TEXT("generateMeshDistanceFields"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, bGenerateMeshDistanceFields) },
-			{ TEXT("blockinessMetadata"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, BlockinessMetadata) },
-			{ TEXT("renderChunkSize"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, RenderChunkSize) },
-			{ TEXT("useCameraAsInvoker"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, bUseCameraAsInvoker) },
-			{ TEXT("createRuntimeOnBeginPlay"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, bCreateRuntimeOnBeginPlay) },
-			{ TEXT("waitOnBeginPlay"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, bWaitOnBeginPlay) },
-			{ TEXT("limitMaxLOD"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, bLimitMaxLOD) },
-			{ TEXT("maxLOD"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, MaxLOD) },
-			{ TEXT("maxBackgroundTasks"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, MaxBackgroundTasks) },
-			{ TEXT("doubleSidedCollision"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, bDoubleSidedCollision) },
-			{ TEXT("generateOverlapEvents"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, bGenerateOverlapEvents) },
-			{ TEXT("collisionChunkSize"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, CollisionChunkSize) },
-			{ TEXT("overrideCollisionVoxelSize"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, bOverrideCollisionVoxelSize) },
-			{ TEXT("collisionVoxelSize"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, CollisionVoxelSize) },
-			{ TEXT("enableNavigation"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, bEnableNavigation) },
-			{ TEXT("navigationChunkSize"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, NavigationChunkSize) },
-			{ TEXT("generateNavigationInsideNavMeshBounds"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, bGenerateNavigationInsideNavMeshBounds) },
-			{ TEXT("onlyGenerateNavigationInEditor"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, bOnlyGenerateNavigationInEditor) },
-			{ TEXT("overrideNavigationVoxelSize"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, bOverrideNavigationVoxelSize) },
-			{ TEXT("navigationVoxelSize"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, NavigationVoxelSize) },
-			{ TEXT("renderScatterActors"), GET_MEMBER_NAME_CHECKED(AVoxelWorld, bRenderScatterActors) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, LayerStack), WorldAsset(TEXT("layerStack"), TEXT("UVoxelLayerStack asset path; \"\" or null clears it.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, MegaMaterial), WorldAsset(TEXT("megaMaterial"), TEXT("UVoxelMegaMaterial asset path; \"\" or null clears it.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, VoxelSize), WorldCount(TEXT("voxelSize"), TEXT("Voxel size in centimetres, an integer >= 1; the default world uses 100.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, LODQuality), MCPParam::Optional(TEXT("lodQuality"), EMCPParamType::Object,
+				TEXT("FVoxelLODQuality merged onto the current value; each interval needs 0 < min <= max after the merge.")).WithFields({
+					IntervalField(TEXT("gameQuality"), TEXT("Quality range at game time.")),
+					IntervalField(TEXT("editorQuality"), TEXT("Quality range in the editor.")),
+					MCPParam::OptionalField(TEXT("alwaysUseGameQuality"), EMCPParamType::Boolean, TEXT("Use gameQuality in the editor too.")),
+				}) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, QualityExponent), MCPParam::Optional(TEXT("qualityExponent"), EMCPParamType::Number,
+				TEXT("LOD selection bias; higher gives far chunks more resolution. The details panel offers 0.5 to 1.5; default 1.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, bEnableNanite), WorldBool(TEXT("enableNanite"), TEXT("Render the voxel mesh with Nanite; default true.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, bEnableTessellation), WorldBool(TEXT("enableTessellation"), TEXT("Nanite tessellation (displacement); default true.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, bEnableLumen), WorldBool(TEXT("enableLumen"), TEXT("Include the voxel mesh in Lumen; default false.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, bEnableRaytracing), WorldBool(TEXT("enableRaytracing"), TEXT("Visible in ray-traced effects; default false.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, bGenerateMeshDistanceFields), WorldBool(TEXT("generateMeshDistanceFields"), TEXT("Generate mesh distance fields; default false.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, BlockinessMetadata), WorldAsset(TEXT("blockinessMetadata"), TEXT("UVoxelFloatMetadata asset path selecting how blocky each voxel renders; \"\" or null clears it.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, RenderChunkSize), MCPParam::Optional(TEXT("renderChunkSize"), EMCPParamType::String,
+				TEXT("EVoxelRenderChunkSize render chunk size in voxels; default Size32.")).Enum({ TEXT("Size32"), TEXT("Size64"), TEXT("Size128"), TEXT("Size256") }) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, bUseCameraAsInvoker), WorldBool(TEXT("useCameraAsInvoker"), TEXT("Use the camera as an LOD invoker; default true.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, bCreateRuntimeOnBeginPlay), WorldBool(TEXT("createRuntimeOnBeginPlay"), TEXT("Create the runtime on BeginPlay; false needs a manual CreateRuntime. Default true.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, bWaitOnBeginPlay), WorldBool(TEXT("waitOnBeginPlay"), TEXT("Block BeginPlay until the world is generated; default true.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, bLimitMaxLOD), WorldBool(TEXT("limitMaxLOD"), TEXT("Enable the maxLOD render cap; default false.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, MaxLOD), MCPParam::Optional(TEXT("maxLOD"), EMCPParamType::Integer,
+				TEXT("With limitMaxLOD, chunks with a LOD strictly above this are not rendered; an int32, default 30.")).Range(MIN_int32, MAX_int32) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, MaxBackgroundTasks), WorldCount(TEXT("maxBackgroundTasks"), TEXT("Background task cap, an integer >= 1; default 256.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, bDoubleSidedCollision), WorldBool(TEXT("doubleSidedCollision"), TEXT("Double-sided collision; default false.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, bGenerateOverlapEvents), WorldBool(TEXT("generateOverlapEvents"), TEXT("Collision generates overlap events; default false.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, CollisionChunkSize), WorldCount(TEXT("collisionChunkSize"), TEXT("Invoker collision chunk size in voxels, an integer >= 1; default 32.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, bOverrideCollisionVoxelSize), WorldBool(TEXT("overrideCollisionVoxelSize"), TEXT("Use collisionVoxelSize instead of voxelSize for collision; default false.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, CollisionVoxelSize), WorldCount(TEXT("collisionVoxelSize"), TEXT("Collision voxel size in centimetres, an integer >= 1; default 100.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, bEnableNavigation), WorldBool(TEXT("enableNavigation"), TEXT("Generate navigation on voxel chunks; default true.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, NavigationChunkSize), WorldCount(TEXT("navigationChunkSize"), TEXT("Navigation chunk size in voxels, an integer >= 1; default 32.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, bGenerateNavigationInsideNavMeshBounds), WorldBool(TEXT("generateNavigationInsideNavMeshBounds"),
+				TEXT("Generate navigation on every chunk inside NavMeshBoundsVolumes, expensive for large bounds; default false.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, bOnlyGenerateNavigationInEditor), WorldBool(TEXT("onlyGenerateNavigationInEditor"), TEXT("Only generate navigation in the editor, for baking; default false.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, bOverrideNavigationVoxelSize), WorldBool(TEXT("overrideNavigationVoxelSize"), TEXT("Use navigationVoxelSize instead of voxelSize for navigation; default false.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, NavigationVoxelSize), WorldCount(TEXT("navigationVoxelSize"), TEXT("Navigation voxel size in centimetres, an integer >= 1; default 100.")) },
+			{ GET_MEMBER_NAME_CHECKED(AVoxelWorld, bRenderScatterActors), WorldBool(TEXT("renderScatterActors"), TEXT("Render scatter actors; default true.")) },
 		};
 		return Fields;
+	}
+
+	const FWorldField& WorldField(const TCHAR* Name)
+	{
+		const FWorldField* Field = WorldFields().FindByPredicate([&](const FWorldField& F) { return F.Spec.Name == Name; });
+		check(Field);
+		return *Field;
 	}
 
 	// A new property value parsed and validated before anything is mutated.
@@ -185,8 +226,21 @@ namespace
 			return false;
 		}
 		double Min = InOut.Min, Max = InOut.Max;
-		(*Interval)->TryGetNumberField(TEXT("min"), Min);
-		(*Interval)->TryGetNumberField(TEXT("max"), Max);
+		for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : (*Interval)->Values)
+		{
+			const bool bMin = Pair.Key.Equals(TEXT("min"), ESearchCase::CaseSensitive);
+			if (!bMin && !Pair.Key.Equals(TEXT("max"), ESearchCase::CaseSensitive))
+			{
+				OutError = FString::Printf(TEXT("lodQuality.%s takes only min and max (got %s)"), Field, *Pair.Key);
+				return false;
+			}
+			if (!Pair.Value.IsValid() || Pair.Value->Type != EJson::Number || !FMath::IsFinite(Pair.Value->AsNumber()))
+			{
+				OutError = FString::Printf(TEXT("lodQuality.%s.%s must be a number"), Field, *Pair.Key);
+				return false;
+			}
+			(bMin ? Min : Max) = Pair.Value->AsNumber();
+		}
 		if (Min <= 0 || Max <= 0 || Min > Max)
 		{
 			OutError = FString::Printf(TEXT("lodQuality.%s needs 0 < min <= max (got %g, %g)"), Field, Min, Max);
@@ -327,10 +381,23 @@ namespace
 			{
 				return false;
 			}
-			if ((*Object)->HasField(TEXT("alwaysUseGameQuality")) && !(*Object)->TryGetBoolField(TEXT("alwaysUseGameQuality"), Quality.bAlwaysUseGameQuality))
+			for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : (*Object)->Values)
 			{
-				OutError = TEXT("lodQuality.alwaysUseGameQuality must be a boolean");
-				return false;
+				if (Pair.Key.Equals(TEXT("alwaysUseGameQuality"), ESearchCase::CaseSensitive))
+				{
+					// TryGetBoolField would read any string through FString::ToBool.
+					if (!Pair.Value.IsValid() || Pair.Value->Type != EJson::Boolean)
+					{
+						OutError = TEXT("lodQuality.alwaysUseGameQuality must be a boolean");
+						return false;
+					}
+					Quality.bAlwaysUseGameQuality = Pair.Value->AsBool();
+				}
+				else if (!Pair.Key.Equals(TEXT("gameQuality"), ESearchCase::CaseSensitive) && !Pair.Key.Equals(TEXT("editorQuality"), ESearchCase::CaseSensitive))
+				{
+					OutError = FString::Printf(TEXT("lodQuality takes gameQuality, editorQuality and alwaysUseGameQuality (got %s)"), *Pair.Key);
+					return false;
+				}
 			}
 			return true;
 		}
@@ -361,8 +428,9 @@ namespace
 	{
 		for (const FWorldField& Field : WorldFields())
 		{
-			if (Allowed.Contains(Field.Json) && Has(Params, Field.Json) &&
-				!Stage(Params, Field.Json, *AVoxelWorld::StaticClass(), Field.Property, &Container, Out, OutError))
+			const TCHAR* Json = *Field.Spec.Name;
+			if (Allowed.Contains(Field.Spec.Name) && Has(Params, Json) &&
+				!Stage(Params, Json, *AVoxelWorld::StaticClass(), Field.Property, &Container, Out, OutError))
 			{
 				return false;
 			}
@@ -506,19 +574,11 @@ namespace
 		AVoxelWorld* World = FindWorld(Params, Err);
 		if (!World) return Error(Err);
 
-		TArray<FString> Known = { TEXT("actorPath"), TEXT("actorLabel"), TEXT("save") };
+		// Unknown fields never get here: the contract refuses them (RunHandler).
 		TArray<FString> Editable;
 		for (const FWorldField& Field : WorldFields())
 		{
-			Known.Add(Field.Json);
-			Editable.Add(Field.Json);
-		}
-		for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Params->Values)
-		{
-			if (!Known.Contains(Pair.Key))
-			{
-				return Error(FString::Printf(TEXT("Unknown field '%s'. Editable fields: %s"), *Pair.Key, *FString::Join(Editable, TEXT(", "))));
-			}
+			Editable.Add(Field.Spec.Name);
 		}
 
 		FStaged Staged;
@@ -563,8 +623,8 @@ namespace
 		if (!World) return Error(Err);
 
 		const FString Op = Str(Params, TEXT("op"));
-		const bool bCreate = Op == TEXT("create");
-		if (!bCreate && Op != TEXT("destroy")) return Error(TEXT("op must be 'create' or 'destroy'"));
+		const bool bCreate = Op.Equals(TEXT("create"), ESearchCase::CaseSensitive);
+		if (!bCreate && !Op.Equals(TEXT("destroy"), ESearchCase::CaseSensitive)) return Error(TEXT("op must be 'create' or 'destroy'"));
 
 		// The runtime is transient state, so there is nothing to record in a transaction.
 		const bool bWasCreated = World->IsRuntimeCreated();
@@ -794,17 +854,79 @@ namespace
 
 void AddWorldHandlers(TArray<FHandlerEntry>& Out)
 {
-	Out.Append(
+	const auto Location = [] { return Spec::Vec3(TEXT("location"), TEXT("World location in centimetres; default the origin.")); };
+	const auto Rotation = [] { return MCPParam::Optional(TEXT("rotation"), EMCPParamType::Rotator, TEXT("World rotation in degrees; default zero.")); };
+	const auto Label = [](const TCHAR* Description) { return MCPParam::Optional(TEXT("label"), EMCPParamType::String, Description); };
+	const auto WorldActor = [](TArray<FMCPParamSpec> Rest)
 	{
-		{ TEXT("voxel_shader_hooks_status"), &ShaderHooksStatus },
-		{ TEXT("voxel_world_spawn"), &WorldSpawn },
-		{ TEXT("voxel_world_configure"), &WorldConfigure },
-		{ TEXT("voxel_world_status"), &WorldStatus },
-		{ TEXT("voxel_world_runtime"), &WorldRuntime },
-		{ TEXT("voxel_actor_spawn"), &ActorSpawn },
-		{ TEXT("voxel_component_add"), &ComponentAdd },
-		{ TEXT("voxel_no_clipping_set_layer"), &NoClippingSetLayer },
-	});
+		Rest.Insert({
+			Spec::ActorPath(TEXT("AVoxelWorld actor object path; preferred, since labels can repeat.")),
+			Spec::ActorLabel(TEXT("AVoxelWorld actor label; must match exactly one actor.")),
+		}, 0);
+		return Rest;
+	};
+
+	Out.Add({ TEXT("voxel_shader_hooks_status"), &ShaderHooksStatus, {} });
+
+	TArray<FMCPParamSpec> SpawnParams = {
+		Label(TEXT("Actor label; default the engine's generated label.")),
+		Location(),
+		Rotation(),
+	};
+	for (const FString& Name : SpawnWorldFields())
+	{
+		SpawnParams.Add(WorldField(*Name).Spec);
+	}
+	SpawnParams.Add(Spec::SaveDirty());
+	Out.Add({ TEXT("voxel_world_spawn"), &WorldSpawn, SpawnParams,
+		MCPSpec::ContractExempt(TEXT("Every parameter is optional, so the contract values spawn a voxel world before anything can fail")) });
+
+	TArray<FMCPParamSpec> ConfigureFields;
+	for (const FWorldField& Field : WorldFields())
+	{
+		ConfigureFields.Add(Field.Spec);
+	}
+	TArray<FMCPParamSpec> ConfigureParams = WorldActor(ConfigureFields);
+	ConfigureParams.Add(Spec::SaveDirty());
+	Out.Add({ TEXT("voxel_world_configure"), &WorldConfigure, ConfigureParams, Spec::OneActor().AtLeastOne(Spec::Branches(ConfigureFields)) });
+
+	Out.Add({ TEXT("voxel_world_status"), &WorldStatus, WorldActor({}), Spec::OneActor() });
+
+	Out.Add({ TEXT("voxel_world_runtime"), &WorldRuntime, WorldActor({
+		MCPParam::Required(TEXT("op"), EMCPParamType::String, TEXT("create builds the world's runtime, destroy releases it; transient and not undoable."))
+			.Enum({ TEXT("create"), TEXT("destroy") }),
+		Spec::SaveDirty(),
+	}), Spec::OneActor() });
+
+	Out.Add({ TEXT("voxel_actor_spawn"), &ActorSpawn, {
+		MCPParam::Required(TEXT("kind"), EMCPParamType::String,
+			TEXT("stamp (AVoxelStampActor), height_sculpt (AVoxelSculptHeight), volume_sculpt (AVoxelSculptVolume), collision_baker (AVoxelCollisionBaker) or debug (AVoxelDebugActor)."))
+			.Enum({ TEXT("stamp"), TEXT("height_sculpt"), TEXT("volume_sculpt"), TEXT("collision_baker"), TEXT("debug") }),
+		Label(TEXT("Actor label, non-empty; stamp actors use it as a prefix and append their stamp description.")),
+		Location(),
+		Rotation(),
+		Spec::SaveDirty(),
+	}, MCPSpec::ContractExempt(TEXT("The contract values spawn a Voxel actor before anything can fail")) });
+
+	Out.Add({ TEXT("voxel_component_add"), &ComponentAdd, {
+		Spec::ActorPath(TEXT("Actor object path; preferred, since labels can repeat.")),
+		Spec::ActorLabel(TEXT("Actor label; must match exactly one actor.")),
+		MCPParam::Required(TEXT("kind"), EMCPParamType::String,
+			TEXT("stamp (UVoxelStampComponent), instanced_stamp (UVoxelInstancedStampComponent) or no_clipping (UVoxelNoClippingComponent)."))
+			.Enum({ TEXT("stamp"), TEXT("instanced_stamp"), TEXT("no_clipping") }),
+		Spec::ComponentName(TEXT("Object name for the new component, a valid object name not used by another subobject of the actor; default a generated unique name.")),
+		Spec::SaveDirty(),
+	}, Spec::OneActor() });
+
+	Out.Add({ TEXT("voxel_no_clipping_set_layer"), &NoClippingSetLayer, {
+		Spec::ActorPath(TEXT("Actor object path; preferred, since labels can repeat.")),
+		Spec::ActorLabel(TEXT("Actor label; must match exactly one actor.")),
+		Spec::ComponentName(TEXT("UVoxelNoClippingComponent object name; default the actor's first one.")),
+		MCPParam::Optional(TEXT("stack"), EMCPParamType::String, TEXT("UVoxelLayerStack asset path; with only layer given, the project default stack.")),
+		MCPParam::Optional(TEXT("layer"), EMCPParamType::String, TEXT("UVoxelVolumeLayer asset path, since the component samples a volume layer; with only stack given, the default volume layer.")),
+		MCPParam::Optional(TEXT("autoAdjustPlayer"), EMCPParamType::Boolean, TEXT("Teleport the owner back to its last valid location when it clips into the volume.")),
+		Spec::SaveDirty(),
+	}, Spec::OneActor().AtLeastOne({ { TEXT("stack") }, { TEXT("layer") }, { TEXT("autoAdjustPlayer") } }) });
 }
 }
 
