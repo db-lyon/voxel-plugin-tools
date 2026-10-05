@@ -6,6 +6,7 @@
     "ue/Plugins/VoxelPluginTools/Source",
     "ue/Plugins/VoxelPluginTools/VoxelPluginTools.uplugin",
     "ue-mcp.plugin.yml",
+    "handler-specs.json",
     "knowledge",
     "skills",
     "README.md",
