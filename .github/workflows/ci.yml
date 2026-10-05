@@ -38,19 +38,10 @@ jobs:
           rm -f package-lock.json
           npm install --include=optional
 
-      - name: Type-check & build
-        # `tsc` is the build script and the strictest validation we have for
-        # this plugin (no unit tests yet). Failing here blocks publish.
-        run: npm run build
-
-      - name: Verify build output
-        # Fail loud if the package would publish without its task files.
-        run: |
-          for f in dist/index.js \
-                   dist/tasks/SpawnWorld.js \
-                   dist/tasks/IsWorldReady.js; do
-            test -s "$f" || (echo "$f missing or empty" && exit 1)
-          done
+      - name: Check manifest, native handlers and skills
+        # The plugin is native-only: every action is a C++ handler in ue/. The check
+        # validates the manifest with the host schema and matches it to the C++.
+        run: npm run check
 
       - name: Audit (high+ only, production deps)
         run: npm audit --omit=dev --audit-level=high
@@ -102,12 +93,11 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Install & Build
+      - name: Install
         if: steps.version.outputs.changed == 'true'
         run: |
           rm -f package-lock.json
           npm install --include=optional
-          npm run build
 
       - name: Tag release (before publish)
         if: steps.version.outputs.changed == 'true'

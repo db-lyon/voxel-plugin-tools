@@ -201,3 +201,4 @@ tests/voxel_plugin_tools/.ue-mcp/
 bench/
 tests/voxel_plugin_tools/Plugins/VoxelPluginTools
 tests/voxel_plugin_tools/Content/VoxelTest/
+tests/voxel_plugin_tools/Content/VoxelSmoke/

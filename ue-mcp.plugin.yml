@@ -1,871 +1,1214 @@
+# Every action is a native handler in ue/Plugins/VoxelPluginTools (Voxel exposes most of
+# this to neither Python nor reflection). Actors are addressed by actorPath (stable) or
+# actorLabel; rotations are {pitch,yaw,roll}.
 actionPrefix: voxel
-minServerVersion: 1.0.15
+minServerVersion: 1.3.8
 uePluginDependency: Voxel
-
-# Native handlers: voxel graph authoring and stamp parameters, which Voxel does
-# not expose to Python or reflection. Source: ue/Plugins/VoxelPluginTools.
 nativeModule:
   uePluginName: VoxelPluginTools
   minBridgeApi: 1
+  supportedEngineVersions:
+    - '5.8'
   source: ue/Plugins/VoxelPluginTools
   category: voxel
-  categoryDescription: "Author Voxel Plugin graphs (nodes, pins, parameters, T3D) and set graph-stamp parameters"
+  categoryDescription: 'Voxel Plugin 2: worlds, stamps, sculpting, layer queries, voxel assets, voxel PCG nodes, and graph authoring'
   handlers:
+    voxel_world_spawn:
+      effect: mutate
+      description: >-
+        Spawn an AVoxelWorld in the editor's current level (undoable, selected like a drag-in) and apply optional config through the details-panel edit path. Returns the actor, each applied field with
+        previous/value/changed, and runtimeCreated. Params: label?, location?, rotation?, layerStack?, megaMaterial?, voxelSize?, save?.
+      schema:
+        label:
+          type: string
+          description: Actor label
+        location:
+          type: object
+          description: '{x,y,z} centimetres; default origin'
+        rotation:
+          type: object
+          description: '{pitch,yaw,roll} degrees; default zero'
+        layerStack:
+          type: string
+          description: UVoxelLayerStack asset path
+        megaMaterial:
+          type: string
+          description: UVoxelMegaMaterial asset path
+        voxelSize:
+          type: number
+          description: Voxel size in cm, integer >= 1
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
+    voxel_world_configure:
+      effect: mutate
+      description: >-
+        Set AVoxelWorld properties through PreEditChange/PostEditChangeProperty, as a details-panel edit does, in one undoable transaction. All values are validated before anything changes; unknown
+        fields are errors. Object fields take an asset path, or an empty string to clear. Returns previous/value/changed per field and an overall changed. Params: actorPath|actorLabel (required), at
+        least one of layerStack?, megaMaterial?, voxelSize?, lodQuality?, qualityExponent?, enableNanite?, enableTessellation?, enableLumen?, enableRaytracing?, generateMeshDistanceFields?,
+        blockinessMetadata?, renderChunkSize?, useCameraAsInvoker?, createRuntimeOnBeginPlay?, waitOnBeginPlay?, limitMaxLOD?, maxLOD?, maxBackgroundTasks?, doubleSidedCollision?,
+        generateOverlapEvents?, collisionChunkSize?, overrideCollisionVoxelSize?, collisionVoxelSize?, enableNavigation?, navigationChunkSize?, generateNavigationInsideNavMeshBounds?,
+        onlyGenerateNavigationInEditor?, overrideNavigationVoxelSize?, navigationVoxelSize?, renderScatterActors?, save?.
+      schema:
+        actorPath:
+          type: string
+          description: Actor object path (preferred)
+        actorLabel:
+          type: string
+          description: Actor label
+        layerStack:
+          type: string
+          description: UVoxelLayerStack asset path, or an empty string to clear
+        megaMaterial:
+          type: string
+          description: UVoxelMegaMaterial asset path, or an empty string to clear
+        voxelSize:
+          type: number
+          description: Voxel size in cm, integer >= 1
+        lodQuality:
+          type: object
+          description: 'Partial FVoxelLODQuality merged onto the current value: {gameQuality?: {min,max}, editorQuality?: {min,max}, alwaysUseGameQuality?: bool}; 0 < min <= max'
+        qualityExponent:
+          type: number
+          description: LOD selection bias; higher gives far chunks more resolution (UI range 0.5 to 1.5)
+        enableNanite:
+          type: boolean
+          description: Render the voxel mesh with Nanite
+        enableTessellation:
+          type: boolean
+          description: Nanite tessellation (displacement)
+        enableLumen:
+          type: boolean
+          description: Include the voxel mesh in Lumen
+        enableRaytracing:
+          type: boolean
+          description: Visible in ray tracing effects
+        generateMeshDistanceFields:
+          type: boolean
+          description: Generate mesh distance fields
+        blockinessMetadata:
+          type: string
+          description: UVoxelFloatMetadata asset path controlling blocky rendering, or an empty string to clear
+        renderChunkSize:
+          type: string
+          description: 'EVoxelRenderChunkSize: Size32, Size64, Size128 or Size256 (display names 32/64/128/256 also accepted)'
+        useCameraAsInvoker:
+          type: boolean
+          description: Use the camera as an LOD invoker
+        createRuntimeOnBeginPlay:
+          type: boolean
+          description: Create the runtime on BeginPlay; false requires a manual CreateRuntime
+        waitOnBeginPlay:
+          type: boolean
+          description: Block BeginPlay until the world is generated
+        limitMaxLOD:
+          type: boolean
+          description: Enable the maxLOD render cap
+        maxLOD:
+          type: number
+          description: Chunks with a LOD strictly above this are not rendered when limitMaxLOD is true
+        maxBackgroundTasks:
+          type: number
+          description: Background task cap, integer >= 1
+        doubleSidedCollision:
+          type: boolean
+          description: Double-sided collision
+        generateOverlapEvents:
+          type: boolean
+          description: Collision generates overlap events
+        collisionChunkSize:
+          type: number
+          description: Invoker collision chunk size, integer >= 1
+        overrideCollisionVoxelSize:
+          type: boolean
+          description: Use collisionVoxelSize instead of voxelSize for collision
+        collisionVoxelSize:
+          type: number
+          description: Collision voxel size in cm, integer >= 1
+        enableNavigation:
+          type: boolean
+          description: Generate navigation on voxel chunks
+        navigationChunkSize:
+          type: number
+          description: Navigation chunk size, integer >= 1
+        generateNavigationInsideNavMeshBounds:
+          type: boolean
+          description: Generate navigation on every chunk inside NavMeshBoundsVolumes (expensive for large bounds)
+        onlyGenerateNavigationInEditor:
+          type: boolean
+          description: Only generate navigation in editor, for baking
+        overrideNavigationVoxelSize:
+          type: boolean
+          description: Use navigationVoxelSize instead of voxelSize for navigation
+        navigationVoxelSize:
+          type: number
+          description: Navigation voxel size in cm, integer >= 1
+        renderScatterActors:
+          type: boolean
+          description: Render scatter actors
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
+    voxel_world_status:
+      effect: read
+      description: >-
+        Read a voxel world's runtime state and core config: runtimeCreated, isReady, processingNewState, progress (0..1), pendingTasks, layerStack, megaMaterial, voxelSize. Params:
+        actorPath|actorLabel (required).
+      schema:
+        actorPath:
+          type: string
+          description: Actor object path (preferred)
+        actorLabel:
+          type: string
+          description: Actor label
+    voxel_world_runtime:
+      effect: mutate
+      description: >-
+        Create or destroy a voxel world's runtime (transient, not undoable). In the editor any construction-script rerun, such as moving or editing the world, recreates a destroyed runtime. Returns
+        runtimeCreated and changed. Params: actorPath|actorLabel (required), op (required), save?.
+      schema:
+        actorPath:
+          type: string
+          description: Actor object path (preferred)
+        actorLabel:
+          type: string
+          description: Actor label
+        op:
+          type: string
+          description: create or destroy (required)
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
+    voxel_actor_spawn:
+      effect: mutate
+      description: >-
+        Spawn a Voxel actor in the editor's current level (undoable). Stamp actors treat the label as a prefix and append their stamp description, so key later calls on the returned actorPath. Params:
+        kind (required), label?, location?, rotation?, save?.
+      schema:
+        kind:
+          type: string
+          description: stamp (AVoxelStampActor), height_sculpt (AVoxelSculptHeight), volume_sculpt (AVoxelSculptVolume), collision_baker (AVoxelCollisionBaker) or debug (AVoxelDebugActor) (required)
+        label:
+          type: string
+          description: Actor label (a prefix for stamp actors)
+        location:
+          type: object
+          description: '{x,y,z} centimetres; default origin'
+        rotation:
+          type: object
+          description: '{pitch,yaw,roll} degrees; default zero'
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
+    voxel_component_add:
+      effect: mutate
+      description: >-
+        Add a Voxel component to an actor as an instance component, the way the editor's Add Component does: attached to the root (or made the root when there is none), registered, undoable. Returns
+        componentName, componentClass and isRoot. Params: actorPath|actorLabel (required), kind (required), componentName?, save?.
+      schema:
+        actorPath:
+          type: string
+          description: Actor object path (preferred)
+        actorLabel:
+          type: string
+          description: Actor label
+        kind:
+          type: string
+          description: stamp (UVoxelStampComponent), instanced_stamp (UVoxelInstancedStampComponent) or no_clipping (UVoxelNoClippingComponent) (required)
+        componentName:
+          type: string
+          description: Object name for the component; must be unique on the actor. Default is a generated unique name
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
+    voxel_no_clipping_set_layer:
+      effect: mutate
+      description: >-
+        Set a UVoxelNoClippingComponent's volume layer and/or bAutoAdjustPlayer through the details-panel edit path, undoable. The component samples a volume layer, so layer must be a
+        UVoxelVolumeLayer; an omitted stack or layer defaults to the project default. Returns previous/value/changed per field. Params: actorPath|actorLabel (required), componentName?, stack?, layer?,
+        autoAdjustPlayer? (at least one of stack, layer, autoAdjustPlayer), save?.
+      schema:
+        actorPath:
+          type: string
+          description: Actor object path (preferred)
+        actorLabel:
+          type: string
+          description: Actor label
+        componentName:
+          type: string
+          description: Component object name; default is the actor's first no-clipping component
+        stack:
+          type: string
+          description: UVoxelLayerStack asset path; default is the project default stack
+        layer:
+          type: string
+          description: UVoxelVolumeLayer asset path; default is the default volume layer
+        autoAdjustPlayer:
+          type: boolean
+          description: Teleport the owner back to its last valid location when it clips into the volume
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
+    voxel_stamp_set:
+      effect: mutate
+      description: >-
+        Set the stamp on a stamp actor's UVoxelStampComponent, building the stamp struct for the given kind; unspecified fields keep their values when the component already holds a stamp of that kind,
+        and the component transform places the stamp. Returns the stamp read-back. Params: actorPath or actorLabel (one required), componentName?, kind (required: height_graph, volume_graph,
+        heightmap, mesh, height_spline, volume_spline), asset (required unless the current stamp of this kind has one), layer?, blendMode?, priority?, smoothness?, behavior?, applyOnVoid?,
+        heightPaddingMultiplier? (height kinds), boundsExtensionMultiplier? and maximumBoundsExtension? (volume kinds), surfaceType? (heightmap, mesh), useTricubic? (mesh), parameters? (graph and
+        spline kinds), save?.
+      schema:
+        actorPath:
+          type: string
+          description: Stamp actor object path (preferred; stamp actors relabel themselves)
+        actorLabel:
+          type: string
+          description: Stamp actor label, used when actorPath is absent
+        componentName:
+          type: string
+          description: UVoxelStampComponent object name; default is the actor's first stamp component
+        kind:
+          type: string
+          description: 'Stamp kind: height_graph, volume_graph, heightmap, mesh, height_spline or volume_spline (required)'
+        asset:
+          type: string
+          description: UVoxelHeightGraph, UVoxelVolumeGraph, UVoxelHeightmap, UVoxelStaticMesh, UVoxelHeightSplineGraph or UVoxelVolumeSplineGraph path matching kind; changing a graph clears its overrides
+        layer:
+          type: string
+          description: UVoxelHeightLayer (height kinds) or UVoxelVolumeLayer (volume kinds) path; default keeps the current layer, else the project default layer
+        blendMode:
+          type: string
+          description: 'Height kinds: Max, Min, Override. Volume kinds: Additive, Subtractive, Intersect, Override'
+        priority:
+          type: number
+          description: Integer priority within the layer; higher applies later
+        smoothness:
+          type: number
+          description: Blend smoothness in cm, >= 0
+        behavior:
+          type: string
+          description: 'EVoxelStampBehavior: AffectAll, AffectShape, AffectSurfaceType, AffectMetadata, AffectShapeAndSurfaceType, AffectShapeAndMetadata, AffectSurfaceTypeAndMetadata'
+        applyOnVoid:
+          type: boolean
+          description: False applies only where an earlier stamp already applied (ignored for Override and Intersect)
+        heightPaddingMultiplier:
+          type: number
+          description: 'Height kinds: bounds padding relative to bounds size, >= 0'
+        boundsExtensionMultiplier:
+          type: number
+          description: 'Volume kinds: bounds extension relative to bounds size, >= 0'
+        maximumBoundsExtension:
+          type: number
+          description: 'Volume kinds: cap on the bounds extension in cm, >= 0'
+        surfaceType:
+          type: string
+          description: 'heightmap: default surface type; mesh: surface type. UVoxelSurfaceTypeInterface path, empty string clears'
+        useTricubic:
+          type: boolean
+          description: 'mesh only: tricubic interpolation (slower, smoother)'
+        parameters:
+          type: object
+          description: '{ parameterName: value } graph parameter overrides (graph and spline kinds)'
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
+    voxel_stamp_read:
+      effect: read
+      description: >-
+        Read a stamp actor's UVoxelStampComponent stamp: kind, struct, asset, layer, blend mode, priority, smoothness, behavior, kind-specific fields and enabled graph parameter overrides. Params:
+        actorPath or actorLabel (one required), componentName?.
+      schema:
+        actorPath:
+          type: string
+          description: Stamp actor object path (preferred; stamp actors relabel themselves)
+        actorLabel:
+          type: string
+          description: Stamp actor label, used when actorPath is absent
+        componentName:
+          type: string
+          description: UVoxelStampComponent object name; default is the actor's first stamp component
+    voxel_instanced_stamps:
+      effect: mutate
+      description: >-
+        Add, remove, clear, refresh or count the stamps on an actor's UVoxelInstancedStampComponent; add takes the same stamp fields as voxel_stamp_set (spline kinds excluded) plus one transform per
+        instance. Returns count, validCount and optionally every stamp. Params: actorPath or actorLabel (one required), componentName?, op (required: add, remove, clear, update, count), kind and asset
+        and transforms (add), layer?, blendMode?, priority?, smoothness?, behavior?, applyOnVoid?, heightPaddingMultiplier?, boundsExtensionMultiplier?, maximumBoundsExtension?, surfaceType?,
+        useTricubic?, parameters?, relativeToComponent? (add), index (remove), indices? (update), includeStamps?, save?.
+      schema:
+        actorPath:
+          type: string
+          description: Actor object path (preferred)
+        actorLabel:
+          type: string
+          description: Actor label, used when actorPath is absent
+        componentName:
+          type: string
+          description: UVoxelInstancedStampComponent object name; default is the actor's first one
+        op:
+          type: string
+          description: add, remove, clear, update or count (required)
+        kind:
+          type: string
+          description: 'add: height_graph, volume_graph, heightmap or mesh'
+        asset:
+          type: string
+          description: 'add: graph, UVoxelHeightmap or UVoxelStaticMesh path matching kind'
+        transforms:
+          type: array
+          items:
+            type: object
+          description: 'add: [{ location: {x,y,z} (required), rotation?: {pitch,yaw,roll}, scale?: number or {x,y,z} }], one stamp per entry; world space unless relativeToComponent'
+        relativeToComponent:
+          type: boolean
+          description: 'add: treat transforms as relative to the component (baked to world space at add time); default false'
+        layer:
+          type: string
+          description: 'add: UVoxelHeightLayer or UVoxelVolumeLayer path; default is the project default layer'
+        blendMode:
+          type: string
+          description: 'add: Max, Min, Override (height) or Additive, Subtractive, Intersect, Override (volume)'
+        priority:
+          type: number
+          description: 'add: integer priority within the layer'
+        smoothness:
+          type: number
+          description: 'add: blend smoothness in cm, >= 0'
+        behavior:
+          type: string
+          description: 'add: EVoxelStampBehavior name, e.g. AffectAll, AffectShape'
+        applyOnVoid:
+          type: boolean
+          description: 'add: false applies only where an earlier stamp already applied'
+        heightPaddingMultiplier:
+          type: number
+          description: 'add, height kinds: bounds padding multiplier, >= 0'
+        boundsExtensionMultiplier:
+          type: number
+          description: 'add, volume kinds: bounds extension multiplier, >= 0'
+        maximumBoundsExtension:
+          type: number
+          description: 'add, volume kinds: bounds extension cap in cm, >= 0'
+        surfaceType:
+          type: string
+          description: 'add, heightmap or mesh: UVoxelSurfaceTypeInterface path'
+        useTricubic:
+          type: boolean
+          description: 'add, mesh only: tricubic interpolation'
+        parameters:
+          type: object
+          description: 'add, graph kinds: { parameterName: value } graph parameter overrides'
+        index:
+          type: number
+          description: 'remove: integer stamp index; the slot is emptied and indices never shift'
+        indices:
+          type: array
+          items:
+            type: number
+          description: 'update: stamp indices to re-evaluate; default all'
+        includeStamps:
+          type: boolean
+          description: Include every non-empty stamp with index and transform in the result; default false
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
+    voxel_height_sculpt:
+      effect: mutate
+      description: >-
+        Sculpt, flatten, smooth, paint, apply a sculpt graph to, or clear an AVoxelSculptHeight actor through Voxel's sculpt API; undoable, waits for completion unless wait=false (then reports
+        queued). Defaults per op match Voxel's library (radius 500, smooth 1000; strength sculpt_height 0.5, smooth 1, paint 0.05). Params: actorPath or actorLabel (one required), op (required),
+        center (required except clear_data/clear_cache), radius?, strength?, mode?, falloff?, height? (required for flatten), levelType?, surfaceType?, metadata?, graph? (required for apply_graph),
+        parameters?, brush?, wait?, save?.
+      schema:
+        actorPath:
+          type: string
+          description: AVoxelSculptHeight actor path (preferred; voxel actors relabel themselves)
+        actorLabel:
+          type: string
+          description: AVoxelSculptHeight actor label, used when actorPath is absent
+        op:
+          type: string
+          required: true
+          description: sculpt_height | flatten | smooth | paint_surface | apply_graph | clear_data | clear_cache
+        center:
+          type: object
+          description: '{x,y} world centimetres (z accepted and ignored)'
+        radius:
+          type: number
+          description: Brush radius in world centimetres, > 0
+        strength:
+          type: number
+          description: sculpt_height speed, smooth strength, or paint_surface strength (usually 0..1)
+        mode:
+          type: string
+          description: 'EVoxelSculptMode for sculpt_height and paint_surface: Add | Remove (default Add)'
+        falloff:
+          type: number
+          description: '0..1. flatten: the flatten falloff (default 0.1). Brush ops: the active brush falloff amount unless brush.falloffAmount is set'
+        height:
+          type: number
+          description: flatten target height, world Z centimetres
+        levelType:
+          type: string
+          description: 'flatten EVoxelLevelToolType: Additive | Subtractive | Both (default Additive)'
+        surfaceType:
+          type: string
+          description: paint_surface UVoxelSurfaceTypeInterface asset path; paint needs this and/or metadata
+        metadata:
+          type: object
+          description: 'paint_surface metadata to paint: { ''<UVoxelMetadata path>'': value }'
+        graph:
+          type: string
+          description: apply_graph UVoxelHeightSculptGraph asset path
+        parameters:
+          type: object
+          description: 'apply_graph parameter overrides: { parameterName: value }'
+        brush:
+          type: object
+          description: >-
+            {type: Circular|Alpha|Pattern, falloffType: None|Linear|Smooth|Spherical|Tip, falloffAmount, texture (UVoxelTexture, Alpha/Pattern), textureChannel: R|G|B|A, autoRotate, fixedRotation,
+            use2DProjection, origin {x,y}, textureRotation, centerTextureOnOrigin, repeatSize, hitNormal {x,y,z}, strokeDirection {x,y,z}}
+        wait:
+          type: boolean
+          description: 'Wait for the edit to finish (default true); false returns queued: true'
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
+      timeoutSeconds: 600
+    voxel_volume_sculpt:
+      effect: mutate
+      description: >-
+        Edit an AVoxelSculptVolume actor with Voxel's volume sculpt ops (sphere, cube, flatten, smooth, surface, angle, paint, sculpt graph) or clear it; undoable, waits for completion unless
+        wait=false. Defaults per op match Voxel's library. Params: actorPath or actorLabel (one required), op (required), center (required except clear_data/clear_cache), radius?, strength?, mode?,
+        smoothness?, size?, rotation?, roundness?, normal?, height?, falloff?, levelType?, planePoint?, planeNormal?, mergeMode?, surfaceType?, metadata?, graph? (required for apply_graph),
+        parameters?, brush?, wait?, save?.
+      schema:
+        actorPath:
+          type: string
+          description: AVoxelSculptVolume actor path (preferred)
+        actorLabel:
+          type: string
+          description: AVoxelSculptVolume actor label, used when actorPath is absent
+        op:
+          type: string
+          required: true
+          description: sphere | cube | flatten | smooth | surface | angle | paint | apply_graph | clear_data | clear_cache
+        center:
+          type: object
+          description: '{x,y,z} world centimetres'
+        radius:
+          type: number
+          description: World centimetres, > 0 (sphere/smooth default 1000, others 500; unused by cube)
+        strength:
+          type: number
+          description: smooth (1), surface (0.5), angle (1) or paint (0.05) strength
+        mode:
+          type: string
+          description: 'EVoxelSculptMode for sphere, cube, surface, paint: Add | Remove (default Add)'
+        smoothness:
+          type: number
+          description: sphere/cube add-remove smoothness, >= 0 (default 0)
+        size:
+          type: object
+          description: cube {x,y,z} size in centimetres, each > 0 (default 1000)
+        rotation:
+          type: object
+          description: '{pitch,yaw,roll} for cube and apply_graph'
+        roundness:
+          type: number
+          description: cube roundness 0..1 (default 0)
+        normal:
+          type: object
+          description: flatten plane normal {x,y,z} (default up)
+        height:
+          type: number
+          description: flatten distance up/down to sculpt, >= 0 (default 1000)
+        falloff:
+          type: number
+          description: '0..1. flatten falloff (default 0.1); brush ops: active brush falloff amount unless brush.falloffAmount is set'
+        levelType:
+          type: string
+          description: 'flatten EVoxelLevelToolType: Additive | Subtractive | Both (default Additive)'
+        planePoint:
+          type: object
+          description: 'angle: point on the target plane {x,y,z} (default center)'
+        planeNormal:
+          type: object
+          description: 'angle: target plane normal {x,y,z} (default up)'
+        mergeMode:
+          type: string
+          description: 'angle EVoxelSDFMergeMode: Union | Intersection | Override (default Override)'
+        surfaceType:
+          type: string
+          description: paint UVoxelSurfaceTypeInterface asset path; paint needs this and/or metadata
+        metadata:
+          type: object
+          description: 'paint metadata to paint: { ''<UVoxelMetadata path>'': value }'
+        graph:
+          type: string
+          description: apply_graph UVoxelVolumeSculptGraph asset path
+        parameters:
+          type: object
+          description: 'apply_graph parameter overrides: { parameterName: value }'
+        brush:
+          type: object
+          description: >-
+            smooth/surface/angle/paint brush: {type: Circular|Alpha|Pattern, falloffType, falloffAmount, texture, textureChannel, autoRotate, fixedRotation, use2DProjection, origin {x,y},
+            textureRotation, centerTextureOnOrigin, repeatSize, hitNormal, strokeDirection}
+        wait:
+          type: boolean
+          description: 'Wait for the edit to finish (default true); false returns queued: true'
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
+      timeoutSeconds: 600
+    voxel_sculpt_asset_get:
+      effect: read
+      description: >-
+        Report a sculpt actor's kind (height or volume), its external save asset path (null when data is stored in the level), and whether its sculpt data is empty. Params: actorPath or actorLabel
+        (one required).
+      schema:
+        actorPath:
+          type: string
+          description: AVoxelSculptHeight or AVoxelSculptVolume actor path (preferred)
+        actorLabel:
+          type: string
+          description: Sculpt actor label, used when actorPath is absent
+    voxel_sculpt_asset_set:
+      effect: mutate
+      description: >-
+        Bind a sculpt actor to an external save asset (UVoxelSculptHeightAsset for height actors, UVoxelSculptVolumeAsset for volume actors) or detach it with an empty asset; undoable. load=true
+        adopts the asset's data (an empty asset receives the actor's data); load=false overwrites the asset with the actor's current data. Params: actorPath or actorLabel (one required), asset
+        (required; "" detaches and keeps the data in the level), load? (default true), save? (default true; saves the asset after load=false writes into it).
+      schema:
+        actorPath:
+          type: string
+          description: Sculpt actor path (preferred)
+        actorLabel:
+          type: string
+          description: Sculpt actor label, used when actorPath is absent
+        asset:
+          type: string
+          required: true
+          description: Sculpt save asset path matching the actor kind; empty string detaches
+        load:
+          type: boolean
+          description: 'true: actor takes the asset''s data; false: asset is overwritten with the actor''s data (default true)'
+        save:
+          type: boolean
+          description: Save the asset after load=false writes the actor data into it (default true)
+      timeoutSeconds: 300
+    voxel_query_layer:
+      effect: read
+      description: >-
+        Sample a voxel layer in the editor world at up to 4096 points: height (height layers) or signed distance (volume layers), normal, optional resolved surface type with blend weights, and
+        optional metadata values. Needs no AVoxelWorld; reads the stamps registered in the editor world. Params: stack?, layer?, layerKind? (height|volume, default height), points (required), lod?,
+        querySurface?, gradientStep?, metadata?.
+      schema:
+        stack:
+          type: string
+          description: 'UVoxelLayerStack asset path (default: project default stack)'
+        layer:
+          type: string
+          description: 'UVoxelHeightLayer or UVoxelVolumeLayer path matching layerKind (default: the default layer of that kind)'
+        layerKind:
+          type: string
+          description: height | volume (default height)
+        points:
+          type: array
+          required: true
+          items:
+            type: object
+          description: '[{x,y}] for height, [{x,y,z}] for volume, world centimetres, max 4096'
+        lod:
+          type: number
+          description: Integer query LOD 0..30 (default 0)
+        querySurface:
+          type: boolean
+          description: Resolve surface types and return unresolvedSurfaceType, surfaceType and surfaceWeights per point (default false)
+        gradientStep:
+          type: number
+          description: Step in centimetres used for normals and smart surface types (default 100)
+        metadata:
+          type: array
+          items:
+            type: string
+          description: UVoxelMetadata asset paths whose values to return per point
+      timeoutSeconds: 300
+    voxel_export_to_render_target:
+      effect: mutate
+      description: >-
+        Write a height layer region into a UTextureRenderTarget2D via Voxel's ExportVoxelDataToRenderTarget; each channel is height, a constant or a metadata component, sampled over bounds at the
+        render target's resolution. Heights need a float format (8-bit formats are rejected); contents are GPU-side and not saved with the asset. Params: stack?, layer?, layerKind? (height only),
+        bounds (required), renderTarget (required), r?, g?, b?, a?, wait?, save?.
+      schema:
+        stack:
+          type: string
+          description: 'UVoxelLayerStack asset path (default: project default stack)'
+        layer:
+          type: string
+          description: 'UVoxelHeightLayer path (default: default height layer)'
+        layerKind:
+          type: string
+          description: Must be height (the export reads height layers only)
+        bounds:
+          type: object
+          required: true
+          description: '{minX,minY,maxX,maxY} world centimetres, max > min'
+        renderTarget:
+          type: string
+          required: true
+          description: UTextureRenderTarget2D asset path; format R16f/RG16f/RGBA16f/R32f/RG32f/RGBA32f for heights, no OverrideFormat
+        r:
+          type:
+            - string
+            - number
+            - object
+          description: 'Red channel: "height", a number constant, or {metadata: path, component?: R|G|B|A}. Defaults to height when no channel is given'
+        g:
+          type:
+            - string
+            - number
+            - object
+          description: 'Green channel: "height", a number constant, or {metadata, component?} (default 0)'
+        b:
+          type:
+            - string
+            - number
+            - object
+          description: 'Blue channel: "height", a number constant, or {metadata, component?} (default 0)'
+        a:
+          type:
+            - string
+            - number
+            - object
+          description: 'Alpha channel: "height", a number constant, or {metadata, component?} (default 0)'
+        wait:
+          type: boolean
+          description: 'Wait for the GPU write (default true); false returns queued: true'
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
+      timeoutSeconds: 300
+    voxel_asset_create:
+      effect: mutate
+      description: >-
+        Create a Voxel asset through its own factory (graph types are duplicated from the graph class template, so they start with their output node; function libraries start with a terminal graph).
+        Returns assetPath, class, created, existed. Params: type (required), name (required), packagePath?, onConflict?, save?.
+      schema:
+        type:
+          type: string
+          description: >-
+            height_graph | volume_graph | scatter_graph | height_spline_graph | volume_spline_graph | height_sculpt_graph | volume_sculpt_graph | smart_surface_type_graph | pcg_graph | surface_type |
+            smart_surface_type | layer_stack | height_layer | volume_layer | mega_material | heightmap | static_mesh | height_sculpt_asset | volume_sculpt_asset | function_library (required)
+        name:
+          type: string
+          description: Asset name, no path (required)
+        packagePath:
+          type: string
+          description: Content folder; default /Game/Voxel
+        onConflict:
+          type: string
+          description: error | skip; default skip, which returns the existing asset with existed:true (an error if it is another class). Existing assets are never overwritten.
+        save:
+          type: boolean
+          description: Save the package; default true
+    voxel_asset_set_property:
+      effect: mutate
+      description: >-
+        Set one top-level property on any asset through PreEditChange/PostEditChangeProperty in an undoable transaction. The value is UE import text, validated before the asset changes; object
+        references are asset paths that must load, an empty string clears them; arrays use (a,b,c) or a JSON array. Returns previous, value, changed, editable. Params: assetPath, propertyName, value
+        (required), save?.
+      schema:
+        assetPath:
+          type: string
+          description: Asset path (required)
+        propertyName:
+          type: string
+          description: C++ property name, e.g. MaxDistance or bInvisible; case-insensitive fallback (required)
+        value:
+          type: string
+          description: Import text, e.g. '0.5', 'true', '/Game/M.M', '(X=1,Y=2,Z=3)', '(/Game/A.A,/Game/B.B)'; numbers, booleans and JSON arrays are also accepted (required)
+        save:
+          type: boolean
+          description: Save the package; default true
+    voxel_mega_material_set_surfaces:
+      effect: mutate
+      description: >-
+        Set a UVoxelMegaMaterial's surface type list and settings with details-panel edit semantics, so the generated material rebuilds. Returns per-property previous/value, changed, and the resulting
+        surfaceTypes. Params: assetPath (required), surfaceTypes?, mode?, automaticallyDetectNewSurfaces?, enableSmoothBlends?, generateMaskedMaterial?, generateTwoSidedMaterial?,
+        setHasPixelAnimation?, enablePixelDepthOffset?, enableDitherNoiseTexture?, ditherNoiseTexture?, attributePostProcess?, customOutputsMaterial?, nonNaniteMaterialType?, customNonNaniteMaterial?,
+        naniteDisplacementMaterialType?, customNaniteDisplacementMaterial?, lumenMaterialType?, customLumenMaterial?, save?.
+      schema:
+        assetPath:
+          type: string
+          description: UVoxelMegaMaterial asset path (required)
+        surfaceTypes:
+          type: array
+          items:
+            type: string
+          description: UVoxelSurfaceTypeAsset paths; duplicates are dropped
+        mode:
+          type: string
+          description: replace | append; default replace. append keeps the current list and adds missing entries
+        automaticallyDetectNewSurfaces:
+          type: boolean
+          description: Notify when rendering surfaces missing from the list
+        enableSmoothBlends:
+          type: boolean
+          description: Dither-based smooth blends
+        generateMaskedMaterial:
+          type: boolean
+          description: Generated materials use the Masked blend mode
+        generateTwoSidedMaterial:
+          type: boolean
+          description: Generated materials are two sided
+        setHasPixelAnimation:
+          type: boolean
+          description: Set bHasPixelAnimation to reduce TSR blur
+        enablePixelDepthOffset:
+          type: boolean
+          description: Compile PixelDepthOffset in the non-Nanite material
+        enableDitherNoiseTexture:
+          type: boolean
+          description: Use ditherNoiseTexture for smooth-blend dithering
+        ditherNoiseTexture:
+          type: string
+          description: UTexture2D path for dither noise, or an empty string to clear
+        attributePostProcess:
+          type: string
+          description: UMaterialFunction path applied everywhere (one MaterialAttributes in and out), or an empty string to clear
+        customOutputsMaterial:
+          type: string
+          description: Material whose custom output nodes are copied to the generated material, or an empty string to clear
+        nonNaniteMaterialType:
+          type: string
+          description: Custom | Generated
+        customNonNaniteMaterial:
+          type: string
+          description: Material for non-Nanite meshes when nonNaniteMaterialType is Custom
+        naniteDisplacementMaterialType:
+          type: string
+          description: Custom | Generated
+        customNaniteDisplacementMaterial:
+          type: string
+          description: Material whose displacement replaces the generated one when Custom
+        lumenMaterialType:
+          type: string
+          description: Custom | Generated
+        customLumenMaterial:
+          type: string
+          description: Material used by Lumen when Custom
+        save:
+          type: boolean
+          description: Save the package; default true
+    voxel_surface_type_set:
+      effect: mutate
+      description: >-
+        Set fields of a UVoxelSurfaceTypeAsset with details-panel edit semantics in one undoable transaction; all values are validated first. Returns per-property previous/value and changed. Params:
+        assetPath (required), material?, invisible?, blendSmoothness?, seed?, save?.
+      schema:
+        assetPath:
+          type: string
+          description: UVoxelSurfaceTypeAsset asset path (required)
+        material:
+          type: string
+          description: UMaterialInterface path (material or instance), or an empty string to clear
+        invisible:
+          type: boolean
+          description: Render nothing, to cut holes in the terrain
+        blendSmoothness:
+          type: number
+          description: Smooth blend amount, >= 0 (UI range 0 to 1)
+        seed:
+          type: string
+          description: Seed text for the surface's exposed seed
+        save:
+          type: boolean
+          description: Save the package; default true
+    voxel_smart_surface_set:
+      effect: mutate
+      description: >-
+        Set a UVoxelSmartSurfaceType's graph and graph parameter overrides. Values are parsed against the target graph's parameter types before anything changes. Returns graph, the enabled overrides,
+        and changed. Params: assetPath (required), graph?, parameters?, save?.
+      schema:
+        assetPath:
+          type: string
+          description: UVoxelSmartSurfaceType asset path (required)
+        graph:
+          type: string
+          description: UVoxelSmartSurfaceTypeGraph path, or an empty string to clear
+        parameters:
+          type: object
+          description: '{ parameterName: value } overrides on the graph''s parameters; value text as for voxel_graph_set_parameter_default'
+        save:
+          type: boolean
+          description: Save the package; default true
+    voxel_layer_stack_set:
+      effect: mutate
+      description: >-
+        Set a UVoxelLayerStack's layer lists (replacing each given list, in order) and max distance with details-panel edit semantics. Returns per-property previous/value, the resulting lists and
+        maxDistance. Params: assetPath (required), heightLayers?, volumeLayers?, maxDistance?, save?.
+      schema:
+        assetPath:
+          type: string
+          description: UVoxelLayerStack asset path (required)
+        heightLayers:
+          type: array
+          items:
+            type: string
+          description: UVoxelHeightLayer paths, bottom to top
+        volumeLayers:
+          type: array
+          items:
+            type: string
+          description: UVoxelVolumeLayer paths, bottom to top
+        maxDistance:
+          type: number
+          description: How far up and down the height distance field extends, cm
+        save:
+          type: boolean
+          description: Save the package; default true
+    voxel_pcg_add_node:
+      effect: mutate
+      description: >-
+        Add a Voxel PCG node to a UPCGGraph via UPCGGraph::AddNodeOfType. Returns the node name, title, settingsClass and position. An open PCG graph editor shows the node after it is reopened.
+        Params: graphPath, nodeType (required), x?, y?, save?.
+      schema:
+        graphPath:
+          type: string
+          description: UPCGGraph asset path (required)
+        nodeType:
+          type: string
+          description: call_graph | sampler | sampler_v2 | query | stamp_spawner | spawn_actor | apply_on_graph | create_spline | projection | elevation_isolines | wait_for_world (required)
+        x:
+          type: number
+          description: Node X position in the graph
+        'y':
+          type: number
+          description: Node Y position in the graph
+        save:
+          type: boolean
+          description: Save the package; default true
+    voxel_pcg_configure_sampler:
+      effect: mutate
+      description: >-
+        Configure a Voxel Sampler (sampler) or Voxel Sampler Experimental (sampler_v2) PCG node. Each property is edited through Pre/PostEditChange so the graph regenerates; a field the node's class
+        lacks is an error. Returns the node and per-property previous/value. Params: graphPath, node (required), stack?, layer?, unbounded?, looseness?, lod?, resolveSmartSurfaceTypes?,
+        metadatasToQuery?, distanceBetweenPoints?, heightScatterType?, minCellArea?, pointsPerSquaredMeter?, cellSize?, tolerance?, applyDensityToPoints?, save?.
+      schema:
+        graphPath:
+          type: string
+          description: UPCGGraph asset path (required)
+        node:
+          type: string
+          description: Node object name, authored title or displayed title (required)
+        stack:
+          type: string
+          description: UVoxelLayerStack path; the layer is kept unless layer is given
+        layer:
+          type: string
+          description: UVoxelHeightLayer or UVoxelVolumeLayer path; the stack is kept unless stack is given
+        unbounded:
+          type: boolean
+          description: Sample the whole surface instead of the actor or bounding-shape bounds
+        looseness:
+          type: number
+          description: Point jitter, >= 0
+        lod:
+          type: number
+          description: LOD to sample, integer >= 0
+        resolveSmartSurfaceTypes:
+          type: boolean
+          description: Resolve smart surface types to surface types
+        metadatasToQuery:
+          type: array
+          items:
+            type: string
+          description: UVoxelMetadata asset paths written as point attributes; replaces the list
+        distanceBetweenPoints:
+          type: number
+          description: 'sampler_v2 only: spacing in cm'
+        heightScatterType:
+          type: string
+          description: 'sampler_v2 only: Grid | Sobol | Halton'
+        minCellArea:
+          type: number
+          description: 'sampler_v2 only: skip cells with less surface than this, >= 0'
+        pointsPerSquaredMeter:
+          type: number
+          description: 'sampler only: point density'
+        cellSize:
+          type: number
+          description: 'sampler only: cell size in cm'
+        tolerance:
+          type: number
+          description: 'sampler only: tolerance, >= 0'
+        applyDensityToPoints:
+          type: boolean
+          description: 'sampler only: write density to points'
+        save:
+          type: boolean
+          description: Save the package; default true
     voxel_graph_read:
-      description: "Read a voxel graph: terminal graphs, parameters (name, guid, type, default) and every node with pins, defaults and links. Params: assetPath (required), terminalGraph? (guid, default main), includePins? (default true)."
+      description: >-
+        Read a voxel graph: terminal graphs, parameters (name, guid, type, default) and every node with pins, defaults and links. Params: assetPath (required), terminalGraph? (guid, default main),
+        includePins? (default true).
       schema:
-        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
-        terminalGraph: { type: string, description: "Terminal graph GUID; default is the main graph" }
-        includePins: { type: boolean }
+        assetPath:
+          type: string
+          description: UVoxelGraph asset path (required)
+        terminalGraph:
+          type: string
+          description: Terminal graph GUID; default is the main graph
+        includePins:
+          type: boolean
+          description: Include each node's pins, defaults and links (default true)
+      effect: read
     voxel_graph_list_node_types:
-      description: "List the node types this graph allows (Voxel's node library, function-library nodes, and 'Parameters|<name>' getters) as 'Category|Name' keys for voxel_graph_add_node's nodeType. Space-separated query words must all match. Params: assetPath (required), query?, limit? (default 100), terminalGraph?."
+      description: >-
+        List the node types this graph allows (Voxel's node library, function-library nodes, and 'Parameters|<name>' getters) as 'Category|Name' keys for voxel_graph_add_node's nodeType.
+        Space-separated query words must all match. Params: assetPath (required), query?, limit? (default 100), terminalGraph?.
       schema:
-        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
-        query: { type: string }
-        limit: { type: number }
-        terminalGraph: { type: string }
+        assetPath:
+          type: string
+          description: UVoxelGraph asset path (required)
+        query:
+          type: string
+          description: Space-separated words that must all match the type key or tooltip
+        limit:
+          type: number
+          description: Maximum rows returned (default 100)
+        terminalGraph:
+          type: string
+          description: Terminal graph GUID from voxel_graph_read; default is the main graph
+      effect: read
     voxel_graph_add_node:
-      description: "Add a node by its type key ('Category|Name', or the bare name when unique). Returns the node with its pins. Params: assetPath, nodeType (required), x?, y?, terminalGraph?, save? (default true)."
+      description: >-
+        Add a node by its type key ('Category|Name', or the bare name when unique). Returns the node with its pins. Params: assetPath, nodeType (required), x?, y?, terminalGraph?, save? (default
+        true).
       schema:
-        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
-        nodeType: { type: string, description: "Type key from voxel_graph_list_node_types (required)" }
-        x: { type: number }
-        y: { type: number }
-        terminalGraph: { type: string }
-        save: { type: boolean }
+        assetPath:
+          type: string
+          description: UVoxelGraph asset path (required)
+        nodeType:
+          type: string
+          description: Type key from voxel_graph_list_node_types (required)
+        x:
+          type: number
+          description: Node X position in the graph
+        'y':
+          type: number
+          description: Node Y position in the graph
+        terminalGraph:
+          type: string
+          description: Terminal graph GUID from voxel_graph_read; default is the main graph
+        save:
+          type: boolean
+          description: Save the graph after the edit (default true)
+      effect: mutate
     voxel_graph_connect:
-      description: "Connect an output pin to an input pin. Nodes by id (GUID), object name or unique title; pins by name or display name. Params: assetPath, fromNode, fromPin, toNode, toPin (required), terminalGraph?, save?."
+      description: >-
+        Connect an output pin to an input pin. Nodes by id (GUID), object name or unique title; pins by name or display name. Params: assetPath, fromNode, fromPin, toNode, toPin (required),
+        terminalGraph?, save?.
       schema:
-        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
-        fromNode: { type: string }
-        fromPin: { type: string }
-        toNode: { type: string }
-        toPin: { type: string }
-        terminalGraph: { type: string }
-        save: { type: boolean }
+        assetPath:
+          type: string
+          description: UVoxelGraph asset path (required)
+        fromNode:
+          type: string
+          description: 'Source node: id (GUID), object name or unique title (required)'
+        fromPin:
+          type: string
+          description: Output pin name or display name on fromNode (required)
+        toNode:
+          type: string
+          description: 'Target node: id (GUID), object name or unique title (required)'
+        toPin:
+          type: string
+          description: Input pin name or display name on toNode (required)
+        terminalGraph:
+          type: string
+          description: Terminal graph GUID from voxel_graph_read; default is the main graph
+        save:
+          type: boolean
+          description: Save the graph after the edit (default true)
+      effect: mutate
     voxel_graph_disconnect:
-      description: "Break one link between an output pin and an input pin. Params: assetPath, fromNode, fromPin, toNode, toPin (required), terminalGraph?, save?."
+      description: 'Break one link between an output pin and an input pin. Params: assetPath, fromNode, fromPin, toNode, toPin (required), terminalGraph?, save?.'
       schema:
-        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
-        fromNode: { type: string }
-        fromPin: { type: string }
-        toNode: { type: string }
-        toPin: { type: string }
-        terminalGraph: { type: string }
-        save: { type: boolean }
+        assetPath:
+          type: string
+          description: UVoxelGraph asset path (required)
+        fromNode:
+          type: string
+          description: 'Source node: id (GUID), object name or unique title (required)'
+        fromPin:
+          type: string
+          description: Output pin name or display name on fromNode (required)
+        toNode:
+          type: string
+          description: 'Target node: id (GUID), object name or unique title (required)'
+        toPin:
+          type: string
+          description: Input pin name or display name on toNode (required)
+        terminalGraph:
+          type: string
+          description: Terminal graph GUID from voxel_graph_read; default is the main graph
+        save:
+          type: boolean
+          description: Save the graph after the edit (default true)
+      effect: mutate
     voxel_graph_set_pin_default:
-      description: "Set an unconnected input pin's default value (pin default text, e.g. '5000', '(X=1,Y=2)'). Params: assetPath, node, pin, value (required), terminalGraph?, save?."
+      description: 'Set an unconnected input pin''s default value (pin default text, e.g. ''5000'', ''(X=1,Y=2)''). Params: assetPath, node, pin, value (required), terminalGraph?, save?.'
       schema:
-        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
-        node: { type: string }
-        pin: { type: string }
-        value: { type: string }
-        terminalGraph: { type: string }
-        save: { type: boolean }
+        assetPath:
+          type: string
+          description: UVoxelGraph asset path (required)
+        node:
+          type: string
+          description: Node id (GUID), object name or unique title (required)
+        pin:
+          type: string
+          description: Input pin name or display name (required)
+        value:
+          type: string
+          description: Value as pin default text, e.g. 5000, true, (X=1,Y=2), or an asset path for object pins (required)
+        terminalGraph:
+          type: string
+          description: Terminal graph GUID from voxel_graph_read; default is the main graph
+        save:
+          type: boolean
+          description: Save the graph after the edit (default true)
+      effect: mutate
     voxel_graph_delete_node:
-      description: "Delete a node and its links. Params: assetPath, node (required), terminalGraph?, save?."
+      description: 'Delete a node and its links. Params: assetPath, node (required), terminalGraph?, save?.'
       schema:
-        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
-        node: { type: string }
-        terminalGraph: { type: string }
-        save: { type: boolean }
+        assetPath:
+          type: string
+          description: UVoxelGraph asset path (required)
+        node:
+          type: string
+          description: Node id (GUID), object name or unique title (required)
+        terminalGraph:
+          type: string
+          description: Terminal graph GUID from voxel_graph_read; default is the main graph
+        save:
+          type: boolean
+          description: Save the graph after the edit (default true)
+      effect: mutate
     voxel_graph_export_t3d:
-      description: "Export nodes as clipboard T3D text (all copyable nodes, or the listed ids). Params: assetPath (required), nodes? ([id]), terminalGraph?."
+      description: 'Export nodes as clipboard T3D text (all copyable nodes, or the listed ids). Params: assetPath (required), nodes? ([id]), terminalGraph?.'
       schema:
-        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
-        nodes: { type: array, items: { type: string } }
-        terminalGraph: { type: string }
+        assetPath:
+          type: string
+          description: UVoxelGraph asset path (required)
+        nodes:
+          type: array
+          items:
+            type: string
+          description: Node ids to export; all copyable nodes when omitted
+        terminalGraph:
+          type: string
+          description: Terminal graph GUID from voxel_graph_read; default is the main graph
+      effect: read
     voxel_graph_import_t3d:
-      description: "Paste T3D node text into a voxel graph (new GUIDs, links inside the text kept). Opens the graph editor for the paste if it is closed, since Voxel refuses pastes without it; reports nodes the graph type refused. Params: assetPath, t3d (required), offsetX?, offsetY?, terminalGraph?, save?."
+      description: >-
+        Paste T3D node text into a voxel graph (new GUIDs, links inside the text kept). Opens the graph editor for the paste if it is closed, since Voxel refuses pastes without it; reports nodes the
+        graph type refused. Params: assetPath, t3d (required), offsetX?, offsetY?, terminalGraph?, save?.
       schema:
-        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
-        t3d: { type: string }
-        offsetX: { type: number }
-        offsetY: { type: number }
-        terminalGraph: { type: string }
-        save: { type: boolean }
+        assetPath:
+          type: string
+          description: UVoxelGraph asset path (required)
+        t3d:
+          type: string
+          description: Clipboard T3D text, e.g. from voxel_graph_export_t3d (required)
+        offsetX:
+          type: number
+          description: X offset added to pasted node positions
+        offsetY:
+          type: number
+          description: Y offset added to pasted node positions
+        terminalGraph:
+          type: string
+          description: Terminal graph GUID from voxel_graph_read; default is the main graph
+        save:
+          type: boolean
+          description: Save the graph after the edit (default true)
+      effect: mutate
     voxel_graph_add_parameter:
-      description: "Add a graph parameter. type: float, double, int32, int64, bool, name, vector2d, vector, color, seed, or struct:/object:/class:/enum:<path>. Then add its getter via voxel_graph_list_node_types. Params: assetPath, name, type (required), default?, category?, description?, save?."
+      description: >-
+        Add a graph parameter. type: float, double, int32, int64, bool, name, vector2d, vector, color, seed, or struct:/object:/class:/enum:<path>. Then add its getter via voxel_graph_list_node_types.
+        Params: assetPath, name, type (required), default?, category?, description?, save?.
       schema:
-        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
-        name: { type: string }
-        type: { type: string }
-        default: { type: string }
-        category: { type: string }
-        description: { type: string }
-        save: { type: boolean }
+        assetPath:
+          type: string
+          description: UVoxelGraph asset path (required)
+        name:
+          type: string
+          description: Parameter name (required)
+        type:
+          type: string
+          description: float, double, int32, int64, bool, name, vector2d, vector, color, seed, or struct:/object:/class:/enum:<path> (required)
+        default:
+          type: string
+          description: Default value text; validated against the type before anything changes
+        category:
+          type: string
+          description: Parameter category shown in the graph's members panel
+        description:
+          type: string
+          description: Parameter tooltip
+        save:
+          type: boolean
+          description: Save the graph after the edit (default true)
+      effect: mutate
     voxel_graph_remove_parameter:
-      description: "Remove a graph parameter, its getter nodes in every terminal graph, and its stored default. Params: assetPath, name (required), save?."
+      description: 'Remove a graph parameter, its getter nodes in every terminal graph, and its stored default. Params: assetPath, name (required), save?.'
       schema:
-        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
-        name: { type: string }
-        save: { type: boolean }
+        assetPath:
+          type: string
+          description: UVoxelGraph asset path (required)
+        name:
+          type: string
+          description: Parameter name (required)
+        save:
+          type: boolean
+          description: Save the graph after the edit (default true)
+      effect: mutate
     voxel_graph_set_parameter_default:
-      description: "Set a graph parameter's default value (pin value text). Params: assetPath, name, value (required), save?."
+      description: 'Set a graph parameter''s default value (pin value text). Params: assetPath, name, value (required), save?.'
       schema:
-        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
-        name: { type: string }
-        value: { type: string }
-        save: { type: boolean }
+        assetPath:
+          type: string
+          description: UVoxelGraph asset path (required)
+        name:
+          type: string
+          description: Parameter name (required)
+        value:
+          type: string
+          description: Value as pin default text, e.g. 5000, true, (X=1,Y=2), or an asset path for object pins (required)
+        save:
+          type: boolean
+          description: Save the graph after the edit (default true)
+      effect: mutate
     voxel_stamp_set_parameters:
-      description: "Override graph parameters on a height or volume graph stamp actor, by parameter name. Stamp actors relabel themselves from their stamp, so prefer actorPath. Params: actorPath or actorLabel (one required), values (required, { name: value })."
+      description: >-
+        Override graph parameters on a height or volume graph stamp actor, by parameter name. Stamp actors relabel themselves from their stamp, so prefer actorPath. Params: actorPath or actorLabel
+        (one required), values (required, { name: value }), save?.
       schema:
-        actorPath: { type: string, description: "Stamp actor object path" }
-        actorLabel: { type: string, description: "Stamp actor label" }
-        values: { type: object, description: "{ parameterName: value } (required)" }
-
-# Each tool wraps exactly one host ue-mcp call.
-# Orchestrations live under `flows:` below, not inside task bodies.
-# Every action cites the Voxel Plugin C++ header it wraps.
-
-inject:
-  level:
-    # ── Spawns (wrap level.place_actor) ──────────────────────────────────
-    spawn_world:
-      task: voxel.spawn_world
-      description: "Drop an AVoxelWorld into the active level. Wraps level.place_actor with actorClass=/Script/Voxel.VoxelWorld. Property setup (LayerStack, MegaMaterial, VoxelSize) is a separate call — see voxel_set_world_* — or use the voxel_hello_world flow which chains the canonical defaults. Header: Voxel/Public/VoxelWorld.h. Params: label?, location? ({x,y,z}), rotation? ({x,y,z}), scale? ({x,y,z})."
-      schema:
-        label: { type: string }
-        location: { type: object }
-        rotation: { type: object }
-        scale: { type: object }
-
-    spawn_stamp_actor:
-      task: voxel.spawn_stamp_actor
-      description: "Drop an AVoxelStampActor (a placement actor owning one stamp). Wraps level.place_actor with actorClass=/Script/Voxel.VoxelStampActor. Header: Voxel/Public/VoxelStampActor.h. Params: label?, location?, rotation?, scale?."
-      schema:
-        label: { type: string }
-        location: { type: object }
-        rotation: { type: object }
-        scale: { type: object }
-
-    spawn_height_sculpt_actor:
-      task: voxel.spawn_height_sculpt_actor
-      description: "Drop an AVoxelHeightSculptActor — the target for 2D/height sculpting. Wraps level.place_actor with actorClass=/Script/Voxel.VoxelHeightSculptActor. Header: Voxel/Public/Sculpt/Height/VoxelHeightSculptActor.h. Params: label?, location?, rotation?, scale?."
-      schema:
-        label: { type: string }
-        location: { type: object }
-        rotation: { type: object }
-        scale: { type: object }
-
-    spawn_volume_sculpt_actor:
-      task: voxel.spawn_volume_sculpt_actor
-      description: "Drop an AVoxelVolumeSculptActor — the target for 3D/volume sculpting. Wraps level.place_actor with actorClass=/Script/Voxel.VoxelVolumeSculptActor. Header: Voxel/Public/Sculpt/Volume/VoxelVolumeSculptActor.h. Params: label?, location?, rotation?, scale?."
-      schema:
-        label: { type: string }
-        location: { type: object }
-        rotation: { type: object }
-        scale: { type: object }
-
-    spawn_collision_baker:
-      task: voxel.spawn_collision_baker
-      description: "Drop an AVoxelCollisionBaker — bakes collision for a voxel layer within a radius. Wraps level.place_actor with actorClass=/Script/Voxel.VoxelCollisionBaker. Header: Voxel/Public/Collision/VoxelCollisionBaker.h. Params: label?, location?, rotation?, scale?."
-      schema:
-        label: { type: string }
-        location: { type: object }
-        rotation: { type: object }
-        scale: { type: object }
-
-    spawn_debug_actor:
-      task: voxel.spawn_debug_actor
-      description: "Drop an AVoxelDebugActor — visualizes a voxel layer over a debug region (dev tool). Wraps level.place_actor with actorClass=/Script/Voxel.VoxelDebugActor. Header: Voxel/Public/VoxelDebugActor.h. Params: label?, location?, rotation?, scale?."
-      schema:
-        label: { type: string }
-        location: { type: object }
-        rotation: { type: object }
-        scale: { type: object }
-
-    # ── Stamp / sculpt instance methods + components ──────────────────────
-    add_stamp_component:
-      task: voxel.add_stamp_component
-      description: "Attach a UVoxelStampComponent to an existing actor (carry a voxel stamp). Wraps level.add_component with componentClass=/Script/Voxel.VoxelStampComponent. Header: Voxel/Public/VoxelStampComponent.h. Params: actorLabel, componentName?."
-      schema:
-        actorLabel: { type: string }
-        componentName: { type: string }
-
-    set_heightmap_stamp:
-      task: voxel.set_heightmap_stamp
-      description: "Build a heightmap stamp from a UVoxelHeightmap (source) and apply it to a stamp actor. Supports a base surface type + per-weightmap-channel surface overrides (multi-material terrain). Wraps editor.execute_python -> VoxelHeightmapStamp.Make. Header: Voxel/Public/Height/VoxelHeightmapStamp.h. Params: actorLabel, source (UVoxelHeightmap path), location?, rotation?, scale?, blendMode? (max|min|override), priority?, smoothness?, defaultSurfaceType? (surface asset path), weightmaps? ([{index, surfaceType}]), componentName? (append to a UVoxelInstancedStampComponent instead of setting the single stamp)."
-      schema:
-        actorLabel: { type: string }
-        source:     { type: string }
-        location:   { type: object }
-        rotation:   { type: object }
-        scale:      { type: object }
-        blendMode:  { type: string }
-        priority:   { type: number }
-        smoothness: { type: number }
-        componentName:      { type: string }
-        defaultSurfaceType: { type: string }
-        weightmaps:         { type: array }
-
-    set_height_graph_stamp:
-      task: voxel.set_height_graph_stamp
-      description: "Build a height-graph stamp from a UVoxelHeightGraph (source) and apply it to a stamp actor. Wraps editor.execute_python -> VoxelHeightGraphStamp.Make. Params: actorLabel, source (UVoxelHeightGraph path), location?, rotation?, scale?, blendMode? (max|min|override), priority?, smoothness?."
-      schema:
-        actorLabel: { type: string }
-        source:     { type: string }
-        location:   { type: object }
-        rotation:   { type: object }
-        scale:      { type: object }
-        blendMode:  { type: string }
-        priority:   { type: number }
-        smoothness: { type: number }
-        componentName: { type: string }
-
-    set_volume_graph_stamp:
-      task: voxel.set_volume_graph_stamp
-      description: "Build a volume-graph stamp from a UVoxelVolumeGraph (source) and apply it to a stamp actor. Wraps editor.execute_python -> VoxelVolumeGraphStamp.Make. Params: actorLabel, source (UVoxelVolumeGraph path), location?, rotation?, scale?, blendMode? (additive|subtractive|intersect|override), priority?, smoothness?."
-      schema:
-        actorLabel: { type: string }
-        source:     { type: string }
-        location:   { type: object }
-        rotation:   { type: object }
-        scale:      { type: object }
-        blendMode:  { type: string }
-        priority:   { type: number }
-        smoothness: { type: number }
-        componentName: { type: string }
-
-    set_mesh_stamp:
-      task: voxel.set_mesh_stamp
-      description: "Build a mesh stamp from a UVoxelStaticMesh (source) and apply it to a stamp actor (tricubic on). Wraps editor.execute_python -> VoxelMeshStamp.Make. Params: actorLabel, source (UVoxelStaticMesh path), location?, rotation?, scale?, blendMode? (additive|subtractive|intersect|override), priority?, smoothness?."
-      schema:
-        actorLabel: { type: string }
-        source:     { type: string }
-        location:   { type: object }
-        rotation:   { type: object }
-        scale:      { type: object }
-        blendMode:  { type: string }
-        priority:   { type: number }
-        smoothness: { type: number }
-        componentName: { type: string }
-
-    set_height_spline_stamp:
-      task: voxel.set_height_spline_stamp
-      description: "Build a height-spline stamp from a UVoxelHeightSplineGraph (source) and apply it to a stamp actor. Wraps editor.execute_python -> VoxelHeightSplineStamp.Make. Params: actorLabel, source (UVoxelHeightSplineGraph path), location?, rotation?, scale?, blendMode? (max|min|override), priority?, smoothness?."
-      schema:
-        actorLabel: { type: string }
-        source:     { type: string }
-        location:   { type: object }
-        rotation:   { type: object }
-        scale:      { type: object }
-        blendMode:  { type: string }
-        priority:   { type: number }
-        smoothness: { type: number }
-        componentName: { type: string }
-
-    set_volume_spline_stamp:
-      task: voxel.set_volume_spline_stamp
-      description: "Build a volume-spline stamp from a UVoxelVolumeSplineGraph (source) and apply it to a stamp actor. Wraps editor.execute_python -> VoxelVolumeSplineStamp.Make. Params: actorLabel, source (UVoxelVolumeSplineGraph path), location?, rotation?, scale?, blendMode? (additive|subtractive|intersect|override), priority?, smoothness?."
-      schema:
-        actorLabel: { type: string }
-        source:     { type: string }
-        location:   { type: object }
-        rotation:   { type: object }
-        scale:      { type: object }
-        blendMode:  { type: string }
-        priority:   { type: number }
-        smoothness: { type: number }
-        componentName: { type: string }
-
-    update_stamp_actor:
-      task: voxel.update_stamp_actor
-      description: "Call AVoxelStampActor::UpdateStamp() — re-apply the actor's stamp after its properties change. Wraps editor.invoke_function. Header: Voxel/Public/VoxelStampActor.h. Params: actorLabel, world? (editor|pie)."
-      schema:
-        actorLabel: { type: string }
-        world: { type: string }
-
-    volume_clear_sculpt_cache:
-      task: voxel.volume_clear_sculpt_cache
-      description: "Free the sculpt cache on an AVoxelVolumeSculptActor (not the data; see volume_clear_sculpt_data). Static lib on base VoxelVolumeSculptBlueprintLibrary. Wraps editor.execute_python. Params: actorLabel."
-      schema:
-        actorLabel: { type: string }
-
-    height_clear_sculpt_cache:
-      task: voxel.height_clear_sculpt_cache
-      description: "Free the sculpt cache on an AVoxelHeightSculptActor (not the data; see height_clear_sculpt_data). Static lib on base VoxelHeightSculptBlueprintLibrary. Wraps editor.execute_python. Params: actorLabel."
-      schema:
-        actorLabel: { type: string }
-
-    set_sculpt_save_asset:
-      task: voxel.set_sculpt_save_asset
-      description: "Link a sculpt actor (height or volume) to an external save asset so edits persist (height->UVoxelHeightSculptSaveAsset, volume->UVoxelVolumeSculptSaveAsset; type must match the actor). Wraps editor.execute_python -> SetExternalSaveAsset. Params: actorLabel, savePath (save asset object path)."
-      schema:
-        actorLabel: { type: string }
-        savePath:   { type: string }
-
-    get_sculpt_save_asset:
-      task: voxel.get_sculpt_save_asset
-      description: "Read the external save asset linked to a sculpt actor; returns its object path (or None) on a VOXEL_SAVE_ASSET= line. Wraps editor.execute_python -> GetExternalSaveAsset. Params: actorLabel."
-      schema:
-        actorLabel: { type: string }
-
-    # ── World lifecycle / status (wrap editor.invoke_function) ────────────
-    is_world_ready:
-      task: voxel.is_world_ready
-      description: "Read AVoxelWorld::IsVoxelWorldReady() — the single most useful gate before scattering / stamping / sampling. Wraps editor.invoke_function. Result at data.returnValues.ReturnValue as 'true'/'false'. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
-      schema:
-        actorLabel: { type: string }
-        world: { type: string }
-
-    get_world_progress:
-      task: voxel.get_world_progress
-      description: "Read AVoxelWorld::GetProgress() — 0..1 while processing, 1 when idle. Wraps editor.invoke_function. Result at data.returnValues.ReturnValue (float string). Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
-      schema:
-        actorLabel: { type: string }
-        world: { type: string }
-
-    is_runtime_created:
-      task: voxel.is_runtime_created
-      description: "Read AVoxelWorld::IsRuntimeCreated() — runtime initialized (distinct from fully-rendered; see voxel_is_world_ready). Wraps editor.invoke_function. Result 'true'/'false' at data.returnValues.ReturnValue. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
-      schema:
-        actorLabel: { type: string }
-        world: { type: string }
-
-    is_processing_new_state:
-      task: voxel.is_processing_new_state
-      description: "Read AVoxelWorld::IsProcessingNewState() — a regeneration is in flight. Wraps editor.invoke_function. Result 'true'/'false' at data.returnValues.ReturnValue. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
-      schema:
-        actorLabel: { type: string }
-        world: { type: string }
-
-    get_num_pending_tasks:
-      task: voxel.get_num_pending_tasks
-      description: "Read AVoxelWorld::GetNumPendingTasks() — queued background task count; coarse 'work left' signal. Wraps editor.invoke_function. Result at data.returnValues.ReturnValue (int string). Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
-      schema:
-        actorLabel: { type: string }
-        world: { type: string }
-
-    create_runtime:
-      task: voxel.create_runtime
-      description: "Call AVoxelWorld::CreateRuntime() — explicitly initialize the voxel runtime (e.g. when bCreateRuntimeOnBeginPlay is off). No return value. Wraps editor.invoke_function. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
-      schema:
-        actorLabel: { type: string }
-        world: { type: string }
-
-    destroy_runtime:
-      task: voxel.destroy_runtime
-      description: "Call AVoxelWorld::DestroyRuntime() — tear down the voxel runtime (frees meshes/collision/nav until re-created). No return value. Wraps editor.invoke_function. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, world? (editor|pie)."
-      schema:
-        actorLabel: { type: string }
-        world: { type: string }
-
-    # ── AVoxelWorld config (wrap level.set_actor_property) ────────────────
-    set_world_layer_stack:
-      task: voxel.set_world_layer_stack
-      description: "Set AVoxelWorld::LayerStack — the UVoxelLayerStack asset defining what the world generates/renders (without it the world renders nothing). Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (asset object path, e.g. /Voxel/Default/DefaultStack.DefaultStack)."
-      schema:
-        actorLabel: { type: string }
-        value: { type: string }
-
-    set_world_mega_material:
-      task: voxel.set_world_mega_material
-      description: "Set AVoxelWorld::MegaMaterial — the UVoxelMegaMaterial asset driving surface shading. Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (asset object path)."
-      schema:
-        actorLabel: { type: string }
-        value: { type: string }
-
-    set_world_voxel_size:
-      task: voxel.set_world_voxel_size
-      description: "Set AVoxelWorld::VoxelSize — edge length of one voxel in cm (default 100; lower = finer + heavier). Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (integer cm)."
-      schema:
-        actorLabel: { type: string }
-        value: { type: number }
-
-    set_world_enable_nanite:
-      task: voxel.set_world_enable_nanite
-      description: "Set AVoxelWorld::bEnableNanite — Nanite rendering of voxel meshes (default true). Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (bool)."
-      schema:
-        actorLabel: { type: string }
-        value: { type: boolean }
-
-    set_world_enable_navigation:
-      task: voxel.set_world_enable_navigation
-      description: "Set AVoxelWorld::bEnableNavigation — navmesh over the voxel surface (default true; needed for AI pathfinding). Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (bool)."
-      schema:
-        actorLabel: { type: string }
-        value: { type: boolean }
-
-    set_world_enable_lumen:
-      task: voxel.set_world_enable_lumen
-      description: "Set AVoxelWorld::bEnableLumen — Lumen GI on voxel meshes (default false; expensive). Wraps level.set_actor_property. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, value (bool)."
-      schema:
-        actorLabel: { type: string }
-        value: { type: boolean }
-
-    # ── Volume sculpting (static VoxelVolumeSculptBlueprintLibrary; ──────────
-    #    wrap editor.execute_python — no native static-library invoke exists).
-    #    All target an AVoxelVolumeSculptActor by label; center is world-space.
-    volume_sculpt_sphere:
-      task: voxel.volume_sculpt_sphere
-      description: "Add/remove a sphere on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::SculptSphere. Header: Voxel/Public/Sculpt/Volume/VoxelVolumeSculptBlueprintLibrary.h. Params: actorLabel, center ({x,y,z}), radius? (cm, def 1000), mode? (add|remove), smoothness? (def 0)."
-      schema:
-        actorLabel: { type: string }
-        center: { type: object }
-        radius: { type: number }
-        mode: { type: string }
-        smoothness: { type: number }
-
-    volume_sculpt_cube:
-      task: voxel.volume_sculpt_cube
-      description: "Add/remove a rounded, rotated cube on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::SculptCube. Params: actorLabel, center ({x,y,z}), size? ({x,y,z}, def 1000^3), rotation? ({pitch,yaw,roll}), roundness? (def 0), mode? (add|remove), smoothness? (def 0)."
-      schema:
-        actorLabel: { type: string }
-        center: { type: object }
-        size: { type: object }
-        rotation: { type: object }
-        roundness: { type: number }
-        mode: { type: string }
-        smoothness: { type: number }
-
-    volume_flatten:
-      task: voxel.volume_flatten
-      description: "Flatten a voxel surface along a normal on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::Flatten. Params: actorLabel, center ({x,y,z}), normal? ({x,y,z}, def (0,0,1)), radius? (def 500), height? (def 1000), falloff? (0..1, def 0.1), type? (additive|subtractive|both)."
-      schema:
-        actorLabel: { type: string }
-        center: { type: object }
-        normal: { type: object }
-        radius: { type: number }
-        height: { type: number }
-        falloff: { type: number }
-        type: { type: string }
-
-    volume_smooth:
-      task: voxel.volume_smooth
-      description: "Smooth/blur a region on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::Smooth. Params: actorLabel, center ({x,y,z}), radius? (def 1000), strength? (def 1)."
-      schema:
-        actorLabel: { type: string }
-        center: { type: object }
-        radius: { type: number }
-        strength: { type: number }
-
-    volume_sculpt_surface:
-      task: voxel.volume_sculpt_surface
-      description: "Progressively sculpt a voxel surface on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::SculptSurface. Params: actorLabel, center ({x,y,z}), radius? (def 500), strength? (def 0.5), mode? (add|remove)."
-      schema:
-        actorLabel: { type: string }
-        center: { type: object }
-        radius: { type: number }
-        strength: { type: number }
-        mode: { type: string }
-
-    volume_sculpt_angle:
-      task: voxel.volume_sculpt_angle
-      description: "Move a voxel surface toward a plane (sculpt angles) on an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::SculptAngle. Params: actorLabel, center ({x,y,z}), radius? (def 500), strength? (def 1), planePoint? ({x,y,z}), planeNormal? ({x,y,z}, def (0,0,1)), mergeMode? (intersection|override|union)."
-      schema:
-        actorLabel: { type: string }
-        center: { type: object }
-        radius: { type: number }
-        strength: { type: number }
-        planePoint: { type: object }
-        planeNormal: { type: object }
-        mergeMode: { type: string }
-
-    volume_paint_surface:
-      task: voxel.volume_paint_surface
-      description: "Paint a surface type on a sculpt stamp of an AVoxelVolumeSculptActor. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::PaintSurface. Params: actorLabel, center ({x,y,z}), radius? (def 500), strength? (def 0.05), mode? (add|remove), surfaceType? (object path to a UVoxelSurfaceTypeInterface asset)."
-      schema:
-        actorLabel: { type: string }
-        center: { type: object }
-        radius: { type: number }
-        strength: { type: number }
-        mode: { type: string }
-        surfaceType: { type: string }
-
-    volume_apply_sculpt_graph:
-      task: voxel.volume_apply_sculpt_graph
-      description: "Apply a volume sculpt graph at a location on an AVoxelVolumeSculptActor. Builds FVoxelVolumeSculptGraphWrapper from the graph asset. Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::ApplySculptGraph. Params: actorLabel, center ({x,y,z}), graph (object path to a UVoxelVolumeSculptGraph), radius? (def 500), rotation? ({pitch,yaw,roll})."
-      schema:
-        actorLabel: { type: string }
-        center:     { type: object }
-        graph:      { type: string }
-        radius:     { type: number }
-        rotation:   { type: object }
-
-    volume_clear_sculpt_data:
-      task: voxel.volume_clear_sculpt_data
-      description: "Clear all sculpt data on an AVoxelVolumeSculptActor (resets edits). Wraps editor.execute_python -> VoxelVolumeSculptBlueprintLibrary::ClearSculptData. Params: actorLabel."
-      schema:
-        actorLabel: { type: string }
-
-    # ── Height sculpting (static VoxelHeightSculptBlueprintLibrary; ─────────
-    #    wrap editor.execute_python). Target an AVoxelHeightSculptActor by
-    #    label; center is 2D ({x,y}) world-space.
-    height_sculpt_height:
-      task: voxel.height_sculpt_height
-      description: "Raise/lower height on an AVoxelHeightSculptActor. Wraps editor.execute_python -> VoxelHeightSculptBlueprintLibrary::SculptHeight. Header: Voxel/Public/Sculpt/Height/VoxelHeightSculptBlueprintLibrary.h. Params: actorLabel, center ({x,y}), radius? (def 500), strength? (def 0.5), mode? (add|remove)."
-      schema:
-        actorLabel: { type: string }
-        center: { type: object }
-        radius: { type: number }
-        strength: { type: number }
-        mode: { type: string }
-
-    height_flatten:
-      task: voxel.height_flatten
-      description: "Flatten a height region toward a target height on an AVoxelHeightSculptActor. Wraps editor.execute_python -> VoxelHeightSculptBlueprintLibrary::Flatten. Params: actorLabel, center ({x,y}), radius? (def 500), falloff? (0..1, def 0.1), type? (additive|subtractive|both), targetHeight? (def 0)."
-      schema:
-        actorLabel: { type: string }
-        center: { type: object }
-        radius: { type: number }
-        falloff: { type: number }
-        type: { type: string }
-        targetHeight: { type: number }
-
-    height_smooth:
-      task: voxel.height_smooth
-      description: "Smooth/blur a height region on an AVoxelHeightSculptActor. Wraps editor.execute_python -> VoxelHeightSculptBlueprintLibrary::Smooth. Params: actorLabel, center ({x,y}), radius? (def 1000), strength? (def 1)."
-      schema:
-        actorLabel: { type: string }
-        center: { type: object }
-        radius: { type: number }
-        strength: { type: number }
-
-    height_paint_surface:
-      task: voxel.height_paint_surface
-      description: "Paint a surface type on a height sculpt stamp of an AVoxelHeightSculptActor. Wraps editor.execute_python -> VoxelHeightSculptBlueprintLibrary::PaintSurface. Params: actorLabel, center ({x,y}), radius? (def 500), strength? (def 0.05), mode? (add|remove), surfaceType? (object path to a UVoxelSurfaceTypeInterface asset)."
-      schema:
-        actorLabel: { type: string }
-        center: { type: object }
-        radius: { type: number }
-        strength: { type: number }
-        mode: { type: string }
-        surfaceType: { type: string }
-
-    height_apply_sculpt_graph:
-      task: voxel.height_apply_sculpt_graph
-      description: "Apply a height sculpt graph at a location on an AVoxelHeightSculptActor. Builds FVoxelHeightSculptGraphWrapper from the graph asset. Wraps editor.execute_python -> VoxelHeightSculptBlueprintLibrary::ApplySculptGraph. Params: actorLabel, center ({x,y}), graph (object path to a UVoxelHeightSculptGraph), radius? (def 500)."
-      schema:
-        actorLabel: { type: string }
-        center:     { type: object }
-        graph:      { type: string }
-        radius:     { type: number }
-
-    height_clear_sculpt_data:
-      task: voxel.height_clear_sculpt_data
-      description: "Clear all sculpt data on an AVoxelHeightSculptActor (resets edits). Wraps editor.execute_python -> VoxelHeightSculptBlueprintLibrary::ClearSculptData. Params: actorLabel."
-      schema:
-        actorLabel: { type: string }
-
-    # ── Query / sampling (static VoxelQueryBlueprintLibrary) ──────────────
-    query_voxel_layer:
-      task: voxel.query_voxel_layer
-      description: "Sample one point of a voxel layer; returns FVoxelQueryResult (value, surface_type, normal) as JSON on a VOXEL_QUERY_RESULT= line (value/normal are null where the layer has no surface there). Static lib taking an FVoxelStackLayer -> wraps editor.execute_python (resolves the layer from the stack asset, queries the editor world). Header: Voxel/Public/VoxelQueryBlueprintLibrary.h. Params: position ({x,y,z}), stack? (asset path, default DefaultStack), layerType? (height|volume, default volume), layerIndex? (default 0), gradientStep? (default 100)."
-      schema:
-        position:     { type: object }
-        stack:        { type: string }
-        layerType:    { type: string }
-        layerIndex:   { type: number }
-        gradientStep: { type: number }
-
-    multi_query_voxel_layer:
-      task: voxel.multi_query_voxel_layer
-      description: "Batch-sample many points of a voxel layer in one call; returns an array of FVoxelQueryResult (value, surface_type, normal) as JSON on a VOXEL_QUERY_RESULT= line. Static lib taking an FVoxelStackLayer + positions -> wraps editor.execute_python. Header: Voxel/Public/VoxelQueryBlueprintLibrary.h. Params: positions ([{x,y,z}]), stack? (default DefaultStack), layerType? (height|volume, default volume), layerIndex? (default 0), gradientStep? (default 100)."
-      schema:
-        positions:    { type: array }
-        stack:        { type: string }
-        layerType:    { type: string }
-        layerIndex:   { type: number }
-        gradientStep: { type: number }
-
-    export_voxel_data_to_render_target:
-      task: voxel.export_voxel_data_to_render_target
-      description: "Query a voxel height layer over a 2D zone and write it into a UTextureRenderTarget2D (RGB=value, A=1); returns success on a VOXEL_EXPORT_OK= line. Static lib building an FVoxelColorQuery from QueryHeight/MakeConstant -> wraps editor.execute_python. Header: Voxel/Public/VoxelQueryBlueprintLibrary.h. Params: renderTarget (UTextureRenderTarget2D object path), min ({x,y}), max ({x,y}), stack? (default DefaultStack), layerIndex? (default 0), query? (height|constant, default height), constant? (when query=constant)."
-      schema:
-        renderTarget: { type: string }
-        min:          { type: object }
-        max:          { type: object }
-        stack:        { type: string }
-        layerIndex:   { type: number }
-        query:        { type: string }
-        constant:     { type: number }
-
-    add_instanced_stamp_component:
-      task: voxel.add_instanced_stamp_component
-      description: "Attach a UVoxelInstancedStampComponent to an actor — holds many stamps in one component (scatter without an actor each). Wraps level.add_component. Header: Voxel/Public/VoxelInstancedStampComponent.h. Params: actorLabel, componentName?."
-      schema:
-        actorLabel:    { type: string }
-        componentName: { type: string }
-
-    clear_instanced_stamps:
-      task: voxel.clear_instanced_stamps
-      description: "Remove every stamp from a UVoxelInstancedStampComponent and refresh. Wraps editor.execute_python. Params: actorLabel, componentName."
-      schema:
-        actorLabel:    { type: string }
-        componentName: { type: string }
-
-    update_instanced_stamps:
-      task: voxel.update_instanced_stamps
-      description: "Refresh all stamps on a UVoxelInstancedStampComponent (apply pending edits). Wraps editor.execute_python. Params: actorLabel, componentName."
-      schema:
-        actorLabel:    { type: string }
-        componentName: { type: string }
-
-    count_instanced_stamps:
-      task: voxel.count_instanced_stamps
-      description: "Report a UVoxelInstancedStampComponent's stamp count on a VOXEL_STAMP_COUNT= line. Wraps editor.execute_python. Params: actorLabel, componentName."
-      schema:
-        actorLabel:    { type: string }
-        componentName: { type: string }
-
-    remove_instanced_stamp:
-      task: voxel.remove_instanced_stamp
-      description: "Remove one stamp (by index) from a UVoxelInstancedStampComponent and refresh. Wraps editor.execute_python. Params: actorLabel, componentName, index."
-      schema:
-        actorLabel:    { type: string }
-        componentName: { type: string }
-        index:         { type: number }
-
-    add_no_clipping_component:
-      task: voxel.add_no_clipping_component
-      description: "Attach a UVoxelNoClippingComponent to an actor — keeps the owner from clipping through voxel terrain (auto-teleports above solid ground). Wraps level.add_component. Header: Voxel/Public/VoxelNoClippingComponent.h. Params: actorLabel, componentName?."
-      schema:
-        actorLabel:    { type: string }
-        componentName: { type: string }
-
-    set_no_clipping_layer:
-      task: voxel.set_no_clipping_layer
-      description: "Configure a UVoxelNoClippingComponent: the voxel layer it treats as solid ground + auto-adjust. Wraps editor.execute_python (builds an FVoxelStackLayer). Params: actorLabel, componentName, stack? (default DefaultStack), layerType? (height|volume), layerIndex? (default 0), autoAdjustPlayer? (default true)."
-      schema:
-        actorLabel:       { type: string }
-        componentName:    { type: string }
-        stack:            { type: string }
-        layerType:        { type: string }
-        layerIndex:       { type: number }
-        autoAdjustPlayer: { type: boolean }
-
-    set_world_lod_quality:
-      task: voxel.set_world_lod_quality
-      description: "Set AVoxelWorld::LODQuality — detail-vs-performance beyond VoxelSize. editor_quality/game_quality are FFloatInterval (min/max) ranges; always_use_game_quality is a bool. Wraps editor.execute_python. Header: Voxel/Public/VoxelWorld.h. Params: actorLabel, editorQuality? ({min,max}), gameQuality? ({min,max}), alwaysUseGameQuality? (at least one)."
-      schema:
-        actorLabel:           { type: string }
-        editorQuality:        { type: object }
-        gameQuality:          { type: object }
-        alwaysUseGameQuality: { type: boolean }
-
-  asset:
-    create:
-      task: voxel.create_asset
-      description: "Create a new Voxel asset by type (surface_type, smart_surface_type, layer_stack, mega_material, heightmap, static_mesh, height_graph, volume_graph, scatter_graph, height_spline_graph, volume_spline_graph, height_sculpt_graph, volume_sculpt_graph, surface_type_graph, height_sculpt_save, volume_sculpt_save, pcg_graph). The host asset tools can't create a UObject by class. Wraps editor.execute_python; returns the path on a VOXEL_CREATED_ASSET= line. Params: name, type, packagePath? (default /Game)."
-      schema:
-        name:        { type: string }
-        type:        { type: string }
-        packagePath: { type: string }
-
-    set_property:
-      task: voxel.set_asset_property
-      description: "Set one editor property on a Voxel asset and save it (e.g. a surface type's material/blend_smoothness, a heightmap's scale_xy). Wraps editor.execute_python (load_asset -> set_editor_property -> save). Params: assetPath, propertyName (snake_case), value (always passed as a string — non-asset values that look numeric or boolean are coerced to the matching Python type: \"0.5\" -> float, \"true\"/\"false\" -> bool, otherwise kept as a string), valueIsAsset? (set true when the property holds a UObject ref, e.g. a Material — value is then an object path)."
-      schema:
-        assetPath:    { type: string }
-        propertyName: { type: string }
-        value:        { type: string }
-        valueIsAsset: { type: boolean }
-
-  pcg:
-    add_node:
-      task: voxel.pcg_add_node
-      description: "Add a VoxelPCG node to a PCG graph (e.g. sampler_v2 to sample the voxel surface into points, or call_graph to run a voxel graph). Wraps pcg.add_node with /Script/VoxelPCG.<Class>. Configure it afterwards with pcg.set_node_settings. Module: VoxelPCG. Params: assetPath (UPCGGraph object path), node (call_graph|sampler|sampler_v2|query|stamp_spawner|spawn_actor|apply_on_graph|create_spline|projection|elevation_isolines|wait_for_world|layer_sampler|landscape_sampler|landscape_projection|wait_for_landscape), nodeName?."
-      schema:
-        assetPath: { type: string }
-        node:      { type: string }
-        nodeName:  { type: string }
-
-knowledge: {}
-
-tasks:
-  voxel.spawn_world:
-    class_path: tasks/SpawnWorld
-    description: "Spawn an AVoxelWorld actor"
-  voxel.add_stamp_component:
-    class_path: tasks/AddStampComponent
-    description: "Attach a UVoxelStampComponent to an actor"
-  voxel.set_heightmap_stamp:
-    class_path: tasks/SetHeightmapStamp
-    description: "Build + apply a heightmap stamp to a stamp actor"
-  voxel.set_height_graph_stamp:
-    class_path: tasks/SetHeightGraphStamp
-    description: "Build + apply a height-graph stamp"
-  voxel.set_volume_graph_stamp:
-    class_path: tasks/SetVolumeGraphStamp
-    description: "Build + apply a volume-graph stamp"
-  voxel.set_mesh_stamp:
-    class_path: tasks/SetMeshStamp
-    description: "Build + apply a mesh stamp"
-  voxel.set_height_spline_stamp:
-    class_path: tasks/SetHeightSplineStamp
-    description: "Build + apply a height-spline stamp"
-  voxel.set_volume_spline_stamp:
-    class_path: tasks/SetVolumeSplineStamp
-    description: "Build + apply a volume-spline stamp"
-  voxel.update_stamp_actor:
-    class_path: tasks/UpdateStampActor
-    description: "Call UpdateStamp on an AVoxelStampActor"
-  voxel.set_sculpt_save_asset:
-    class_path: tasks/SetSculptSaveAsset
-    description: "Link a sculpt actor to an external save asset"
-  voxel.get_sculpt_save_asset:
-    class_path: tasks/GetSculptSaveAsset
-    description: "Read a sculpt actor's external save asset"
-  voxel.volume_clear_sculpt_cache:
-    class_path: tasks/VolumeClearSculptCache
-    description: "Volume sculpt: free the sculpt cache"
-  voxel.height_clear_sculpt_cache:
-    class_path: tasks/HeightClearSculptCache
-    description: "Height sculpt: free the sculpt cache"
-  voxel.query_voxel_layer:
-    class_path: tasks/QueryVoxelLayer
-    description: "Sample one point of a voxel layer"
-  voxel.multi_query_voxel_layer:
-    class_path: tasks/QueryVoxelLayerMulti
-    description: "Batch-sample many points of a voxel layer"
-  voxel.export_voxel_data_to_render_target:
-    class_path: tasks/ExportVoxelDataToRenderTarget
-    description: "Export a voxel height layer into a render target"
-  voxel.pcg_add_node:
-    class_path: tasks/PcgAddNode
-    description: "Add a VoxelPCG node to a PCG graph"
-  voxel.create_asset:
-    class_path: tasks/CreateVoxelAsset
-    description: "Create a new Voxel asset by type"
-  voxel.set_asset_property:
-    class_path: tasks/SetVoxelAssetProperty
-    description: "Set one editor property on a Voxel asset"
-  voxel.add_instanced_stamp_component:
-    class_path: tasks/AddInstancedStampComponent
-    description: "Attach a UVoxelInstancedStampComponent to an actor"
-  voxel.clear_instanced_stamps:
-    class_path: tasks/ClearInstancedStamps
-    description: "Clear all stamps on an instanced stamp component"
-  voxel.update_instanced_stamps:
-    class_path: tasks/UpdateInstancedStamps
-    description: "Refresh all stamps on an instanced stamp component"
-  voxel.count_instanced_stamps:
-    class_path: tasks/CountInstancedStamps
-    description: "Report an instanced stamp component's stamp count"
-  voxel.remove_instanced_stamp:
-    class_path: tasks/RemoveInstancedStamp
-    description: "Remove one stamp by index from an instanced stamp component"
-  voxel.add_no_clipping_component:
-    class_path: tasks/AddNoClippingComponent
-    description: "Attach a UVoxelNoClippingComponent to an actor"
-  voxel.set_no_clipping_layer:
-    class_path: tasks/SetNoClippingLayer
-    description: "Configure a UVoxelNoClippingComponent's layer + auto-adjust"
-  voxel.set_world_lod_quality:
-    class_path: tasks/SetWorldLodQuality
-    description: "Set AVoxelWorld::LODQuality fields"
-  voxel.spawn_stamp_actor:
-    class_path: tasks/SpawnStampActor
-    description: "Spawn an AVoxelStampActor"
-  voxel.spawn_height_sculpt_actor:
-    class_path: tasks/SpawnHeightSculptActor
-    description: "Spawn an AVoxelHeightSculptActor"
-  voxel.spawn_volume_sculpt_actor:
-    class_path: tasks/SpawnVolumeSculptActor
-    description: "Spawn an AVoxelVolumeSculptActor"
-  voxel.spawn_collision_baker:
-    class_path: tasks/SpawnCollisionBaker
-    description: "Spawn an AVoxelCollisionBaker"
-  voxel.spawn_debug_actor:
-    class_path: tasks/SpawnDebugActor
-    description: "Spawn an AVoxelDebugActor"
-  voxel.is_world_ready:
-    class_path: tasks/IsWorldReady
-    description: "Read IsVoxelWorldReady on an AVoxelWorld actor"
-  voxel.get_world_progress:
-    class_path: tasks/GetWorldProgress
-    description: "Read GetProgress on an AVoxelWorld actor"
-  voxel.is_runtime_created:
-    class_path: tasks/IsRuntimeCreated
-    description: "Read IsRuntimeCreated on an AVoxelWorld actor"
-  voxel.is_processing_new_state:
-    class_path: tasks/IsProcessingNewState
-    description: "Read IsProcessingNewState on an AVoxelWorld actor"
-  voxel.get_num_pending_tasks:
-    class_path: tasks/GetNumPendingTasks
-    description: "Read GetNumPendingTasks on an AVoxelWorld actor"
-  voxel.create_runtime:
-    class_path: tasks/CreateRuntime
-    description: "Call CreateRuntime on an AVoxelWorld actor"
-  voxel.destroy_runtime:
-    class_path: tasks/DestroyRuntime
-    description: "Call DestroyRuntime on an AVoxelWorld actor"
-  voxel.set_world_layer_stack:
-    class_path: tasks/SetLayerStack
-    description: "Set AVoxelWorld::LayerStack"
-  voxel.set_world_mega_material:
-    class_path: tasks/SetMegaMaterial
-    description: "Set AVoxelWorld::MegaMaterial"
-  voxel.set_world_voxel_size:
-    class_path: tasks/SetVoxelSize
-    description: "Set AVoxelWorld::VoxelSize"
-  voxel.set_world_enable_nanite:
-    class_path: tasks/SetEnableNanite
-    description: "Set AVoxelWorld::bEnableNanite"
-  voxel.set_world_enable_navigation:
-    class_path: tasks/SetEnableNavigation
-    description: "Set AVoxelWorld::bEnableNavigation"
-  voxel.set_world_enable_lumen:
-    class_path: tasks/SetEnableLumen
-    description: "Set AVoxelWorld::bEnableLumen"
-  voxel.volume_sculpt_sphere:
-    class_path: tasks/VolumeSculptSphere
-    description: "Volume sculpt: add/remove a sphere"
-  voxel.volume_sculpt_cube:
-    class_path: tasks/VolumeSculptCube
-    description: "Volume sculpt: add/remove a cube"
-  voxel.volume_flatten:
-    class_path: tasks/VolumeFlatten
-    description: "Volume sculpt: flatten along a normal"
-  voxel.volume_smooth:
-    class_path: tasks/VolumeSmooth
-    description: "Volume sculpt: smooth a region"
-  voxel.volume_sculpt_surface:
-    class_path: tasks/VolumeSculptSurface
-    description: "Volume sculpt: progressively sculpt a surface"
-  voxel.volume_sculpt_angle:
-    class_path: tasks/VolumeSculptAngle
-    description: "Volume sculpt: angle a surface toward a plane"
-  voxel.volume_paint_surface:
-    class_path: tasks/VolumePaintSurface
-    description: "Volume sculpt: paint a surface type"
-  voxel.volume_clear_sculpt_data:
-    class_path: tasks/VolumeClearSculptData
-    description: "Volume sculpt: clear all sculpt data"
-  voxel.volume_apply_sculpt_graph:
-    class_path: tasks/VolumeApplySculptGraph
-    description: "Volume sculpt: apply a sculpt graph"
-  voxel.height_apply_sculpt_graph:
-    class_path: tasks/HeightApplySculptGraph
-    description: "Height sculpt: apply a sculpt graph"
-  voxel.height_sculpt_height:
-    class_path: tasks/HeightSculptHeight
-    description: "Height sculpt: raise/lower height"
-  voxel.height_flatten:
-    class_path: tasks/HeightFlatten
-    description: "Height sculpt: flatten toward a target height"
-  voxel.height_smooth:
-    class_path: tasks/HeightSmooth
-    description: "Height sculpt: smooth a region"
-  voxel.height_paint_surface:
-    class_path: tasks/HeightPaintSurface
-    description: "Height sculpt: paint a surface type"
-  voxel.height_clear_sculpt_data:
-    class_path: tasks/HeightClearSculptData
-    description: "Height sculpt: clear all sculpt data"
-
-flows:
-  voxel_hello_world:
-    description: "0-to-1: spawn an AVoxelWorld and assign the bundled default LayerStack so it renders. Pass `label` (and optional location/rotation/scale) as flow params. The LayerStack assignment threads the spawned actor's label via ${steps.1.data.actorLabel}."
-    steps:
-      1:
-        task: voxel.spawn_world
-        # `label`, `location`, `rotation`, `scale` come in via FlowRunOptions.params
-        # and merge into this step's options at runtime.
-      2:
-        task: level.set_actor_property
-        options:
-          actorLabel: "${steps.1.data.actorLabel}"
-          propertyName: LayerStack
-          value: /Voxel/Default/DefaultStack.DefaultStack
+        actorPath:
+          type: string
+          description: Stamp actor object path
+        actorLabel:
+          type: string
+          description: Stamp actor label
+        values:
+          type: object
+          description: '{ parameterName: value } (required)'
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
+      effect: mutate
+knowledge:
+  voxel: knowledge/voxel.md
+flows: {}

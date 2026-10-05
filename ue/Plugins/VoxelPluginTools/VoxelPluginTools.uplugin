@@ -1,9 +1,9 @@
 {
   "FileVersion": 3,
   "Version": 1,
-  "VersionName": "0.5.2",
+  "VersionName": "0.6.0",
   "FriendlyName": "Voxel Plugin Tools",
-  "Description": "Native ue-mcp handlers for authoring Voxel Plugin graphs and stamp parameters",
+  "Description": "Native ue-mcp handlers for Voxel Plugin 2: worlds, stamps, sculpting, queries, assets, PCG and graph authoring",
   "Category": "Editor",
   "CreatedBy": "db-lyon",
   "EnabledByDefault": true,
@@ -23,6 +23,10 @@
     },
     {
       "Name": "Voxel",
+      "Enabled": true
+    },
+    {
+      "Name": "PCG",
       "Enabled": true
     }
   ]
