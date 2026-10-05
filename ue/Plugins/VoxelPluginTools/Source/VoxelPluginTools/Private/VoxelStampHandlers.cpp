@@ -910,7 +910,7 @@ void AddStampHandlers(TArray<FHandlerEntry>& Out)
 				TEXT("heightmap: the default surface type; mesh: the surface type. A UVoxelSurfaceTypeInterface asset path; \"\" or null clears it.")).Nullable(),
 			MCPParam::Optional(TEXT("useTricubic"), EMCPParamType::Boolean, TEXT("mesh only: tricubic interpolation, slower and smoother.")),
 			Spec::ValueMap(TEXT("parameters"), false,
-				TEXT("Graph and spline kinds only: { parameterName: value } overrides, each value parsed as the parameter's type; null sets an object parameter to None.")),
+				TEXT("Graph and spline kinds only: { parameterName: value } overrides; each value a string, number, boolean or null, parsed as the parameter's type, and null sets an object parameter to None.")),
 		};
 	};
 

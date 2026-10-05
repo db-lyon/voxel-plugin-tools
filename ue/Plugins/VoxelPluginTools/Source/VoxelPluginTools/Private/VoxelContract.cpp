@@ -4,7 +4,8 @@
 #include "Serialization/JsonSerializer.h"
 
 // Holds a call to its handler's contract the way the ue-mcp server does (src/surface/handler-spec.ts,
-// contractViolation), and refuses unknown keys inside objects too, which the server lets through.
+// contractViolation). Stricter in one place: unknown keys inside {x,y,z}, {pitch,yaw,roll}, {r,g,b,a?} and entry-list
+// objects are refused too.
 namespace VoxelPluginTools
 {
 namespace
@@ -142,6 +143,10 @@ namespace
 	// One value of an argMap or argEntryList: a scalar, an object, or an array of those or of scalar arrays.
 	bool IsArgValue(const TSharedPtr<FJsonValue>& Value)
 	{
+		if (!Value.IsValid())
+		{
+			return false;
+		}
 		if (IsScalar(Value) || Value->Type == EJson::Object)
 		{
 			return true;
@@ -179,8 +184,8 @@ namespace
 			{
 				if (!Item.IsValid() || Item->Type != EJson::Object) return false;
 				const TSharedPtr<FJsonObject> Entry = Item->AsObject();
-				const TSharedPtr<FJsonValue> Name = Entry->TryGetField(TEXT("name"));
-				const TSharedPtr<FJsonValue> EntryValue = Entry->TryGetField(TEXT("value"));
+				const TSharedPtr<FJsonValue> Name = FindExact(*Entry, TEXT("name"));
+				const TSharedPtr<FJsonValue> EntryValue = FindExact(*Entry, TEXT("value"));
 				if (!Name.IsValid() || Name->Type != EJson::String) return false;
 				if (EntryValue.IsValid() && !IsArgValue(EntryValue)) return false;
 				if (Entry->Values.Num() > (EntryValue.IsValid() ? 2 : 1)) return false;
@@ -284,7 +289,7 @@ namespace
 			return Problem;
 		}
 		const TSharedPtr<FJsonObject> Object = Value->AsObject();
-		const TSharedPtr<FJsonValue> Tag = Object->TryGetField(Param.VariantKey);
+		const TSharedPtr<FJsonValue> Tag = FindExact(*Object, Param.VariantKey);
 		TArray<FString> Tags;
 		for (const FMCPParamVariant& Variant : Param.Variants)
 		{
@@ -351,7 +356,11 @@ namespace
 		}
 		if (Param.LiteralValue.IsValid())
 		{
-			return FJsonValue::CompareEqual(*Param.LiteralValue, *Value)
+			// CompareEqual compares strings case-insensitively; the server's literal does not.
+			const bool bEqual = Param.LiteralValue->Type == EJson::String
+				? Value->Type == EJson::String && Value->AsString().Equals(Param.LiteralValue->AsString(), ESearchCase::CaseSensitive)
+				: FJsonValue::CompareEqual(*Param.LiteralValue, *Value);
+			return bEqual
 				? FString()
 				: FString::Printf(TEXT("%s must be %s (got %s)"), *Param.Name, *Shown(Param.LiteralValue), *Shown(Value));
 		}

@@ -1503,11 +1503,11 @@ void AddSculptHandlers(TArray<FHandlerEntry>& Out)
 	const auto SurfaceType = [](const TCHAR* Op) { return MCPParam::Optional(TEXT("surfaceType"), EMCPParamType::String,
 		*FString::Printf(TEXT("%s: UVoxelSurfaceTypeInterface asset path to paint; %s needs this and/or metadata."), Op, Op)); };
 	const auto Metadata = [](const TCHAR* Op) { return Spec::ValueMap(TEXT("metadata"), false,
-		*FString::Printf(TEXT("%s: { UVoxelMetadata asset path: value } to paint, each value parsed as the metadata's type."), Op)); };
+		*FString::Printf(TEXT("%s: { UVoxelMetadata asset path: value } to paint; each value a string, number or boolean, parsed as the metadata's type."), Op)); };
 	const auto GraphPath = [](const TCHAR* Class) { return MCPParam::Optional(TEXT("graph"), EMCPParamType::String,
 		*FString::Printf(TEXT("apply_graph, required: %s asset path."), Class)); };
 	const auto GraphParameters = [] { return Spec::ValueMap(TEXT("parameters"), false,
-		TEXT("apply_graph: { parameterName: value } overrides on the sculpt graph, each parsed as the parameter's type.")); };
+		TEXT("apply_graph: { parameterName: value } overrides on the sculpt graph; each value a string, number or boolean, parsed as the parameter's type.")); };
 	const auto Falloff01 = [&](const TCHAR* Description) { return Number(TEXT("falloff"), Description, 0, 1); };
 
 	Out.Add({ TEXT("voxel_height_sculpt"), &HeightSculpt, Sculpt(TEXT("AVoxelSculptHeight"), {

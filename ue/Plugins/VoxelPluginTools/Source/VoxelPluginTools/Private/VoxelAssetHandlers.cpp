@@ -1280,7 +1280,7 @@ void AddAssetHandlers(TArray<FHandlerEntry>& Out)
 		AssetPath(TEXT("UVoxelSmartSurfaceType asset path.")),
 		MCPParam::Optional(TEXT("graph"), EMCPParamType::String, TEXT("UVoxelSmartSurfaceTypeGraph asset path; \"\", None or null clears it.")).Nullable(),
 		Spec::ValueMap(TEXT("parameters"), false,
-			TEXT("{ parameterName: value } overrides on the target graph's parameters, each parsed as the parameter's type before anything changes.")),
+			TEXT("{ parameterName: value } overrides on the target graph's parameters; each value a string, number or boolean, parsed as the parameter's type before anything changes.")),
 		SavePackage(),
 	}, MCPSpec::AtLeastOne({ { TEXT("graph") }, { TEXT("parameters") } }) });
 

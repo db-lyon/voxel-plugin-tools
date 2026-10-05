@@ -1114,7 +1114,7 @@ void AddGraphHandlers(TArray<FHandlerEntry>& Out)
 		Spec::ActorLabel(TEXT("Stamp actor label; must match exactly one actor.")),
 		Spec::ComponentName(TEXT("UVoxelStampComponent object name; default the actor's first one.")),
 		Spec::ValueMap(TEXT("values"), true,
-			TEXT("Non-empty { parameterName: value } overrides on the stamp's height or volume graph, each parsed as the parameter's type; null sets an object parameter to None.")),
+			TEXT("Non-empty { parameterName: value } overrides on the stamp's height or volume graph; each value a string, number, boolean or null, parsed as the parameter's type, and null sets an object parameter to None.")),
 		Spec::SaveDirty(),
 	}, Spec::OneActor() });
 }

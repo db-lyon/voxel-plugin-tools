@@ -115,7 +115,8 @@ namespace VoxelPluginTools
 		FMCPParamSpec SaveDirty();
 		FMCPParamSpec Save(const TCHAR* Description);
 		FMCPParamSpec Vec3(const TCHAR* Name, const TCHAR* Description);
-		// { name: value } of strings, numbers, booleans and nulls.
+		// { name: value }, published as the argMap form; the handlers that read it take only strings, numbers,
+		// booleans and nulls as values, which no value form expresses, so each description says so.
 		FMCPParamSpec ValueMap(const TCHAR* Name, bool bRequired, const TCHAR* Description);
 		// The parameter's names, in order, as single-name branches of a choice.
 		TArray<TArray<FString>> Branches(const TArray<FMCPParamSpec>& Params);
