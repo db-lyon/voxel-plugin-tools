@@ -2,6 +2,8 @@
 
 Every action is a native C++ handler; nothing runs through Python.
 
+Before material work run `voxel_shader_hooks_status`: Voxel materials render only with Voxel's engine shader patches applied. Without them terrain shows a gray grid checker and nothing logs an error; the result names the fix.
+
 Conventions:
 - Actors: pass `actorPath` from the spawn result. Stamp actors relabel themselves from their stamp, so labels go stale.
 - Rotations are `{pitch,yaw,roll}`; vectors are `{x,y,z}` in centimetres.

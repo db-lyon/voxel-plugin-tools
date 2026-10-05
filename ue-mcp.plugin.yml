@@ -13,6 +13,12 @@ nativeModule:
   category: voxel
   categoryDescription: 'Voxel Plugin 2: worlds, stamps, sculpting, layer queries, voxel assets, voxel PCG nodes, and graph authoring'
   handlers:
+    voxel_shader_hooks_status:
+      effect: read
+      description: >-
+        Report whether Voxel's engine shader hooks are applied. Voxel materials render only with them; without them terrain shows the grid fallback with no error. Run before any material work. Params:
+        none.
+      schema: {}
     voxel_world_spawn:
       effect: mutate
       description: >-

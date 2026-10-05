@@ -47,6 +47,9 @@ async function step(name, method, params, check = () => true, { expectError = fa
   return reply;
 }
 
+// Preflight
+await step("shader_hooks_status", "voxel_shader_hooks_status", {}, (r) => (Array.isArray(r.groups) && r.groups.length > 0) || "no hook groups");
+
 // Assets
 for (const [type, name] of [
   ["height_graph", "HG_Smoke"], ["surface_type", "ST_Grass"], ["surface_type", "ST_Dirt"], ["mega_material", "MM_Smoke"],
@@ -122,6 +125,18 @@ await step("pcg_configure_sampler", "voxel_pcg_configure_sampler", () => ({ grap
 // Runtime
 await step("world_runtime destroy", "voxel_world_runtime", () => ({ actorPath: ctx.world, op: "destroy" }));
 await step("world_runtime create", "voxel_world_runtime", () => ({ actorPath: ctx.world, op: "create" }));
+
+// Regression: a saved graph edit must survive a reload (the compiled graph is flushed before saving)
+await step("asset_create reload graph", "voxel_asset_create", { type: "height_graph", name: "HG_Reload", packagePath: P });
+// Amplitude 0 flattens the stamp to height 0; a stale compiled graph keeps the noise.
+const far = await step("actor_spawn reload stamp", "voxel_actor_spawn", { kind: "stamp", label: "SmokeReload", location: { x: 60000, y: 0, z: 0 } });
+await step("stamp_set reload graph", "voxel_stamp_set", () => ({ actorPath: far.actorPath, kind: "height_graph", asset: `${P}/HG_Reload` }));
+await step("reload stamp has height", "voxel_query_layer", { points: [{ x: 60000, y: 0 }] }, (r) => typeof r.points?.[0]?.height === "number" || `height ${r.points?.[0]?.height}`);
+await step("graph edit saved", "voxel_graph_set_pin_default", { assetPath: `${P}/HG_Reload`, node: "Advanced Noise 2D", pin: "Amplitude", value: "0" });
+await step("reload graph from disk", "force_reload_asset", { assetPath: `${P}/HG_Reload` });
+await step("runtime rebuilt", "voxel_world_runtime", () => ({ actorPath: ctx.world, op: "destroy" }));
+await step("runtime recreated", "voxel_world_runtime", () => ({ actorPath: ctx.world, op: "create" }));
+await step("reloaded graph keeps the edit", "voxel_query_layer", { points: [{ x: 60000, y: 0 }] }, (r) => r.points?.[0]?.height === 0 || `stale compiled graph: height ${r.points?.[0]?.height}`);
 
 // Edge cases from review
 await step("world_configure accepts save:false", "voxel_world_configure", () => ({ actorPath: ctx.world, enableLumen: true, save: false }));

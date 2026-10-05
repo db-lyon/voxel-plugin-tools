@@ -1,6 +1,6 @@
 # voxel-plugin-tools
 
-[Voxel Plugin 2](https://voxelplugin.com) for [ue-mcp](https://github.com/db-lyon/ue-mcp): 37 native actions in a `voxel` category covering worlds, stamps, sculpting, layer queries, voxel assets, voxel PCG nodes and graph authoring.
+[Voxel Plugin 2](https://voxelplugin.com) for [ue-mcp](https://github.com/db-lyon/ue-mcp): 38 native actions in a `voxel` category covering worlds, stamps, sculpting, layer queries, voxel assets, voxel PCG nodes and graph authoring.
 
 ## Install
 
@@ -32,7 +32,7 @@ The `voxel-terrain` skill walks through the full workflow. `ue-mcp.plugin.yml` i
 
 | Area | Actions |
 |---|---|
-| World | `voxel_world_spawn`, `voxel_world_configure`, `voxel_world_status`, `voxel_world_runtime` |
+| World | `voxel_shader_hooks_status`, `voxel_world_spawn`, `voxel_world_configure`, `voxel_world_status`, `voxel_world_runtime` |
 | Actors | `voxel_actor_spawn` (stamp, height/volume sculpt, collision baker, debug), `voxel_component_add`, `voxel_no_clipping_set_layer` |
 | Stamps | `voxel_stamp_set` (height/volume graph, heightmap, mesh, height/volume spline), `voxel_stamp_read`, `voxel_stamp_set_parameters`, `voxel_instanced_stamps` |
 | Sculpting | `voxel_height_sculpt`, `voxel_volume_sculpt`, `voxel_sculpt_asset_get`, `voxel_sculpt_asset_set` |

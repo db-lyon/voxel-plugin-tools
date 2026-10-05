@@ -22,6 +22,8 @@
 #include "Sculpt/Height/VoxelSculptHeight.h"
 #include "Sculpt/Volume/VoxelSculptVolume.h"
 #include "Collision/VoxelCollisionBaker.h"
+#include "VoxelShaderHook.h"
+#include "VoxelShaderHooksManager.h"
 
 #define LOCTEXT_NAMESPACE "VoxelPluginTools"
 
@@ -732,10 +734,69 @@ namespace
 	}
 }
 
+namespace
+{
+	FString HookStateName(const EVoxelShaderHookState State)
+	{
+		switch (State)
+		{
+		case EVoxelShaderHookState::NeverApply: return TEXT("disabled");
+		case EVoxelShaderHookState::Active: return TEXT("active");
+		case EVoxelShaderHookState::Outdated: return TEXT("outdated");
+		case EVoxelShaderHookState::NotApplied: return TEXT("not_applied");
+		case EVoxelShaderHookState::Invalid: return TEXT("invalid");
+		case EVoxelShaderHookState::Deprecated: return TEXT("deprecated");
+		default: return TEXT("unknown");
+		}
+	}
+
+	// Voxel materials render only when Voxel's patches to the engine shaders are applied; without them every
+	// generated surface shader compiles its voxel code out and the terrain shows the grid fallback, with no error.
+	FResult ShaderHooksStatus(const FParams& Params)
+	{
+		if (!GVoxelShaderHooksManager) return Error(TEXT("Voxel shader hook manager is not available"));
+
+		TArray<TSharedPtr<FJsonValue>> Groups;
+		bool bAllActive = true;
+		for (const FVoxelShaderHookGroup* Group : GVoxelShaderHooksManager->Hooks)
+		{
+			if (!Group) continue;
+			const EVoxelShaderHookState State = Group->GetState();
+			const bool bRequired = Group->IsEnabled();
+			bAllActive &= !bRequired || State == EVoxelShaderHookState::Active;
+
+			TSharedRef<FJsonObject> G = MakeShared<FJsonObject>();
+			G->SetStringField(TEXT("name"), Group->DisplayName);
+			G->SetStringField(TEXT("state"), HookStateName(State));
+			G->SetBoolField(TEXT("enabled"), bRequired);
+			TArray<TSharedPtr<FJsonValue>> Pending;
+			for (const FVoxelShaderHook& Hook : Group->Hooks)
+			{
+				if (Hook.GetState() != EVoxelShaderHookState::Active && Hook.GetState() != EVoxelShaderHookState::Deprecated)
+				{
+					Pending.Add(MakeShared<FJsonValueString>(FString::Printf(TEXT("%s [%s]"), *Hook.ShaderGuid.ToString(), *HookStateName(Hook.GetState()))));
+				}
+			}
+			if (Pending.Num() > 0) G->SetArrayField(TEXT("pendingHooks"), Pending);
+			Groups.Add(MakeShared<FJsonValueObject>(G));
+		}
+
+		TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
+		Out->SetBoolField(TEXT("allActive"), bAllActive);
+		Out->SetArrayField(TEXT("groups"), Groups);
+		if (!bAllActive)
+		{
+			Out->SetStringField(TEXT("fix"), TEXT("Close the editor, run `UnrealEditor-Cmd.exe <project>.uproject -run=ApplyVoxelShaderHooks`, then restart so shaders recompile. The patch lives in the engine install: every machine that compiles shaders needs it."));
+		}
+		return Ok(Out);
+	}
+}
+
 void AddWorldHandlers(TArray<FHandlerEntry>& Out)
 {
 	Out.Append(
 	{
+		{ TEXT("voxel_shader_hooks_status"), &ShaderHooksStatus },
 		{ TEXT("voxel_world_spawn"), &WorldSpawn },
 		{ TEXT("voxel_world_configure"), &WorldConfigure },
 		{ TEXT("voxel_world_status"), &WorldStatus },
