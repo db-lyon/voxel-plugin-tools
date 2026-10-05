@@ -1,6 +1,6 @@
 # voxel-plugin-tools
 
-[Voxel Plugin](https://voxelplugin.com) actions for [ue-mcp](https://github.com/db-lyon/ue-mcp). 60 actions and 1 flow.
+[Voxel Plugin](https://voxelplugin.com) actions for [ue-mcp](https://github.com/db-lyon/ue-mcp). 60 actions, 12 native graph-authoring actions and 1 flow.
 
 ## Install
 
@@ -8,18 +8,18 @@
 ue-mcp plugin install voxel-plugin-tools
 ```
 
-Adds an entry under `plugins:` in `ue-mcp.yml`. Restart ue-mcp.
+Adds an entry under `plugins:` in `ue-mcp.yml` and copies the `VoxelPluginTools` native module into `Plugins/`. Rebuild the project, then restart ue-mcp.
 
 ## Requirements
 
-- ue-mcp `>= 1.0.15`
-- Voxel Plugin enabled in your `.uproject` (`Plugins[].Name == "Voxel"`)
-- Unreal Engine 5.7
+- ue-mcp `>= 1.0.15` (prereleases included)
+- Voxel Plugin 2 enabled in your `.uproject` (`Plugins[].Name == "Voxel"`); the native module is built against the `dev` branch
+- Unreal Engine 5.8 (the test project and native module target 5.8)
 - Node `>= 18` to build (20+ recommended)
 
 ## Usage
 
-Actions are called as `<category>(action="voxel_<name>", ...)`. Three categories: `level`, `asset`, `pcg`.
+Actions are called as `<category>(action="voxel_<name>", ...)`. Injected actions live in `level`, `asset` and `pcg`; the native graph actions are their own `voxel` category.
 
 Spawn a rendering world:
 
@@ -170,6 +170,22 @@ level(action="voxel_set_heightmap_stamp", actorLabel="Terrain",
 | `voxel_pcg_add_node` | Add a VoxelPCG node to a `UPCGGraph`; configure after with `pcg.set_node_settings` |
 
 `voxel_pcg_add_node` node types: `call_graph`, `sampler`, `sampler_v2`, `query`, `stamp_spawner`, `spawn_actor`, `apply_on_graph`, `create_spline`, `projection`, `elevation_isolines`, `wait_for_world`, `layer_sampler`, `landscape_sampler`, `landscape_projection`, `wait_for_landscape`.
+
+### voxel: graph authoring (native module)
+
+Voxel exposes no script API for graph nodes, pins or parameters, so these run in the `VoxelPluginTools` C++ module. Nodes are addressed by id (GUID), object name or unique title; pins by name or display name. Edits recompile the graph and save it unless `save: false`.
+
+| Action | Does |
+|---|---|
+| `voxel_graph_read` | Terminal graphs, parameters, every node with pins, defaults and links |
+| `voxel_graph_list_node_types` | Node types the graph allows, as `Category\|Name` keys (node library, function libraries, `Parameters\|<name>` getters) |
+| `voxel_graph_add_node` | Add a node by type key |
+| `voxel_graph_connect` / `voxel_graph_disconnect` | Make or break one link |
+| `voxel_graph_set_pin_default` | Set an unconnected input's default |
+| `voxel_graph_delete_node` | Delete a node and its links |
+| `voxel_graph_export_t3d` / `voxel_graph_import_t3d` | Copy nodes as clipboard text and paste them back (opens the graph editor for the paste; reports refused nodes) |
+| `voxel_graph_add_parameter` / `voxel_graph_set_parameter_default` | Graph parameters (`float`, `int32`, `bool`, `vector2d`, `seed`, `struct:<path>`, ...) |
+| `voxel_stamp_set_parameters` | Override graph parameters on a height or volume graph stamp actor by name (`actorPath` preferred: stamp actors relabel themselves) |
 
 ## Flows
 
