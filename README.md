@@ -12,7 +12,7 @@ Adds an entry under `plugins:` in `ue-mcp.yml` and copies the `VoxelPluginTools`
 
 ## Requirements
 
-- ue-mcp `>= 1.0.15` (prereleases included)
+- ue-mcp `>= 1.0.15`, enforced by `minServerVersion` in `ue-mcp.plugin.yml` (prerelease servers included; npm peer ranges cannot express that)
 - Voxel Plugin 2 enabled in your `.uproject` (`Plugins[].Name == "Voxel"`); the native module is built against the `dev` branch
 - Unreal Engine 5.8 (the test project and native module target 5.8)
 - Node `>= 18` to build (20+ recommended)
