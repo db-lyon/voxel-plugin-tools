@@ -1,6 +1,6 @@
 {
   "name": "voxel-plugin-tools",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Voxel Plugin actions for ue-mcp. Cited to the C++ headers each action wraps; full reference under docs/.",
   "type": "module",
   "main": "dist/index.js",
@@ -27,9 +27,6 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/db-lyon/voxel-plugin-tools.git"
-  },
-  "peerDependencies": {
-    "ue-mcp": ">=1.0.15-0"
   },
   "devDependencies": {
     "ue-mcp": "^1.0.71",
