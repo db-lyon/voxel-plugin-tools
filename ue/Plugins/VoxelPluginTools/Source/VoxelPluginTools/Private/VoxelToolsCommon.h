@@ -28,10 +28,6 @@ namespace VoxelPluginTools
 		FMCPSpecRules Rules;
 	};
 
-	// Why Params break the contract, or empty when they keep it. The same checks the ue-mcp server runs before a
-	// call, applied again here because the bridge also reaches handlers directly.
-	FString ContractViolation(const TArray<FMCPParamSpec>& Specs, const FMCPSpecRules& Rules, const FParams& Params);
-
 	// Replaces NaN/Inf numbers with null: JSON has no spelling for them, and the bridge drops a reply that contains them.
 	FResult SanitizeJson(const FResult& Value);
 

@@ -859,10 +859,10 @@ namespace
 			const TSharedPtr<FJsonObject>* Parameters = nullptr;
 			if (!Params->TryGetObjectField(TEXT("parameters"), Parameters)) return Error(TEXT("parameters must be an object { name: value }"));
 			if (!TargetGraph) return Error(TEXT("parameters need a graph; the smart surface type has none"));
-			for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : (*Parameters)->Values)
+			for (const auto& Pair : (*Parameters)->Values)
 			{
 				FVoxelParameter Parameter;
-				if (!FindGraphParameter(*TargetGraph, Pair.Key, Parameter))
+				if (!FindGraphParameter(*TargetGraph, FString(*Pair.Key), Parameter))
 				{
 					return Error(FString::Printf(TEXT("Graph %s has no parameter '%s'"), *TargetGraph->GetName(), *Pair.Key));
 				}

@@ -300,9 +300,9 @@ namespace
 			OutError = TEXT("metadata must be an object { metadataPath: value }");
 			return false;
 		}
-		for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : (*Values)->Values)
+		for (const auto& Pair : (*Values)->Values)
 		{
-			UVoxelMetadata* Metadata = Load<UVoxelMetadata>(Pair.Key, OutError);
+			UVoxelMetadata* Metadata = Load<UVoxelMetadata>(FString(*Pair.Key), OutError);
 			if (!Metadata) return false;
 
 			FVoxelMetadataOverride& Override = Out.Overrides.AddDefaulted_GetRef();
@@ -337,14 +337,14 @@ namespace
 			OutError = TEXT("parameters must be an object { parameterName: value }");
 			return false;
 		}
-		for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : (*Values)->Values)
+		for (const auto& Pair : (*Values)->Values)
 		{
 			bool bFound = false;
 			FGuid Guid;
 			FVoxelParameter Parameter;
 			Graph.ForeachParameter([&](const FGuid& InGuid, const FVoxelParameter& InParameter)
 			{
-				if (!bFound && InParameter.Name.ToString().Equals(Pair.Key, ESearchCase::IgnoreCase))
+				if (!bFound && InParameter.Name.ToString().Equals(FString(*Pair.Key), ESearchCase::IgnoreCase))
 				{
 					Guid = InGuid;
 					Parameter = InParameter;

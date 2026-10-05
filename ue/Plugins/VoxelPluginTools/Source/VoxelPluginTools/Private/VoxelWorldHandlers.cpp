@@ -226,10 +226,10 @@ namespace
 			return false;
 		}
 		double Min = InOut.Min, Max = InOut.Max;
-		for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : (*Interval)->Values)
+		for (const auto& Pair : (*Interval)->Values)
 		{
-			const bool bMin = Pair.Key.Equals(TEXT("min"), ESearchCase::CaseSensitive);
-			if (!bMin && !Pair.Key.Equals(TEXT("max"), ESearchCase::CaseSensitive))
+			const bool bMin = FString(*Pair.Key).Equals(TEXT("min"), ESearchCase::CaseSensitive);
+			if (!bMin && !FString(*Pair.Key).Equals(TEXT("max"), ESearchCase::CaseSensitive))
 			{
 				OutError = FString::Printf(TEXT("lodQuality.%s takes only min and max (got %s)"), Field, *Pair.Key);
 				return false;
@@ -381,9 +381,9 @@ namespace
 			{
 				return false;
 			}
-			for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : (*Object)->Values)
+			for (const auto& Pair : (*Object)->Values)
 			{
-				if (Pair.Key.Equals(TEXT("alwaysUseGameQuality"), ESearchCase::CaseSensitive))
+				if (FString(*Pair.Key).Equals(TEXT("alwaysUseGameQuality"), ESearchCase::CaseSensitive))
 				{
 					// TryGetBoolField would read any string through FString::ToBool.
 					if (!Pair.Value.IsValid() || Pair.Value->Type != EJson::Boolean)
@@ -393,7 +393,7 @@ namespace
 					}
 					Quality.bAlwaysUseGameQuality = Pair.Value->AsBool();
 				}
-				else if (!Pair.Key.Equals(TEXT("gameQuality"), ESearchCase::CaseSensitive) && !Pair.Key.Equals(TEXT("editorQuality"), ESearchCase::CaseSensitive))
+				else if (!FString(*Pair.Key).Equals(TEXT("gameQuality"), ESearchCase::CaseSensitive) && !FString(*Pair.Key).Equals(TEXT("editorQuality"), ESearchCase::CaseSensitive))
 				{
 					OutError = FString::Printf(TEXT("lodQuality takes gameQuality, editorQuality and alwaysUseGameQuality (got %s)"), *Pair.Key);
 					return false;

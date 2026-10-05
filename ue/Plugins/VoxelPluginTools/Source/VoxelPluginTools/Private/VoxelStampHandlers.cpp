@@ -303,11 +303,11 @@ namespace
 			OutError = TEXT("parameters needs a graph; pass asset");
 			return false;
 		}
-		for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : (*Values)->Values)
+		for (const auto& Pair : (*Values)->Values)
 		{
 			FGuid Guid;
 			FVoxelParameter Parameter;
-			if (!FindGraphParameter(*Graph, Pair.Key, Guid, Parameter))
+			if (!FindGraphParameter(*Graph, FString(*Pair.Key), Guid, Parameter))
 			{
 				OutError = FString::Printf(TEXT("Graph %s has no parameter '%s'"), *Graph->GetName(), *Pair.Key);
 				return false;

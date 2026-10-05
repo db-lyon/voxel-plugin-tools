@@ -36,9 +36,9 @@ namespace VoxelPluginTools
 		case EJson::Object:
 		{
 			TSharedRef<FJsonObject> Object = MakeShared<FJsonObject>();
-			for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Value->AsObject()->Values)
+			for (const auto& Pair : Value->AsObject()->Values)
 			{
-				Object->SetField(Pair.Key, SanitizeJson(Pair.Value));
+				Object->SetField(FString(*Pair.Key), SanitizeJson(Pair.Value));
 			}
 			return MakeShared<FJsonValueObject>(Object);
 		}
@@ -102,9 +102,9 @@ namespace VoxelPluginTools
 		{
 			return true;
 		}
-		for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Params->Values)
+		for (const auto& Pair : Params->Values)
 		{
-			if (!Allowed.ContainsByPredicate([&](const TCHAR* Name) { return Pair.Key.Equals(Name, ESearchCase::CaseSensitive); }))
+			if (!Allowed.ContainsByPredicate([&](const TCHAR* Name) { return FString(*Pair.Key).Equals(Name, ESearchCase::CaseSensitive); }))
 			{
 				TArray<FString> Names;
 				for (const TCHAR* Name : Allowed) Names.Add(Name);
@@ -428,7 +428,7 @@ namespace VoxelPluginTools
 
 		FMCPParamSpec ValueMap(const TCHAR* Name, bool bRequired, const TCHAR* Description)
 		{
-			FMCPParamSpec Param = MCPParam::Optional(Name, EMCPParamType::Any, Description).OneOfForms({ EMCPValueForm::ArgMap });
+			FMCPParamSpec Param = MCPParam::Optional(Name, EMCPParamType::Any, Description).OneOfForms({ EMCPValueForm::ScalarMap });
 			Param.bRequired = bRequired;
 			return Param;
 		}

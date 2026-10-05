@@ -36,16 +36,12 @@ namespace
 	// Content packages a call marked dirty, directly or through Voxel side effects (graph migration, sculpting
 	// into a linked asset), are saved before replying unless save:false. Levels never are: GetDirtyContentPackages
 	// excludes map and external-actor packages, and saving the level stays the user's decision.
-	// The contract is checked before the handler runs: the bridge reaches handlers without the server's own check.
+	// The bridge has already held the call to the handler's contract (UEMCP::ContractViolation) before this runs.
 	TSharedPtr<FJsonValue> RunHandler(const VoxelPluginTools::FHandlerEntry& Entry, const TSharedPtr<FJsonObject>& InParams)
 	{
 		const FString& Name = Entry.Name;
 		const UEMCP::FExternalHandlerFn& Fn = Entry.Fn;
 		const TSharedPtr<FJsonObject> Params = InParams.IsValid() ? InParams : MakeShared<FJsonObject>();
-		if (const FString Violation = VoxelPluginTools::ContractViolation(Entry.Params, Entry.Rules, Params); !Violation.IsEmpty())
-		{
-			return VoxelPluginTools::Error(FString::Printf(TEXT("Invalid parameters for %s: %s"), *Name, *Violation));
-		}
 		if (ReadHandlers.Contains(Name))
 		{
 			return VoxelPluginTools::SanitizeJson(Fn(Params));

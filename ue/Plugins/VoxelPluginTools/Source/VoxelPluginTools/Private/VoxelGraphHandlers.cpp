@@ -954,11 +954,11 @@ namespace
 		}
 
 		IVoxelParameterOverridesOwner& Owner = Stamp;
-		for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : (*Values)->Values)
+		for (const auto& Pair : (*Values)->Values)
 		{
 			FGuid Guid;
 			FVoxelParameter Parameter;
-			if (!FindParameter(*Graph, Pair.Key, Guid, Parameter))
+			if (!FindParameter(*Graph, FString(*Pair.Key), Guid, Parameter))
 			{
 				return Error(FString::Printf(TEXT("Graph %s has no parameter '%s'"), *Graph->GetName(), *Pair.Key));
 			}

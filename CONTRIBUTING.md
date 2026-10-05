@@ -12,7 +12,7 @@ flowchart LR
 ## Layout
 
 - `Private/VoxelToolsCommon.*`: shared parsing, actor lookup, errors, handler registry, shared contract pieces (`Spec::`).
-- `Private/VoxelContract.cpp`: holds every call to its handler's contract before the handler runs, as the ue-mcp server does, because the bridge also reaches handlers directly.
+- Contracts are enforced by the bridge itself (`UEMCP::ContractViolation`, bridge ABI 2) on every call, whoever sent it; handlers do not re-check what a contract states.
 - `Private/Voxel*Handlers.cpp`: one file per area (world, stamps, sculpt and queries, assets and PCG, graphs). Each keeps its helpers in an anonymous namespace; the module builds without unity for that reason.
 - `Private/VoxelPluginToolsModule.cpp`: registers each handler with its contract (bridge ABI 2) and its timeout, logs an error for any contract the bridge refuses; checks the contract, saves content packages a call dirtied and turns non-finite numbers into `null` before replying.
 - Each `Add*Handlers` registers `Out.Add({ name, fn, { params }, rules })`: every key the handler reads, with its exact type, required flag, enum (the spelling the code accepts), range, nested fields, variants and choices, and `save` on every mutating handler. One sentence per description, stating defaults and units.
