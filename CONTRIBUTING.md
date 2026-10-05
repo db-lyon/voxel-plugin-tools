@@ -19,7 +19,7 @@ flowchart LR
   `EBADENGINE` warning. If you use nvm, `nvm use 20` (or higher) in this repo.
 - **ue-mcp** installed (it's a devDependency; `npm install` pulls it). The CLI
   used below is `npx ue-mcp`.
-- **Unreal Engine 5.7** (the test project targets `5.7`).
+- **Unreal Engine 5.8** (the test project targets `5.8`).
 - A **test UE project** with the Voxel Plugin enabled — see below.
 
 ## Build
@@ -39,7 +39,7 @@ A throwaway UE project lives under `tests/voxel_plugin_tools/`. It is **not** th
 plugin — it's the editor we point the bridge at. It has:
 
 - The Voxel Plugin cloned into `Plugins/Voxel/` (from
-  <https://github.com/VoxelPlugin/VoxelPlugin>, `stable` branch = Voxel Plugin 2)
+  <https://github.com/VoxelPlugin/VoxelPlugin>, `dev` branch = Voxel Plugin 2; the native module tracks it)
   and enabled in `voxel_plugin_tools.uproject`. The vendored plugin is **not**
   committed to this repo.
 - A `ue-mcp.yml` (server config) and `.mcp.json` (MCP-client registration),

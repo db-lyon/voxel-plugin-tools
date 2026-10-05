@@ -2,6 +2,112 @@ actionPrefix: voxel
 minServerVersion: 1.0.15
 uePluginDependency: Voxel
 
+# Native handlers: voxel graph authoring and stamp parameters, which Voxel does
+# not expose to Python or reflection. Source: ue/Plugins/VoxelPluginTools.
+nativeModule:
+  uePluginName: VoxelPluginTools
+  minBridgeApi: 1
+  source: ue/Plugins/VoxelPluginTools
+  category: voxel
+  categoryDescription: "Author Voxel Plugin graphs (nodes, pins, parameters, T3D) and set graph-stamp parameters"
+  handlers:
+    voxel_graph_read:
+      description: "Read a voxel graph: terminal graphs, parameters (name, guid, type, default) and every node with pins, defaults and links. Params: assetPath (required), terminalGraph? (guid, default main), includePins? (default true)."
+      schema:
+        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
+        terminalGraph: { type: string, description: "Terminal graph GUID; default is the main graph" }
+        includePins: { type: boolean }
+    voxel_graph_list_node_types:
+      description: "List the node types this graph allows (Voxel's node library, function-library nodes, and 'Parameters|<name>' getters) as 'Category|Name' keys for voxel_graph_add_node. Space-separated query words must all match. Params: assetPath (required), query?, limit? (default 100), terminalGraph?."
+      schema:
+        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
+        query: { type: string }
+        limit: { type: number }
+        terminalGraph: { type: string }
+    voxel_graph_add_node:
+      description: "Add a node by its type key ('Category|Name', or the bare name when unique). Returns the node with its pins. Params: assetPath, action (required), x?, y?, terminalGraph?, save? (default true)."
+      schema:
+        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
+        action: { type: string, description: "Action key from voxel_graph_list_node_types (required)" }
+        x: { type: number }
+        y: { type: number }
+        terminalGraph: { type: string }
+        save: { type: boolean }
+    voxel_graph_connect:
+      description: "Connect an output pin to an input pin. Nodes by id (GUID), object name or unique title; pins by name or display name. Params: assetPath, fromNode, fromPin, toNode, toPin (required), terminalGraph?, save?."
+      schema:
+        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
+        fromNode: { type: string }
+        fromPin: { type: string }
+        toNode: { type: string }
+        toPin: { type: string }
+        terminalGraph: { type: string }
+        save: { type: boolean }
+    voxel_graph_disconnect:
+      description: "Break one link between an output pin and an input pin. Same params as voxel_graph_connect."
+      schema:
+        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
+        fromNode: { type: string }
+        fromPin: { type: string }
+        toNode: { type: string }
+        toPin: { type: string }
+        terminalGraph: { type: string }
+        save: { type: boolean }
+    voxel_graph_set_pin_default:
+      description: "Set an unconnected input pin's default value (pin default text, e.g. '5000', '(X=1,Y=2)'). Params: assetPath, node, pin, value (required), terminalGraph?, save?."
+      schema:
+        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
+        node: { type: string }
+        pin: { type: string }
+        value: { type: string }
+        terminalGraph: { type: string }
+        save: { type: boolean }
+    voxel_graph_delete_node:
+      description: "Delete a node and its links. Params: assetPath, node (required), terminalGraph?, save?."
+      schema:
+        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
+        node: { type: string }
+        terminalGraph: { type: string }
+        save: { type: boolean }
+    voxel_graph_export_t3d:
+      description: "Export nodes as clipboard T3D text (all copyable nodes, or the listed ids). Params: assetPath (required), nodes? ([id]), terminalGraph?."
+      schema:
+        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
+        nodes: { type: array, items: { type: string } }
+        terminalGraph: { type: string }
+    voxel_graph_import_t3d:
+      description: "Paste T3D node text into a voxel graph (new GUIDs, links inside the text kept). Opens the graph editor for the paste if it is closed, since Voxel refuses pastes without it; reports nodes the graph type refused. Params: assetPath, t3d (required), offsetX?, offsetY?, terminalGraph?, save?."
+      schema:
+        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
+        t3d: { type: string }
+        offsetX: { type: number }
+        offsetY: { type: number }
+        terminalGraph: { type: string }
+        save: { type: boolean }
+    voxel_graph_add_parameter:
+      description: "Add a graph parameter. type: float, double, int32, int64, bool, name, vector2d, vector, color, seed, or struct:/object:/class:/enum:<path>. Then add its getter via voxel_graph_list_node_types. Params: assetPath, name, type (required), default?, category?, description?, save?."
+      schema:
+        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
+        name: { type: string }
+        type: { type: string }
+        default: { type: string }
+        category: { type: string }
+        description: { type: string }
+        save: { type: boolean }
+    voxel_graph_set_parameter_default:
+      description: "Set a graph parameter's default value (pin value text). Params: assetPath, name, value (required), save?."
+      schema:
+        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
+        name: { type: string }
+        value: { type: string }
+        save: { type: boolean }
+    voxel_stamp_set_parameters:
+      description: "Override graph parameters on a height or volume graph stamp actor, by parameter name. Stamp actors relabel themselves from their stamp, so prefer actorPath. Params: actorPath or actorLabel (one required), values (required, { name: value })."
+      schema:
+        actorPath: { type: string, description: "Stamp actor object path" }
+        actorLabel: { type: string, description: "Stamp actor label" }
+        values: { type: object, description: "{ parameterName: value } (required)" }
+
 # Each tool wraps exactly one host ue-mcp call.
 # Orchestrations live under `flows:` below, not inside task bodies.
 # Every action cites the Voxel Plugin C++ header it wraps.
