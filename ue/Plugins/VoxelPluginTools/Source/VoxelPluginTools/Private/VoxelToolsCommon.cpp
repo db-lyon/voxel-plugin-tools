@@ -3,6 +3,7 @@
 #include "Editor.h"
 #include "EngineUtils.h"
 #include "GameFramework/Actor.h"
+#include "Misc/PackageName.h"
 
 #include "VoxelPinType.h"
 #include "VoxelPinValue.h"
@@ -211,8 +212,22 @@ namespace VoxelPluginTools
 
 	bool ParseValue(FVoxelPinValue& Value, const FString& In)
 	{
-		const FString Text = In.TrimStartAndEnd();
+		FString Text = In.TrimStartAndEnd();
 		const FVoxelPinType& Type = Value.GetType();
+		if (Value.IsObject())
+		{
+			if (Text.IsEmpty() || Text == TEXT("None"))
+			{
+				return Value.ImportFromString(TEXT("None"));
+			}
+			// Accept a bare package path: /Game/Foo/Bar means /Game/Foo/Bar.Bar.
+			if (!Text.Contains(TEXT(".")) && Text.StartsWith(TEXT("/")))
+			{
+				Text += TEXT(".") + FPackageName::GetShortName(Text);
+			}
+			// An object that does not resolve imports as null and Voxel's fixup then drops the override silently.
+			return Value.ImportFromString(Text) && Value.GetObject() != nullptr;
+		}
 		if (Type.Is<float>() || Type.Is<double>() || Type.Is<int32>() || Type.Is<int64>())
 		{
 			if (!Text.IsNumeric())

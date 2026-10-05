@@ -88,6 +88,11 @@ await step("stamp_set height_graph", "voxel_stamp_set", () => ({
 await step("stamp_read", "voxel_stamp_read", () => ({ actorPath: ctx.stamp }), (r) =>
   (r.stamp?.kind === "height_graph" && /HG_Smoke/.test(r.stamp.asset ?? "") && !!r.stamp.layer && r.stamp.overrides?.Amplitude?.startsWith("3500")) || `unexpected ${JSON.stringify(r.stamp)}`);
 await step("stamp_set_parameters", "voxel_stamp_set_parameters", () => ({ actorPath: ctx.stamp, values: { Amplitude: "4000" } }));
+// Object parameters: a bare package path must resolve, an unresolved one must be refused, never dropped silently
+await step("graph_add_parameter surface", "voxel_graph_add_parameter", { assetPath: `${P}/HG_Smoke`, name: "Surface", type: "struct:/Script/Voxel.VoxelSurfaceType" });
+await step("stamp_set_parameters package path", "voxel_stamp_set_parameters", () => ({ actorPath: ctx.stamp, values: { Surface: `${P}/ST_Dirt` } }), (r) =>
+  /ST_Dirt\.ST_Dirt$/.test(r.overrides?.Surface ?? "") || `override ${JSON.stringify(r.overrides)}`);
+await step("stamp_set_parameters unresolved object", "voxel_stamp_set_parameters", () => ({ actorPath: ctx.stamp, values: { Surface: `${P}/ST_Missing` } }), undefined, { expectError: true });
 await step("world_status", "voxel_world_status", () => ({ actorPath: ctx.world }), (r) => typeof r.progress === "number" || "no progress");
 await step("query_layer", "voxel_query_layer", { points: [{ x: 0, y: 0 }, { x: 5000, y: 5000 }], querySurface: true }, (r) =>
   (r.points?.length === 2 && typeof r.points[0].height === "number") || `points ${JSON.stringify(r.points)}`);

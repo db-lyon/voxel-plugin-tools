@@ -22,4 +22,6 @@ Graph editing: `voxel_graph_list_node_types` (query words) gives `nodeType` keys
 
 Surfaces: `voxel_surface_type_set` (material), `voxel_mega_material_set_surfaces` (list on the mega material), and the height graph's Output Height `SurfaceType` pin decides where each one lands.
 
-PCG: create the engine graph with `pcg(action="create_graph")`, then `voxel_pcg_add_node` (`wait_for_world`, `sampler_v2`, ...) and `voxel_pcg_configure_sampler`. `sampler_v2` writes one attribute per surface type; filter on it. One sampler call returns empty, silently, past 1,048,576 candidate positions; for larger areas loop the sampler over grid cells (voxel-terrain skill, section 6).
+PCG: create the engine graph with `pcg(action="create_graph")`, then `voxel_pcg_add_node` (`wait_for_world`, `sampler_v2`, ...) and `voxel_pcg_configure_sampler`. `sampler_v2` writes one attribute per surface type; filter on it. One sampler call returns empty, silently, past 1,048,576 candidate positions; for larger areas use a partitioned, runtime-generated component, never a Loop over cells (the PCG tracker keeps one dependency per node). Filter NaN rotations at stamp edges. Details in the voxel-terrain skill, sections 6 and 7.
+
+Object-typed values (surface types, assets) accept `/Game/Path/Asset` or `/Game/Path/Asset.Asset`; a value that does not resolve is an error. A graph parameter override equal to the graph default is dropped by Voxel, which is harmless.
