@@ -26,7 +26,7 @@ voxel(action="voxel_stamp_set", actorPath="<from the spawn>", kind="height_graph
       asset="/Game/Terrain/HG_Terrain", parameters={Amplitude: 3000})
 ```
 
-The `voxel-terrain` skill walks through the full workflow. `ue-mcp.plugin.yml` is the reference for every action and parameter.
+The `voxel-terrain` skill walks through the full workflow. Each action's parameters are a typed contract declared next to its C++ registration; `tools(action="describe", category="voxel", method=...)` shows it, and calls that break it are refused.
 
 ## Actions
 
@@ -43,15 +43,15 @@ The `voxel-terrain` skill walks through the full workflow. `ue-mcp.plugin.yml` i
 
 ## Conventions
 
-- Actors are addressed by `actorPath` (stable) or `actorLabel`; stamp actors relabel themselves, so prefer the path.
-- Rotations are `{pitch,yaw,roll}`, vectors `{x,y,z}` in centimetres.
+- Actors are addressed by `actorPath` (stable) or `actorLabel`, not both; stamp actors relabel themselves, so prefer the path.
+- Rotations are `{pitch,yaw,roll}`, vectors `{x,y,z}` in centimetres, every component given.
 - Content packages an action dirties are saved before it replies (`autoSaved` in the result); levels are left to you.
 - Existing assets are never overwritten.
 - Non-finite numbers in results are reported as `null`.
 
 ## Develop
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). `npm run check` validates the manifest against the host schema and the C++ registrations; `node scripts/live-test.mjs` runs every action against a live editor.
+See [CONTRIBUTING.md](CONTRIBUTING.md). `npm run check` validates the manifest against the host schema and matches it to the C++ registrations and their contracts; `node scripts/live-test.mjs` runs every action against a live editor.
 
 ## License
 

@@ -7,6 +7,8 @@ description: Build procedural Voxel Plugin 2 terrain through ue-mcp's voxel cate
 
 Every step below is a `voxel(action=...)` call. All of them run as native handlers; never fall back to Python for Voxel work.
 
+Each action checks its parameters against its C++ contract before it runs (`tools(action="describe", category="voxel", method=...)` lists them). Wrong types, unknown keys, fractional integers, out-of-range numbers and enum values in another spelling are refused, not coerced, and an op or stamp kind refuses fields it does not read. Read the refusal and fix the call; it names the field.
+
 ## 0. Preflight: shader hooks
 
 Run `voxel_shader_hooks_status` first. Voxel materials render only when Voxel's patches to the engine shaders are applied; without them every generated surface shader compiles its voxel code out, so terrain shows the gray grid checker (Nanite) or renders near-black (non-Nanite), and nothing logs an error. If `allActive` is false: close the editor, run `UnrealEditor-Cmd.exe <project>.uproject -run=ApplyVoxelShaderHooks`, restart (shaders recompile). The patch lives in the engine install, so every machine that compiles shaders needs it.
@@ -49,7 +51,7 @@ Existing assets are returned, never overwritten (`existed: true`).
 
 ## 5. Sculpt layer
 
-`voxel_actor_spawn` `kind: "height_sculpt"` then `voxel_height_sculpt` (`sculpt_height`, `flatten`, `smooth`, `paint_surface`). Bind a save asset with `voxel_sculpt_asset_set` so the edits live outside the level.
+`voxel_actor_spawn` `kind: "height_sculpt"` then `voxel_height_sculpt` (`sculpt_height`, `flatten`, `smooth`, `paint_surface`). A `brush` names its `type` (`Circular`, `Alpha` or `Pattern`, the last two with a `texture`). Bind a save asset with `voxel_sculpt_asset_set` so the edits live outside the level.
 
 ## 6. PCG on the voxel surface
 
