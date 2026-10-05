@@ -19,6 +19,7 @@ public:
 		{
 			UEMCP::UnregisterExternalHandler(Entry.Name);
 		}
+		VoxelPluginTools::ReleaseCatalog();
 	}
 };
 

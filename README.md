@@ -1,6 +1,6 @@
 # voxel-plugin-tools
 
-[Voxel Plugin](https://voxelplugin.com) actions for [ue-mcp](https://github.com/db-lyon/ue-mcp). 60 actions, 12 native graph-authoring actions and 1 flow.
+[Voxel Plugin](https://voxelplugin.com) actions for [ue-mcp](https://github.com/db-lyon/ue-mcp). 60 actions, 13 native graph-authoring actions and 1 flow.
 
 ## Install
 
@@ -184,7 +184,7 @@ Voxel exposes no script API for graph nodes, pins or parameters, so these run in
 | `voxel_graph_set_pin_default` | Set an unconnected input's default |
 | `voxel_graph_delete_node` | Delete a node and its links |
 | `voxel_graph_export_t3d` / `voxel_graph_import_t3d` | Copy nodes as clipboard text and paste them back (opens the graph editor for the paste; reports refused nodes) |
-| `voxel_graph_add_parameter` / `voxel_graph_set_parameter_default` | Graph parameters (`float`, `int32`, `bool`, `vector2d`, `seed`, `struct:<path>`, ...) |
+| `voxel_graph_add_parameter` / `voxel_graph_set_parameter_default` / `voxel_graph_remove_parameter` | Graph parameters (remove also deletes getter nodes) (`float`, `int32`, `bool`, `vector2d`, `seed`, `struct:<path>`, ...) |
 | `voxel_stamp_set_parameters` | Override graph parameters on a height or volume graph stamp actor by name (`actorPath` preferred: stamp actors relabel themselves) |
 
 ## Flows

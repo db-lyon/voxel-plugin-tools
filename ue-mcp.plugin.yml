@@ -94,6 +94,12 @@ nativeModule:
         category: { type: string }
         description: { type: string }
         save: { type: boolean }
+    voxel_graph_remove_parameter:
+      description: "Remove a graph parameter, its getter nodes in every terminal graph, and its stored default. Params: assetPath, name (required), save?."
+      schema:
+        assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
+        name: { type: string }
+        save: { type: boolean }
     voxel_graph_set_parameter_default:
       description: "Set a graph parameter's default value (pin value text). Params: assetPath, name, value (required), save?."
       schema:
