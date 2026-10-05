@@ -1,4 +1,4 @@
-#include "VoxelGraphHandlers.h"
+#include "VoxelToolsCommon.h"
 
 #include "EdGraph/EdGraph.h"
 #include "EdGraph/EdGraphNode.h"
@@ -37,53 +37,6 @@ namespace VoxelPluginTools
 {
 namespace
 {
-	using FResult = TSharedPtr<FJsonValue>;
-	using FParams = TSharedPtr<FJsonObject>;
-
-	FResult Error(const FString& Message)
-	{
-		TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
-		Out->SetBoolField(TEXT("success"), false);
-		Out->SetStringField(TEXT("error"), Message);
-		return MakeShared<FJsonValueObject>(Out);
-	}
-
-	FResult Ok(const TSharedRef<FJsonObject>& Out)
-	{
-		Out->SetBoolField(TEXT("success"), true);
-		return MakeShared<FJsonValueObject>(Out);
-	}
-
-	FString Str(const FParams& Params, const TCHAR* Field)
-	{
-		FString Value;
-		if (Params.IsValid())
-		{
-			Params->TryGetStringField(Field, Value);
-		}
-		return Value;
-	}
-
-	bool Bool(const FParams& Params, const TCHAR* Field, bool Default)
-	{
-		bool Value = Default;
-		if (Params.IsValid())
-		{
-			Params->TryGetBoolField(Field, Value);
-		}
-		return Value;
-	}
-
-	double Num(const FParams& Params, const TCHAR* Field, double Default)
-	{
-		double Value = Default;
-		if (Params.IsValid())
-		{
-			Params->TryGetNumberField(Field, Value);
-		}
-		return Value;
-	}
-
 	// The graph asset plus the terminal graph an edit targets.
 	struct FGraphTarget
 	{
@@ -437,71 +390,6 @@ namespace
 			Node->AllocateDefaultPins();
 		}
 		return Node;
-	}
-
-	// Voxel's ImportFromString reads non-numeric text as 0 for numbers, so scalars are checked first.
-	bool ParseValue(FVoxelPinValue& Value, const FString& In)
-	{
-		const FString Text = In.TrimStartAndEnd();
-		const FVoxelPinType& Type = Value.GetType();
-		if (Type.Is<float>() || Type.Is<double>() || Type.Is<int32>() || Type.Is<int64>())
-		{
-			if (!Text.IsNumeric())
-			{
-				return false;
-			}
-		}
-		else if (Type.Is<bool>())
-		{
-			if (!(Text.Equals(TEXT("true"), ESearchCase::IgnoreCase) || Text.Equals(TEXT("false"), ESearchCase::IgnoreCase) ||
-				  Text == TEXT("1") || Text == TEXT("0")))
-			{
-				return false;
-			}
-		}
-		return Value.ImportFromString(Text);
-	}
-
-	bool ParsePinType(const FString& In, FVoxelPinType& Out, FString& OutError)
-	{
-		const FString T = In.TrimStartAndEnd();
-		const FString L = T.ToLower();
-		if (L == TEXT("float")) { Out = FVoxelPinType::Make<float>(); return true; }
-		if (L == TEXT("double")) { Out = FVoxelPinType::Make<double>(); return true; }
-		if (L == TEXT("int") || L == TEXT("int32")) { Out = FVoxelPinType::Make<int32>(); return true; }
-		if (L == TEXT("int64")) { Out = FVoxelPinType::Make<int64>(); return true; }
-		if (L == TEXT("bool")) { Out = FVoxelPinType::Make<bool>(); return true; }
-		if (L == TEXT("name")) { Out = FVoxelPinType::Make<FName>(); return true; }
-		if (L == TEXT("vector2d")) { Out = FVoxelPinType::Make<FVector2D>(); return true; }
-		if (L == TEXT("vector")) { Out = FVoxelPinType::Make<FVector>(); return true; }
-		if (L == TEXT("color") || L == TEXT("linearcolor")) { Out = FVoxelPinType::Make<FLinearColor>(); return true; }
-		if (L == TEXT("seed")) { Out = FVoxelPinType::Make<FVoxelSeed>(); return true; }
-
-		FString Kind, Path;
-		if (T.Split(TEXT(":"), &Kind, &Path))
-		{
-			Kind = Kind.ToLower();
-			if (Kind == TEXT("struct"))
-			{
-				if (UScriptStruct* Struct = LoadObject<UScriptStruct>(nullptr, *Path)) { Out = FVoxelPinType::MakeStruct(Struct); return true; }
-			}
-			else if (Kind == TEXT("object"))
-			{
-				if (UClass* Class = LoadObject<UClass>(nullptr, *Path)) { Out = FVoxelPinType::MakeObject(Class); return true; }
-			}
-			else if (Kind == TEXT("class"))
-			{
-				if (UClass* Class = LoadObject<UClass>(nullptr, *Path)) { Out = FVoxelPinType::MakeClass(Class); return true; }
-			}
-			else if (Kind == TEXT("enum"))
-			{
-				if (UEnum* Enum = LoadObject<UEnum>(nullptr, *Path)) { Out = FVoxelPinType::MakeEnum(Enum); return true; }
-			}
-			OutError = FString::Printf(TEXT("Could not load %s '%s'"), *Kind, *Path);
-			return false;
-		}
-		OutError = FString::Printf(TEXT("Unknown type '%s'. Use float, double, int32, int64, bool, name, vector2d, vector, color, seed, or struct:/object:/class:/enum:<path>"), *T);
-		return false;
 	}
 
 	bool FindParameter(const UVoxelGraph& Graph, const FString& Name, FGuid& OutGuid, FVoxelParameter& OutParameter)
@@ -1033,29 +921,8 @@ namespace
 
 	UVoxelStampComponent* FindStampComponent(const FParams& Params, FString& OutError)
 	{
-		// Stamp actors relabel themselves from their stamp, so the path is the stable key.
-		const FString Path = Str(Params, TEXT("actorPath"));
-		const FString Label = Str(Params, TEXT("actorLabel"));
-		if ((Path.IsEmpty() && Label.IsEmpty()) || !GEditor)
-		{
-			OutError = TEXT("actorPath or actorLabel is required");
-			return nullptr;
-		}
-		UWorld* World = GEditor->GetEditorWorldContext().World();
-		for (TActorIterator<AActor> It(World); It; ++It)
-		{
-			if (Path.IsEmpty() ? It->GetActorLabel() == Label : It->GetPathName() == Path)
-			{
-				if (UVoxelStampComponent* Component = It->FindComponentByClass<UVoxelStampComponent>())
-				{
-					return Component;
-				}
-				OutError = FString::Printf(TEXT("Actor %s has no voxel stamp component"), *It->GetPathName());
-				return nullptr;
-			}
-		}
-		OutError = FString::Printf(TEXT("No actor %s"), Path.IsEmpty() ? *Label : *Path);
-		return nullptr;
+		AActor* Actor = FindActor(Params, OutError);
+		return Actor ? FindComponent<UVoxelStampComponent>(*Actor, Params, OutError) : nullptr;
 	}
 
 	template<typename StampType>
@@ -1140,9 +1007,9 @@ namespace
 	}
 }
 
-const TArray<FHandlerEntry>& GetHandlers()
+void AddGraphHandlers(TArray<FHandlerEntry>& Out)
 {
-	static const TArray<FHandlerEntry> Handlers =
+	Out.Append(
 	{
 		{ TEXT("voxel_graph_read"), &GraphRead },
 		{ TEXT("voxel_graph_list_node_types"), &ListNodeTypes },
@@ -1157,8 +1024,7 @@ const TArray<FHandlerEntry>& GetHandlers()
 		{ TEXT("voxel_graph_remove_parameter"), &RemoveParameter },
 		{ TEXT("voxel_graph_set_parameter_default"), &SetParameterDefault },
 		{ TEXT("voxel_stamp_set_parameters"), &StampSetParameters },
-	};
-	return Handlers;
+	});
 }
 
 void ReleaseCatalog()
