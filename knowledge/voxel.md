@@ -2,7 +2,7 @@
 
 Every action is a native C++ handler; nothing runs through Python.
 
-Before material work run `voxel_shader_hooks_status`: Voxel materials render only with Voxel's engine shader patches applied. Without them terrain shows a gray grid checker and nothing logs an error; the result names the fix.
+Before material work run `voxel_shader_hooks_status`: Voxel materials render only with Voxel's engine shader patches applied. Without them terrain shows a gray grid checker and nothing logs an error; the result names the fix. Epic Launcher updates that write into the engine folder (engine hotfixes, the Fab plugin) restore the stock shaders and silently remove the hooks, so recheck after any of them.
 
 Conventions:
 - Actors: pass `actorPath` from the spawn result. Stamp actors relabel themselves from their stamp, so labels go stale.
@@ -22,4 +22,4 @@ Graph editing: `voxel_graph_list_node_types` (query words) gives `nodeType` keys
 
 Surfaces: `voxel_surface_type_set` (material), `voxel_mega_material_set_surfaces` (list on the mega material), and the height graph's Output Height `SurfaceType` pin decides where each one lands.
 
-PCG: create the engine graph with `pcg(action="create_graph")`, then `voxel_pcg_add_node` (`wait_for_world`, `sampler_v2`, ...) and `voxel_pcg_configure_sampler`. `sampler_v2` writes one attribute per surface type; filter on it.
+PCG: create the engine graph with `pcg(action="create_graph")`, then `voxel_pcg_add_node` (`wait_for_world`, `sampler_v2`, ...) and `voxel_pcg_configure_sampler`. `sampler_v2` writes one attribute per surface type; filter on it. One sampler call returns empty, silently, past 1,048,576 candidate positions; for larger areas loop the sampler over grid cells (voxel-terrain skill, section 6).
