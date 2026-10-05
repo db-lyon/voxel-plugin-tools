@@ -1,7 +1,7 @@
 {
   "FileVersion": 3,
   "Version": 1,
-  "VersionName": "0.5.0",
+  "VersionName": "0.5.2",
   "FriendlyName": "Voxel Plugin Tools",
   "Description": "Native ue-mcp handlers for authoring Voxel Plugin graphs and stamp parameters",
   "Category": "Editor",
