@@ -54,3 +54,7 @@ Existing assets are returned, never overwritten (`existed: true`).
 ## 6. PCG on the voxel surface
 
 Create the engine graph with `pcg(action="create_graph")`, add `wait_for_world` and `sampler_v2` with `voxel_pcg_add_node`, set spacing and `resolveSmartSurfaceTypes` with `voxel_pcg_configure_sampler`. The sampler writes one attribute per surface type; filter spawners on it.
+
+Feed the sampler's `Bounding Shape` pin from `wait_for_world`. The per-surface attribute is named after the surface type asset (`ST_Grass`); in `pcg(set_node_settings)` write the selector as `PCGBegin(ST_Grass)PCGEnd`.
+
+One sampler call refuses more than 1,048,576 candidate positions ((bounds width / distanceBetweenPoints)^2) and returns empty data with no log line. Past that, sample per cell: `Create Points Grid` (world space, cell size under 1024 x distanceBetweenPoints) → `Cull Points Outside Actor Bounds` (expansion = half a cell) → `Attribute Partition` on `$Position` → `Loop` over a subgraph holding the sampler pipeline. Set the PCG component's editing mode to Preview so the scatter regenerates on load instead of being saved into the level.
