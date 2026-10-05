@@ -12,4 +12,7 @@ namespace VoxelPluginTools
 	};
 
 	const TArray<FHandlerEntry>& GetHandlers();
+
+	// Frees cached FVoxelNode instances; call before Voxel unloads.
+	void ReleaseCatalog();
 }

@@ -11,6 +11,7 @@ public class VoxelPluginTools : ModuleRules
 		PrivateDependencyModuleNames.AddRange(new string[]
 		{
 			"UnrealEd",
+			"AssetRegistry",
 			"UE_MCP_Bridge",
 			"VoxelCore",
 			"VoxelGraph",

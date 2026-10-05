@@ -16,12 +16,15 @@
 #include "VoxelTerminalGraph.h"
 #include "VoxelParameter.h"
 #include "VoxelPinType.h"
+#include "VoxelPinTypeSet.h"
 #include "VoxelPinValue.h"
 #include "VoxelGraphTracker.h"
 #include "VoxelParameterOverridesOwner.h"
 #include "Buffer/VoxelBaseBuffers.h"
 #include "VoxelNode.h"
 #include "VoxelFunctionLibrary.h"
+#include "VoxelFunctionLibraryAsset.h"
+#include "AssetRegistry/IAssetRegistry.h"
 #include "Nodes/VoxelOutputNode.h"
 #include "Nodes/VoxelNode_UFunction.h"
 #include "VoxelStampComponent.h"
@@ -280,18 +283,22 @@ namespace
 	}
 
 	// Voxel builds its node menu in private editor code, so the catalog is rebuilt here from the
-	// same public sources its node library uses: FVoxelNode structs and UVoxelFunctionLibrary UFUNCTIONs.
+	// same public sources it uses: FVoxelNode structs, UVoxelFunctionLibrary UFUNCTIONs,
+	// function-library assets, and the graph's own parameters.
 	struct FNodeType
 	{
 		FString Key;
 		FString Tooltip;
 		TSharedPtr<const FVoxelNode> Node;
-		FGuid ParameterGuid;
+		FGuid Guid;
+		UVoxelFunctionLibraryAsset* FunctionLibrary = nullptr;
 	};
+
+	// Released in ReleaseCatalog() at module shutdown: FVoxelNode instances must not outlive Voxel's leak check.
+	TArray<FNodeType> Catalog;
 
 	const TArray<FNodeType>& NodeCatalog()
 	{
-		static TArray<FNodeType> Catalog;
 		if (Catalog.Num() > 0)
 		{
 			return Catalog;
@@ -300,7 +307,7 @@ namespace
 		{
 			const FString Category = Node->GetCategory();
 			const FString Name = Node->GetDisplayName();
-			Catalog.Add({ Category.IsEmpty() ? Name : Category + TEXT("|") + Name, Node->GetTooltip(), Node, FGuid() });
+			Catalog.Add({ Category.IsEmpty() ? Name : Category + TEXT("|") + Name, Node->GetTooltip(), Node });
 		};
 		for (UScriptStruct* Struct : GetDerivedStructs<FVoxelNode>())
 		{
@@ -332,7 +339,7 @@ namespace
 		return Catalog;
 	}
 
-	// Nodes this graph type allows, plus one getter per graph parameter.
+	// Nodes this graph type allows: library nodes, exposed function-library-asset functions, parameter getters.
 	TArray<FNodeType> NodeTypes(const UVoxelGraph& Graph, const UVoxelTerminalGraph& Terminal)
 	{
 		TArray<FNodeType> Out;
@@ -343,6 +350,37 @@ namespace
 				Out.Add(Type);
 			}
 		}
+
+		TArray<FAssetData> Libraries;
+		IAssetRegistry::GetChecked().GetAssetsByClass(UVoxelFunctionLibraryAsset::StaticClass()->GetClassPathName(), Libraries);
+		for (const FAssetData& AssetData : Libraries)
+		{
+			UVoxelFunctionLibraryAsset* Library = Cast<UVoxelFunctionLibraryAsset>(AssetData.GetAsset());
+			if (!Library)
+			{
+				continue;
+			}
+			for (const FGuid& Guid : Library->GetGraph().GetTerminalGraphs())
+			{
+				const UVoxelTerminalGraph* Function = Library->GetGraph().FindTerminalGraph(Guid);
+				if (!Function ||
+					Function->IsMainTerminalGraph() ||
+					Function->IsEditorTerminalGraph() ||
+					!Function->bExposeToLibrary ||
+					!Function->CanBePlaced(Graph))
+				{
+					continue;
+				}
+				const FVoxelGraphMetadata Metadata = Function->GetMetadata();
+				Out.Add({
+					Metadata.Category.IsEmpty() ? Metadata.DisplayName : Metadata.Category + TEXT("|") + Metadata.DisplayName,
+					Metadata.Description,
+					nullptr,
+					Guid,
+					Library });
+			}
+		}
+
 		Graph.ForeachParameter([&](const FGuid& Guid, const FVoxelParameter& Parameter)
 		{
 			Out.Add({ TEXT("Parameters|") + Parameter.Name.ToString(), Parameter.Description, nullptr, Guid });
@@ -352,9 +390,10 @@ namespace
 
 	UEdGraphNode* SpawnNode(UEdGraph& Graph, const FNodeType& Type, const FVector2D& Location, FString& OutError)
 	{
-		const TCHAR* ClassPath = Type.ParameterGuid.IsValid()
-			? TEXT("/Script/VoxelGraphEditor.VoxelGraphNode_Parameter")
-			: TEXT("/Script/VoxelGraphEditor.VoxelGraphNode_Struct");
+		const TCHAR* ClassPath =
+			Type.FunctionLibrary ? TEXT("/Script/VoxelGraphEditor.VoxelGraphNode_CallExternalFunction") :
+			Type.Guid.IsValid() ? TEXT("/Script/VoxelGraphEditor.VoxelGraphNode_Parameter") :
+			TEXT("/Script/VoxelGraphEditor.VoxelGraphNode_Struct");
 		UClass* NodeClass = FindObject<UClass>(nullptr, ClassPath);
 		if (!NodeClass)
 		{
@@ -362,18 +401,31 @@ namespace
 			return nullptr;
 		}
 
+		// Validate every reflected property before creating anything; a Voxel update may rename them.
+		FStructProperty* GuidProperty = CastField<FStructProperty>(NodeClass->FindPropertyByName(TEXT("Guid")));
+		FObjectPropertyBase* LibraryProperty = CastField<FObjectPropertyBase>(NodeClass->FindPropertyByName(TEXT("FunctionLibrary")));
+		FStructProperty* StructProperty = CastField<FStructProperty>(NodeClass->FindPropertyByName(TEXT("Struct")));
+		const bool bValid = Type.Guid.IsValid()
+			? GuidProperty && GuidProperty->Struct == TBaseStructure<FGuid>::Get() && (!Type.FunctionLibrary || LibraryProperty)
+			: StructProperty && StructProperty->Struct == FVoxelInstancedStruct::StaticStruct();
+		if (!bValid)
+		{
+			OutError = FString::Printf(TEXT("%s no longer has the properties this tool sets (Guid/FunctionLibrary/Struct); the Voxel version is unsupported"), ClassPath);
+			return nullptr;
+		}
+
 		UEdGraphNode* Node = NewObject<UEdGraphNode>(&Graph, NodeClass, NAME_None, RF_Transactional);
 		Graph.AddNode(Node, true, false);
-		if (Type.ParameterGuid.IsValid())
+		if (Type.Guid.IsValid())
 		{
-			FStructProperty* GuidProperty = CastField<FStructProperty>(NodeClass->FindPropertyByName(TEXT("Guid")));
-			check(GuidProperty && GuidProperty->Struct == TBaseStructure<FGuid>::Get());
-			*GuidProperty->ContainerPtrToValuePtr<FGuid>(Node) = Type.ParameterGuid;
+			*GuidProperty->ContainerPtrToValuePtr<FGuid>(Node) = Type.Guid;
+			if (Type.FunctionLibrary)
+			{
+				LibraryProperty->SetObjectPropertyValue_InContainer(Node, Type.FunctionLibrary);
+			}
 		}
 		else
 		{
-			FStructProperty* StructProperty = CastField<FStructProperty>(NodeClass->FindPropertyByName(TEXT("Struct")));
-			check(StructProperty && StructProperty->Struct == FVoxelInstancedStruct::StaticStruct());
 			StructProperty->ContainerPtrToValuePtr<FVoxelInstancedStruct>(Node)->InitializeAs(Type.Node->GetStruct(), &*Type.Node);
 		}
 		Node->NodePosX = static_cast<int32>(Location.X);
@@ -385,6 +437,29 @@ namespace
 			Node->AllocateDefaultPins();
 		}
 		return Node;
+	}
+
+	// Voxel's ImportFromString reads non-numeric text as 0 for numbers, so scalars are checked first.
+	bool ParseValue(FVoxelPinValue& Value, const FString& In)
+	{
+		const FString Text = In.TrimStartAndEnd();
+		const FVoxelPinType& Type = Value.GetType();
+		if (Type.Is<float>() || Type.Is<double>() || Type.Is<int32>() || Type.Is<int64>())
+		{
+			if (!Text.IsNumeric())
+			{
+				return false;
+			}
+		}
+		else if (Type.Is<bool>())
+		{
+			if (!(Text.Equals(TEXT("true"), ESearchCase::IgnoreCase) || Text.Equals(TEXT("false"), ESearchCase::IgnoreCase) ||
+				  Text == TEXT("1") || Text == TEXT("0")))
+			{
+				return false;
+			}
+		}
+		return Value.ImportFromString(Text);
 	}
 
 	bool ParsePinType(const FString& In, FVoxelPinType& Out, FString& OutError)
@@ -481,7 +556,8 @@ namespace
 			TSharedRef<FJsonObject> T = MakeShared<FJsonObject>();
 			T->SetStringField(TEXT("guid"), Target.Graph->FindTerminalGraphGuid_NoInheritance(&Terminal).ToString());
 			T->SetStringField(TEXT("name"), Terminal.GetDisplayName());
-			T->SetBoolField(TEXT("isMain"), &Terminal == Target.Terminal && Str(Params, TEXT("terminalGraph")).IsEmpty());
+			T->SetBoolField(TEXT("isMain"), Terminal.IsMainTerminalGraph());
+			T->SetBoolField(TEXT("isTarget"), &Terminal == Target.Terminal);
 			Terminals.Add(MakeShared<FJsonValueObject>(T));
 		});
 		Out->SetArrayField(TEXT("terminalGraphs"), Terminals);
@@ -647,12 +723,25 @@ namespace
 		UEdGraphPin* Pin = FindPin(*Node, Str(Params, TEXT("pin")), EGPD_Input, Err);
 		if (!Pin) return Error(Err);
 		if (!Params->HasField(TEXT("value"))) return Error(TEXT("value is required"));
-		const FString Value = Str(Params, TEXT("value"));
+		if (Pin->LinkedTo.Num() > 0) return Error(FString::Printf(TEXT("Pin %s is connected; its default is unused"), *Pin->PinName.ToString()));
+
+		// Parse as Voxel does, so bad text is rejected and object pins land in DefaultObject.
+		const FVoxelPinType Type = FVoxelPinType(Pin->PinType).GetPinDefaultValueType();
+		if (!Type.IsValid() || Type.IsBuffer() || !Type.HasPinDefaultValue())
+		{
+			return Error(FString::Printf(TEXT("Pin %s takes no default value"), *Pin->PinName.ToString()));
+		}
+		FVoxelPinValue Value(Type);
+		if (!ParseValue(Value, Str(Params, TEXT("value"))))
+		{
+			return Error(FString::Printf(TEXT("'%s' does not parse as %s"), *Str(Params, TEXT("value")), *Type.ToString()));
+		}
 
 		const FString Previous = Pin->GetDefaultAsString();
 		const FScopedTransaction Transaction(LOCTEXT("SetDefault", "Set Voxel Pin Default"));
 		Node->Modify();
-		Target.EdGraph->GetSchema()->TrySetDefaultValue(*Pin, Value);
+		Value.ApplyToPinDefaultValue(*Pin);
+		Node->PinDefaultValueChanged(Pin);
 
 		TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
 		Out->SetStringField(TEXT("previous"), Previous);
@@ -763,6 +852,16 @@ namespace
 		Target.EdGraph->Modify();
 		TSet<UEdGraphNode*> Pasted;
 		FEdGraphUtilities::ImportNodesFromText(Target.EdGraph, Text, Pasted);
+		// Mirror FVoxelGraphCommandManager::PasteNodes: the engine checks CanDuplicateNode only on the
+		// class default, so per-instance refusals (output nodes) are dropped here.
+		for (UEdGraphNode* Node : TSet<UEdGraphNode*>(Pasted))
+		{
+			if (!Node->CanDuplicateNode())
+			{
+				Node->DestroyNode();
+				Pasted.Remove(Node);
+			}
+		}
 		if (Pasted.Num() == 0) return Error(TEXT("Import produced no nodes"));
 
 		const double OffsetX = Num(Params, TEXT("offsetX"), 0);
@@ -773,6 +872,10 @@ namespace
 			Node->CreateNewGuid();
 			Node->NodePosX += static_cast<int32>(OffsetX);
 			Node->NodePosY += static_cast<int32>(OffsetY);
+			if (FBoolProperty* Preview = CastField<FBoolProperty>(Node->GetClass()->FindPropertyByName(TEXT("bEnablePreview"))))
+			{
+				Preview->SetPropertyValue_InContainer(Node, false);
+			}
 		}
 
 		TArray<TSharedPtr<FJsonValue>> Nodes;
@@ -786,10 +889,20 @@ namespace
 		if (Pasted.Num() < Expected)
 		{
 			Out->SetStringField(TEXT("warning"), FString::Printf(
-				TEXT("%d of %d nodes were refused by their CanPasteHere (not allowed in this graph type)"), Expected - Pasted.Num(), Expected));
+				TEXT("%d of %d nodes were refused (not allowed in this graph type, or not duplicable such as output nodes)"), Expected - Pasted.Num(), Expected));
 		}
 		Finish(Target, Params, Out);
 		return Ok(Out);
+	}
+
+	// Writes a graph parameter default the way the Voxel editor does, so listeners see the change.
+	bool WriteParameterDefault(UVoxelGraph& Graph, const FName Name, const FVoxelPinValue& Value, FString& OutError)
+	{
+		Graph.PreEditChange(Graph.GetParameterOverridesProperty());
+		const bool bSet = Graph.SetParameter(Name, Value, &OutError);
+		FPropertyChangedEvent Event(Graph.GetParameterOverridesProperty());
+		Graph.PostEditChangeProperty(Event);
+		return bSet;
 	}
 
 	FResult AddParameter(const FParams& Params)
@@ -806,35 +919,84 @@ namespace
 			return Error(FString::Printf(TEXT("Parameter '%s' already exists (%s)"), *Name, *ExistingGuid.ToString()));
 		}
 
+		// Validate type and default before touching the graph.
 		FVoxelParameter Parameter;
 		FString Err;
 		if (!ParsePinType(Str(Params, TEXT("type")), Parameter.Type, Err)) return Error(Err);
 		Parameter.Name = FName(*Name);
 		Parameter.Category = Str(Params, TEXT("category"));
 		Parameter.Description = Str(Params, TEXT("description"));
+		Parameter.Fixup();
+		if (!FVoxelPinTypeSet::AllParameters().Contains(Parameter.Type))
+		{
+			return Error(FString::Printf(TEXT("%s is not a valid voxel parameter type"), *Parameter.Type.ToString()));
+		}
+
+		const FString Default = Str(Params, TEXT("default"));
+		FVoxelPinValue Value(Parameter.Type.GetExposedType());
+		if (!Default.IsEmpty() && !ParseValue(Value, Default))
+		{
+			return Error(FString::Printf(TEXT("Default '%s' does not parse as %s"), *Default, *Parameter.Type.ToString()));
+		}
 
 		const FScopedTransaction Transaction(LOCTEXT("AddParameter", "Add Voxel Graph Parameter"));
 		Target.Graph->Modify();
 		const FGuid Guid = FGuid::NewGuid();
 		Target.Graph->AddParameter(Guid, Parameter);
-
-		const FString Default = Str(Params, TEXT("default"));
-		if (!Default.IsEmpty())
-		{
-			FVoxelPinValue Value(Parameter.Type.GetExposedType());
-			if (!Value.ImportFromString(Default))
-			{
-				return Error(FString::Printf(TEXT("Parameter added, but default '%s' does not parse as %s"), *Default, *Parameter.Type.ToString()));
-			}
-			FString SetError;
-			if (!Target.Graph->SetParameter(Parameter.Name, Value, &SetError))
-			{
-				return Error(FString::Printf(TEXT("Parameter added, but setting its default failed: %s"), *SetError));
-			}
-		}
+		Target.Graph->Fixup();
 
 		TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
+		FString SetError;
+		if (!Default.IsEmpty() && !WriteParameterDefault(*Target.Graph, Parameter.Name, Value, SetError))
+		{
+			Out->SetStringField(TEXT("warning"), FString::Printf(TEXT("Parameter added; its default was not applied: %s"), *SetError));
+		}
 		Out->SetStringField(TEXT("guid"), Guid.ToString());
+		Out->SetArrayField(TEXT("parameters"), ParametersJson(*Target.Graph));
+		Finish(Target, Params, Out);
+		return Ok(Out);
+	}
+
+	// Mirrors the Voxel members panel: delete usage nodes in every terminal graph, then the parameter.
+	FResult RemoveParameter(const FParams& Params)
+	{
+		FGraphTarget Target;
+		if (const FString Err = ResolveGraph(Params, Target); !Err.IsEmpty()) return Error(Err);
+
+		const FString Name = Str(Params, TEXT("name"));
+		FGuid Guid;
+		FVoxelParameter Parameter;
+		if (!FindParameter(*Target.Graph, Name, Guid, Parameter)) return Error(FString::Printf(TEXT("No parameter '%s'"), *Name));
+		if (Target.Graph->IsInheritedParameter(Guid)) return Error(FString::Printf(TEXT("'%s' is inherited from a base graph"), *Name));
+
+		UClass* ParameterNodeClass = FindObject<UClass>(nullptr, TEXT("/Script/VoxelGraphEditor.VoxelGraphNode_Parameter"));
+		FStructProperty* GuidProperty = ParameterNodeClass ? CastField<FStructProperty>(ParameterNodeClass->FindPropertyByName(TEXT("Guid"))) : nullptr;
+		if (!GuidProperty) return Error(TEXT("VoxelGraphNode_Parameter.Guid not found; the Voxel version is unsupported"));
+
+		const FScopedTransaction Transaction(LOCTEXT("RemoveParameter", "Remove Voxel Graph Parameter"));
+		Target.Graph->Modify();
+		int32 RemovedUsages = 0;
+		Target.Graph->ForeachTerminalGraph_NoInheritance([&](UVoxelTerminalGraph& Terminal)
+		{
+			UEdGraph& EdGraph = Terminal.GetEdGraph();
+			for (UEdGraphNode* Node : TArray<UEdGraphNode*>(EdGraph.Nodes))
+			{
+				if (Node && Node->IsA(ParameterNodeClass) && *GuidProperty->ContainerPtrToValuePtr<FGuid>(Node) == Guid)
+				{
+					EdGraph.Modify();
+					Node->Modify();
+					Node->BreakAllNodeLinks();
+					EdGraph.RemoveNode(Node);
+					RemovedUsages++;
+				}
+			}
+		});
+		Target.Graph->RemoveParameter(Guid);
+		Target.Graph->GetGuidToValueOverride().Remove(Guid);
+		Target.Graph->Fixup();
+
+		TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
+		Out->SetNumberField(TEXT("removedUsages"), RemovedUsages);
 		Out->SetArrayField(TEXT("parameters"), ParametersJson(*Target.Graph));
 		Finish(Target, Params, Out);
 		return Ok(Out);
@@ -849,16 +1011,17 @@ namespace
 		FGuid Guid;
 		FVoxelParameter Parameter;
 		if (!FindParameter(*Target.Graph, Name, Guid, Parameter)) return Error(FString::Printf(TEXT("No parameter '%s'"), *Name));
+		if (!Params->HasField(TEXT("value"))) return Error(TEXT("value is required"));
 
 		FVoxelPinValue Value(Parameter.Type.GetExposedType());
-		if (!Value.ImportFromString(Str(Params, TEXT("value"))))
+		if (!ParseValue(Value, Str(Params, TEXT("value"))))
 		{
 			return Error(FString::Printf(TEXT("'%s' does not parse as %s"), *Str(Params, TEXT("value")), *Parameter.Type.ToString()));
 		}
 		const FScopedTransaction Transaction(LOCTEXT("SetParameterDefault", "Set Voxel Parameter Default"));
 		Target.Graph->Modify();
 		FString SetError;
-		if (!Target.Graph->SetParameter(Parameter.Name, Value, &SetError)) return Error(SetError);
+		if (!WriteParameterDefault(*Target.Graph, Parameter.Name, Value, SetError)) return Error(SetError);
 
 		TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
 		Out->SetArrayField(TEXT("parameters"), ParametersJson(*Target.Graph));
@@ -926,7 +1089,7 @@ namespace
 				else if (Pair.Value->TryGetBool(bBool)) Text = bBool ? TEXT("true") : TEXT("false");
 			}
 			FVoxelPinValue Value(Parameter.Type.GetExposedType());
-			if (!Value.ImportFromString(Text))
+			if (!ParseValue(Value, Text))
 			{
 				return Error(FString::Printf(TEXT("'%s' does not parse as %s for parameter '%s'"), *Text, *Parameter.Type.ToString(), *Pair.Key));
 			}
@@ -940,9 +1103,14 @@ namespace
 		Component.Modify();
 		Component.SetStamp(Stamp);
 
+		// Read back from the component: SetStamp runs FixupParameterOverrides on its own copy.
+		const StampType* Stored = Component.GetStamp().template As<StampType>();
+		if (!Stored) return Error(TEXT("The stamp changed type while being set"));
+		const IVoxelParameterOverridesOwner& StoredOwner = *Stored;
+
 		TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
 		TSharedRef<FJsonObject> Applied = MakeShared<FJsonObject>();
-		for (const TPair<FGuid, FVoxelParameterValueOverride>& Pair : Owner.GetGuidToValueOverride())
+		for (const TPair<FGuid, FVoxelParameterValueOverride>& Pair : StoredOwner.GetGuidToValueOverride())
 		{
 			if (Pair.Value.bEnable)
 			{
@@ -986,10 +1154,16 @@ const TArray<FHandlerEntry>& GetHandlers()
 		{ TEXT("voxel_graph_export_t3d"), &ExportT3D },
 		{ TEXT("voxel_graph_import_t3d"), &ImportT3D },
 		{ TEXT("voxel_graph_add_parameter"), &AddParameter },
+		{ TEXT("voxel_graph_remove_parameter"), &RemoveParameter },
 		{ TEXT("voxel_graph_set_parameter_default"), &SetParameterDefault },
 		{ TEXT("voxel_stamp_set_parameters"), &StampSetParameters },
 	};
 	return Handlers;
+}
+
+void ReleaseCatalog()
+{
+	Catalog.Empty();
 }
 }
 
