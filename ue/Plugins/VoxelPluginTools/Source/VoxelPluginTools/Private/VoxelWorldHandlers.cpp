@@ -260,9 +260,18 @@ namespace
 			}
 			if (Numeric->IsInteger())
 			{
-				if (Number != FMath::RoundToDouble(Number) || Number < MIN_int32 || Number > MAX_int32)
+				// The property's own width and signedness bound the value, so an unsigned field cannot wrap.
+				double Min = MIN_int32, Max = MAX_int32;
+				if (CastField<FByteProperty>(&Property)) { Min = 0; Max = MAX_uint8; }
+				else if (CastField<FUInt16Property>(&Property)) { Min = 0; Max = MAX_uint16; }
+				else if (CastField<FUInt32Property>(&Property)) { Min = 0; Max = MAX_uint32; }
+				else if (CastField<FUInt64Property>(&Property)) { Min = 0; Max = 9007199254740992.0; }
+				else if (CastField<FInt8Property>(&Property)) { Min = MIN_int8; Max = MAX_int8; }
+				else if (CastField<FInt16Property>(&Property)) { Min = MIN_int16; Max = MAX_int16; }
+				else if (CastField<FInt64Property>(&Property)) { Min = -9007199254740992.0; Max = 9007199254740992.0; }
+				if (Number != FMath::RoundToDouble(Number) || Number < Min || Number > Max)
 				{
-					OutError = FString::Printf(TEXT("%s must be a 32-bit integer (got %g)"), *Field, Number);
+					OutError = FString::Printf(TEXT("%s must be an integer in [%g, %g] (got %g)"), *Field, Min, Max, Number);
 					return false;
 				}
 				Numeric->SetIntPropertyValue(Dest, static_cast<int64>(Number));
@@ -495,7 +504,7 @@ namespace
 		AVoxelWorld* World = FindWorld(Params, Err);
 		if (!World) return Error(Err);
 
-		TArray<FString> Known = { TEXT("actorPath"), TEXT("actorLabel") };
+		TArray<FString> Known = { TEXT("actorPath"), TEXT("actorLabel"), TEXT("save") };
 		TArray<FString> Editable;
 		for (const FWorldField& Field : WorldFields())
 		{

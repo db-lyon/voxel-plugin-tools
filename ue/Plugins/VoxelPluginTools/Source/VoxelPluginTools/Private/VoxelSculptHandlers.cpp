@@ -526,7 +526,12 @@ namespace
 		Out->SetBoolField(TEXT("changed"), true);
 		Out->SetBoolField(TEXT("completed"), bCompleted);
 		Out->SetBoolField(TEXT("queued"), !bCompleted);
-		Out->SetBoolField(TEXT("undoable"), bUndoable);
+		// A queued edit lands after this reply: the undo snapshot may predate it and the auto-save cannot see it.
+		Out->SetBoolField(TEXT("undoable"), bUndoable && bCompleted);
+		if (!bCompleted)
+		{
+			Out->SetStringField(TEXT("note"), TEXT("Queued: not covered by undo or auto-save. Use wait:true for edits that must persist."));
+		}
 		return Ok(Out);
 	}
 

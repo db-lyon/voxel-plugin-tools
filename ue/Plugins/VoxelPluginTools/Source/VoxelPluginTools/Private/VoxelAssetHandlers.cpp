@@ -564,6 +564,11 @@ namespace
 		FString Err;
 		UObject* Asset = LoadTyped(Str(Params, TEXT("assetPath")), UObject::StaticClass(), Err);
 		if (!Asset) return Error(Err);
+		// Assets only: a level actor or map would be saved with its whole level, and a class default is not an asset.
+		if (!Asset->IsAsset() || Asset->IsA<UWorld>() || Asset->GetTypedOuter<UWorld>() || Asset->HasAnyFlags(RF_ClassDefaultObject))
+		{
+			return Error(FString::Printf(TEXT("%s is not an asset (levels, level actors and class defaults are out of scope)"), *Asset->GetPathName()));
+		}
 
 		const FString PropertyName = Str(Params, TEXT("propertyName")).TrimStartAndEnd();
 		if (PropertyName.IsEmpty()) return Error(TEXT("propertyName is required"));
@@ -793,7 +798,15 @@ namespace
 			}
 			FPropertyChangedEvent Event(OverridesProperty, EPropertyChangeType::ValueSet);
 			Surface->PostEditChangeProperty(Event);
-			Out->SetBoolField(TEXT("changed"), true);
+			const bool bAnyApplied = Failures.Num() < Values.Num();
+			if (!bAnyApplied && Edits.Num() == 0)
+			{
+				return Error(FString::Printf(TEXT("No parameter was applied: %s"), *FString::Join(Failures, TEXT("; "))));
+			}
+			if (bAnyApplied)
+			{
+				Out->SetBoolField(TEXT("changed"), true);
+			}
 			if (Failures.Num() > 0)
 			{
 				Out->SetStringField(TEXT("warning"), FString::Printf(TEXT("Not applied: %s"), *FString::Join(Failures, TEXT("; "))));

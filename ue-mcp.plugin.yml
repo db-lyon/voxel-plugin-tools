@@ -17,7 +17,7 @@ nativeModule:
       effect: mutate
       description: >-
         Spawn an AVoxelWorld in the editor's current level (undoable, selected like a drag-in) and apply optional config through the details-panel edit path. Returns the actor, each applied field with
-        previous/value/changed, and runtimeCreated. Params: label?, location?, rotation?, layerStack?, megaMaterial?, voxelSize?.
+        previous/value/changed, and runtimeCreated. Params: label?, location?, rotation?, layerStack?, megaMaterial?, voxelSize?, save?.
       schema:
         label:
           type: string
@@ -37,6 +37,9 @@ nativeModule:
         voxelSize:
           type: number
           description: Voxel size in cm, integer >= 1
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
     voxel_world_configure:
       effect: mutate
       description: >-
@@ -45,7 +48,7 @@ nativeModule:
         least one of layerStack?, megaMaterial?, voxelSize?, lodQuality?, qualityExponent?, enableNanite?, enableTessellation?, enableLumen?, enableRaytracing?, generateMeshDistanceFields?,
         blockinessMetadata?, renderChunkSize?, useCameraAsInvoker?, createRuntimeOnBeginPlay?, waitOnBeginPlay?, limitMaxLOD?, maxLOD?, maxBackgroundTasks?, doubleSidedCollision?,
         generateOverlapEvents?, collisionChunkSize?, overrideCollisionVoxelSize?, collisionVoxelSize?, enableNavigation?, navigationChunkSize?, generateNavigationInsideNavMeshBounds?,
-        onlyGenerateNavigationInEditor?, overrideNavigationVoxelSize?, navigationVoxelSize?, renderScatterActors?.
+        onlyGenerateNavigationInEditor?, overrideNavigationVoxelSize?, navigationVoxelSize?, renderScatterActors?, save?.
       schema:
         actorPath:
           type: string
@@ -143,6 +146,9 @@ nativeModule:
         renderScatterActors:
           type: boolean
           description: Render scatter actors
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
     voxel_world_status:
       effect: read
       description: >-
@@ -159,7 +165,7 @@ nativeModule:
       effect: mutate
       description: >-
         Create or destroy a voxel world's runtime (transient, not undoable). In the editor any construction-script rerun, such as moving or editing the world, recreates a destroyed runtime. Returns
-        runtimeCreated and changed. Params: actorPath|actorLabel (required), op (required).
+        runtimeCreated and changed. Params: actorPath|actorLabel (required), op (required), save?.
       schema:
         actorPath:
           type: string
@@ -170,11 +176,14 @@ nativeModule:
         op:
           type: string
           description: create or destroy (required)
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
     voxel_actor_spawn:
       effect: mutate
       description: >-
         Spawn a Voxel actor in the editor's current level (undoable). Stamp actors treat the label as a prefix and append their stamp description, so key later calls on the returned actorPath. Params:
-        kind (required), label?, location?, rotation?.
+        kind (required), label?, location?, rotation?, save?.
       schema:
         kind:
           type: string
@@ -188,11 +197,14 @@ nativeModule:
         rotation:
           type: object
           description: '{pitch,yaw,roll} degrees; default zero'
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
     voxel_component_add:
       effect: mutate
       description: >-
         Add a Voxel component to an actor as an instance component, the way the editor's Add Component does: attached to the root (or made the root when there is none), registered, undoable. Returns
-        componentName, componentClass and isRoot. Params: actorPath|actorLabel (required), kind (required), componentName?.
+        componentName, componentClass and isRoot. Params: actorPath|actorLabel (required), kind (required), componentName?, save?.
       schema:
         actorPath:
           type: string
@@ -206,12 +218,15 @@ nativeModule:
         componentName:
           type: string
           description: Object name for the component; must be unique on the actor. Default is a generated unique name
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
     voxel_no_clipping_set_layer:
       effect: mutate
       description: >-
         Set a UVoxelNoClippingComponent's volume layer and/or bAutoAdjustPlayer through the details-panel edit path, undoable. The component samples a volume layer, so layer must be a
         UVoxelVolumeLayer; an omitted stack or layer defaults to the project default. Returns previous/value/changed per field. Params: actorPath|actorLabel (required), componentName?, stack?, layer?,
-        autoAdjustPlayer? (at least one of stack, layer, autoAdjustPlayer).
+        autoAdjustPlayer? (at least one of stack, layer, autoAdjustPlayer), save?.
       schema:
         actorPath:
           type: string
@@ -231,6 +246,9 @@ nativeModule:
         autoAdjustPlayer:
           type: boolean
           description: Teleport the owner back to its last valid location when it clips into the volume
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
     voxel_stamp_set:
       effect: mutate
       description: >-
@@ -238,7 +256,7 @@ nativeModule:
         and the component transform places the stamp. Returns the stamp read-back. Params: actorPath or actorLabel (one required), componentName?, kind (required: height_graph, volume_graph,
         heightmap, mesh, height_spline, volume_spline), asset (required unless the current stamp of this kind has one), layer?, blendMode?, priority?, smoothness?, behavior?, applyOnVoid?,
         heightPaddingMultiplier? (height kinds), boundsExtensionMultiplier? and maximumBoundsExtension? (volume kinds), surfaceType? (heightmap, mesh), useTricubic? (mesh), parameters? (graph and
-        spline kinds).
+        spline kinds), save?.
       schema:
         actorPath:
           type: string
@@ -291,6 +309,9 @@ nativeModule:
         parameters:
           type: object
           description: '{ parameterName: value } graph parameter overrides (graph and spline kinds)'
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
     voxel_stamp_read:
       effect: read
       description: >-
@@ -312,7 +333,7 @@ nativeModule:
         Add, remove, clear, refresh or count the stamps on an actor's UVoxelInstancedStampComponent; add takes the same stamp fields as voxel_stamp_set (spline kinds excluded) plus one transform per
         instance. Returns count, validCount and optionally every stamp. Params: actorPath or actorLabel (one required), componentName?, op (required: add, remove, clear, update, count), kind and asset
         and transforms (add), layer?, blendMode?, priority?, smoothness?, behavior?, applyOnVoid?, heightPaddingMultiplier?, boundsExtensionMultiplier?, maximumBoundsExtension?, surfaceType?,
-        useTricubic?, parameters?, relativeToComponent? (add), index (remove), indices? (update), includeStamps?.
+        useTricubic?, parameters?, relativeToComponent? (add), index (remove), indices? (update), includeStamps?, save?.
       schema:
         actorPath:
           type: string
@@ -387,13 +408,16 @@ nativeModule:
         includeStamps:
           type: boolean
           description: Include every non-empty stamp with index and transform in the result; default false
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
     voxel_height_sculpt:
       effect: mutate
       description: >-
         Sculpt, flatten, smooth, paint, apply a sculpt graph to, or clear an AVoxelSculptHeight actor through Voxel's sculpt API; undoable, waits for completion unless wait=false (then reports
         queued). Defaults per op match Voxel's library (radius 500, smooth 1000; strength sculpt_height 0.5, smooth 1, paint 0.05). Params: actorPath or actorLabel (one required), op (required),
         center (required except clear_data/clear_cache), radius?, strength?, mode?, falloff?, height? (required for flatten), levelType?, surfaceType?, metadata?, graph? (required for apply_graph),
-        parameters?, brush?, wait?.
+        parameters?, brush?, wait?, save?.
       schema:
         actorPath:
           type: string
@@ -446,13 +470,17 @@ nativeModule:
         wait:
           type: boolean
           description: 'Wait for the edit to finish (default true); false returns queued: true'
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
+      timeoutSeconds: 600
     voxel_volume_sculpt:
       effect: mutate
       description: >-
         Edit an AVoxelSculptVolume actor with Voxel's volume sculpt ops (sphere, cube, flatten, smooth, surface, angle, paint, sculpt graph) or clear it; undoable, waits for completion unless
         wait=false. Defaults per op match Voxel's library. Params: actorPath or actorLabel (one required), op (required), center (required except clear_data/clear_cache), radius?, strength?, mode?,
         smoothness?, size?, rotation?, roundness?, normal?, height?, falloff?, levelType?, planePoint?, planeNormal?, mergeMode?, surfaceType?, metadata?, graph? (required for apply_graph),
-        parameters?, brush?, wait?.
+        parameters?, brush?, wait?, save?.
       schema:
         actorPath:
           type: string
@@ -529,6 +557,10 @@ nativeModule:
         wait:
           type: boolean
           description: 'Wait for the edit to finish (default true); false returns queued: true'
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
+      timeoutSeconds: 600
     voxel_sculpt_asset_get:
       effect: read
       description: >-
@@ -564,6 +596,7 @@ nativeModule:
         save:
           type: boolean
           description: Save the asset after load=false writes the actor data into it (default true)
+      timeoutSeconds: 300
     voxel_query_layer:
       effect: read
       description: >-
@@ -600,12 +633,13 @@ nativeModule:
           items:
             type: string
           description: UVoxelMetadata asset paths whose values to return per point
+      timeoutSeconds: 300
     voxel_export_to_render_target:
       effect: mutate
       description: >-
         Write a height layer region into a UTextureRenderTarget2D via Voxel's ExportVoxelDataToRenderTarget; each channel is height, a constant or a metadata component, sampled over bounds at the
         render target's resolution. Heights need a float format (8-bit formats are rejected); contents are GPU-side and not saved with the asset. Params: stack?, layer?, layerKind? (height only),
-        bounds (required), renderTarget (required), r?, g?, b?, a?, wait?.
+        bounds (required), renderTarget (required), r?, g?, b?, a?, wait?, save?.
       schema:
         stack:
           type: string
@@ -651,6 +685,10 @@ nativeModule:
         wait:
           type: boolean
           description: 'Wait for the GPU write (default true); false returns queued: true'
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
+      timeoutSeconds: 300
     voxel_asset_create:
       effect: mutate
       description: >-
@@ -1156,7 +1194,7 @@ nativeModule:
     voxel_stamp_set_parameters:
       description: >-
         Override graph parameters on a height or volume graph stamp actor, by parameter name. Stamp actors relabel themselves from their stamp, so prefer actorPath. Params: actorPath or actorLabel
-        (one required), values (required, { name: value }).
+        (one required), values (required, { name: value }), save?.
       schema:
         actorPath:
           type: string
@@ -1167,6 +1205,9 @@ nativeModule:
         values:
           type: object
           description: '{ parameterName: value } (required)'
+        save:
+          type: boolean
+          description: Save the content packages this call dirties (default true); levels are never saved
       effect: mutate
 knowledge:
   voxel: knowledge/voxel.md

@@ -148,20 +148,27 @@ namespace VoxelPluginTools
 			OutError = TEXT("actorPath or actorLabel is required");
 			return nullptr;
 		}
-		if (!Path.IsEmpty())
-		{
-			if (AActor* Actor = FindObject<AActor>(nullptr, *Path))
-			{
-				return Actor;
-			}
-			OutError = FString::Printf(TEXT("No actor at %s"), *Path);
-			return nullptr;
-		}
 		UWorld* World = EditorWorld();
 		if (!World)
 		{
 			OutError = TEXT("No editor world");
 			return nullptr;
+		}
+		if (!Path.IsEmpty())
+		{
+			// FindObject also returns actors kept alive by the undo buffer after deletion, and PIE copies.
+			AActor* Actor = FindObject<AActor>(nullptr, *Path);
+			if (!IsValid(Actor) || Actor->IsActorBeingDestroyed())
+			{
+				OutError = FString::Printf(TEXT("No live actor at %s"), *Path);
+				return nullptr;
+			}
+			if (Actor->GetWorld() != World)
+			{
+				OutError = FString::Printf(TEXT("%s is not in the editor world (PIE actors cannot be edited)"), *Path);
+				return nullptr;
+			}
+			return Actor;
 		}
 		TArray<AActor*> Matches;
 		for (TActorIterator<AActor> It(World); It; ++It)

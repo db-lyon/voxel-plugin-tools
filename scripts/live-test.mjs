@@ -123,6 +123,13 @@ await step("pcg_configure_sampler", "voxel_pcg_configure_sampler", () => ({ grap
 await step("world_runtime destroy", "voxel_world_runtime", () => ({ actorPath: ctx.world, op: "destroy" }));
 await step("world_runtime create", "voxel_world_runtime", () => ({ actorPath: ctx.world, op: "create" }));
 
+// Edge cases from review
+await step("world_configure accepts save:false", "voxel_world_configure", () => ({ actorPath: ctx.world, enableLumen: true, save: false }));
+await step("asset_set_property refuses a level actor", "voxel_asset_set_property", () => ({ assetPath: ctx.world, propertyName: "VoxelSize", value: "50" }), undefined, { expectError: true });
+const doomed = await step("actor_spawn to delete", "voxel_actor_spawn", { kind: "stamp", label: "SmokeDoomed" });
+await step("delete actor", "delete_actor", () => ({ actorPath: doomed.actorPath }));
+await step("deleted actor path refused", "voxel_stamp_read", () => ({ actorPath: doomed.actorPath }), undefined, { expectError: true });
+
 // Every asset edit saves itself; only the level may be left dirty.
 await step("no unsaved assets", "list_dirty_packages", {}, (r) => {
   const dirty = (r.content ?? []).map((c) => c.package);

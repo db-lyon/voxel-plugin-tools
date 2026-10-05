@@ -561,10 +561,16 @@ namespace
 			const FScopedTransaction Transaction(LOCTEXT("SetStamp", "Set Voxel Stamp"));
 			Actor->Modify();
 			Component->Modify();
+			const FVoxelStampRef Before = Component->GetStamp();
 			Component->SetStamp(Stamp);
 
 			const FVoxelStampRef Stored = Component->GetStamp();
-			if (!Stored.As<StampType>()) return Error(TEXT("The component did not keep the stamp"));
+			if (!Stored.As<StampType>())
+			{
+				// Put the previous stamp back so a failure leaves the actor as it was.
+				Component->SetStamp(Before);
+				return Error(TEXT("The component did not keep the stamp"));
+			}
 
 			TSharedRef<FJsonObject> Out = ComponentJson(*Actor, *Component, Stored);
 			Out->SetBoolField(TEXT("changed"), true);

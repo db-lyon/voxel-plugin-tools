@@ -62,6 +62,15 @@ for (const [flow, spec] of Object.entries(manifest.flows ?? {})) {
 }
 ok("C3 flow steps resolve");
 
+// C4: the module's read-only set (no save bookkeeping) matches the manifest's effect: read.
+const moduleSrc = readFileSync(join(srcDir, "VoxelPluginToolsModule.cpp"), "utf8");
+const readBlock = /ReadHandlers =\s*\{([\s\S]*?)\};/.exec(moduleSrc)?.[1] ?? "";
+const moduleRead = new Set([...readBlock.matchAll(/TEXT\("(voxel_[a-z0-9_]+)"\)/g)].map((m) => m[1]));
+const manifestRead = new Set(Object.entries(handlers).filter(([, s]) => s.effect === "read").map(([n]) => n));
+for (const n of manifestRead) if (!moduleRead.has(n)) errors.push(`C4: ${n} is effect: read but missing from ReadHandlers`);
+for (const n of moduleRead) if (!manifestRead.has(n)) errors.push(`C4: ${n} is in ReadHandlers but not effect: read`);
+ok(`C4 ${moduleRead.size} read-only handlers agree`);
+
 if (errors.length) {
   for (const e of errors) console.error(`  ERR ${e}`);
   console.error(`errors: ${errors.length}`);
