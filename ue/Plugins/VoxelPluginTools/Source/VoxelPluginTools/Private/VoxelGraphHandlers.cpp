@@ -604,7 +604,7 @@ namespace
 			if (Rows.Num() < Limit)
 			{
 				TSharedRef<FJsonObject> R = MakeShared<FJsonObject>();
-				R->SetStringField(TEXT("action"), Type.Key);
+				R->SetStringField(TEXT("nodeType"), Type.Key);
 				R->SetStringField(TEXT("tooltip"), Type.Tooltip.Left(200));
 				Rows.Add(MakeShared<FJsonValueObject>(R));
 			}
@@ -620,8 +620,8 @@ namespace
 		FGraphTarget Target;
 		if (const FString Err = ResolveGraph(Params, Target); !Err.IsEmpty()) return Error(Err);
 
-		const FString Wanted = Str(Params, TEXT("action"));
-		if (Wanted.IsEmpty()) return Error(TEXT("action is required (an entry from voxel_graph_list_node_types)"));
+		const FString Wanted = Str(Params, TEXT("nodeType"));
+		if (Wanted.IsEmpty()) return Error(TEXT("nodeType is required (a key from voxel_graph_list_node_types)"));
 
 		TArray<FNodeType> Matches;
 		for (const FNodeType& Type : NodeTypes(*Target.Graph, *Target.Terminal))

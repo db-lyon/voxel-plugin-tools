@@ -18,17 +18,17 @@ nativeModule:
         terminalGraph: { type: string, description: "Terminal graph GUID; default is the main graph" }
         includePins: { type: boolean }
     voxel_graph_list_node_types:
-      description: "List the node types this graph allows (Voxel's node library, function-library nodes, and 'Parameters|<name>' getters) as 'Category|Name' keys for voxel_graph_add_node. Space-separated query words must all match. Params: assetPath (required), query?, limit? (default 100), terminalGraph?."
+      description: "List the node types this graph allows (Voxel's node library, function-library nodes, and 'Parameters|<name>' getters) as 'Category|Name' keys for voxel_graph_add_node's nodeType. Space-separated query words must all match. Params: assetPath (required), query?, limit? (default 100), terminalGraph?."
       schema:
         assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
         query: { type: string }
         limit: { type: number }
         terminalGraph: { type: string }
     voxel_graph_add_node:
-      description: "Add a node by its type key ('Category|Name', or the bare name when unique). Returns the node with its pins. Params: assetPath, action (required), x?, y?, terminalGraph?, save? (default true)."
+      description: "Add a node by its type key ('Category|Name', or the bare name when unique). Returns the node with its pins. Params: assetPath, nodeType (required), x?, y?, terminalGraph?, save? (default true)."
       schema:
         assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
-        action: { type: string, description: "Action key from voxel_graph_list_node_types (required)" }
+        nodeType: { type: string, description: "Type key from voxel_graph_list_node_types (required)" }
         x: { type: number }
         y: { type: number }
         terminalGraph: { type: string }
@@ -44,7 +44,7 @@ nativeModule:
         terminalGraph: { type: string }
         save: { type: boolean }
     voxel_graph_disconnect:
-      description: "Break one link between an output pin and an input pin. Same params as voxel_graph_connect."
+      description: "Break one link between an output pin and an input pin. Params: assetPath, fromNode, fromPin, toNode, toPin (required), terminalGraph?, save?."
       schema:
         assetPath: { type: string, description: "UVoxelGraph asset path (required)" }
         fromNode: { type: string }
