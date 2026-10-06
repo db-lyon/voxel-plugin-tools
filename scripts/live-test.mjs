@@ -94,7 +94,7 @@ const sampleScalar = (type, rules) => {
 };
 const sampleFields = (fields) => Object.fromEntries(fields.filter((f) => f.required).map((f) => [f.name, sampleField(f)]));
 function sampleField(f) {
-  if (f.forms?.length) return f.forms[0] === "argMap" ? {} : f.forms[0] === "string" ? "x" : [];
+  if (f.forms?.length) return f.forms[0] === "argMap" || f.forms[0] === "scalarMap" ? {} : f.forms[0] === "string" ? "x" : [];
   if (f.type === "array") return f.fields ? [sampleFields(f.fields)] : [];
   if (f.type === "object") return f.fields ? sampleFields(f.fields) : {};
   return sampleScalar(f.type, f);
@@ -117,7 +117,7 @@ function baseArgs(spec) {
 }
 // The JSON kinds a parameter accepts; a step sends a value of none of them.
 const KIND = { string: "string", number: "number", integer: "number", boolean: "boolean", object: "object", vec3: "object", rotator: "object", color: "object", array: "array" };
-const FORM_KIND = { argMap: "object", argEntryList: "array", stringList: "array", string: "string" };
+const FORM_KIND = { argMap: "object", scalarMap: "object", argEntryList: "array", stringList: "array", string: "string" };
 function wrongValue(p) {
   if (p.type === "any" && !p.forms?.length) return undefined;
   const kinds = new Set(p.forms?.length ? p.forms.map((f) => FORM_KIND[f]) : [KIND[p.type], ...(p.orTypes ?? []).map((t) => KIND[t])]);
