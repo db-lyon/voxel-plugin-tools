@@ -303,16 +303,21 @@ namespace
 			OutError = TEXT("parameters needs a graph; pass asset");
 			return false;
 		}
-		for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : (*Values)->Values)
+		for (const auto& Pair : (*Values)->Values)
 		{
 			FGuid Guid;
 			FVoxelParameter Parameter;
-			if (!FindGraphParameter(*Graph, Pair.Key, Guid, Parameter))
+			if (!FindGraphParameter(*Graph, FString(*Pair.Key), Guid, Parameter))
 			{
 				OutError = FString::Printf(TEXT("Graph %s has no parameter '%s'"), *Graph->GetName(), *Pair.Key);
 				return false;
 			}
-			const FString Text = ValueText(Pair.Value);
+			FString Text;
+			if (!ScalarText(Pair.Value, Text))
+			{
+				OutError = FString::Printf(TEXT("parameters.%s must be a string, number, boolean or null"), *Pair.Key);
+				return false;
+			}
 			FVoxelPinValue Value(Parameter.Type.GetExposedType());
 			if (!ParseValue(Value, Text))
 			{
@@ -331,6 +336,23 @@ namespace
 	template<typename StampType>
 	bool ApplyLayerFields(StampType& Stamp, const FParams& Params, FString& OutError)
 	{
+		if (Has(Params, TEXT("layer")) && Str(Params, TEXT("layer")).IsEmpty())
+		{
+			OutError = TEXT("layer must not be empty; omit it to keep the current layer");
+			return false;
+		}
+		// Each layer type reads only its own padding fields; the other type's would be dropped.
+		constexpr bool bHeight = std::derived_from<StampType, FVoxelHeightStamp>;
+		static const TCHAR* const VolumeOnly[] = { TEXT("boundsExtensionMultiplier"), TEXT("maximumBoundsExtension") };
+		static const TCHAR* const HeightOnly[] = { TEXT("heightPaddingMultiplier") };
+		for (const TCHAR* Field : bHeight ? TConstArrayView<const TCHAR*>(VolumeOnly) : TConstArrayView<const TCHAR*>(HeightOnly))
+		{
+			if (Has(Params, Field))
+			{
+				OutError = FString::Printf(TEXT("%s only applies to %s stamp kinds"), Field, bHeight ? TEXT("volume") : TEXT("height"));
+				return false;
+			}
+		}
 		if constexpr (std::derived_from<StampType, FVoxelHeightStamp>)
 		{
 			const FString LayerPath = Str(Params, TEXT("layer"));
@@ -382,6 +404,11 @@ namespace
 		bOutAssetChanged = false;
 
 		const FString AssetPath = Str(Params, TEXT("asset"));
+		if (AssetPath.IsEmpty() && Has(Params, TEXT("asset")))
+		{
+			OutError = TEXT("asset must not be empty; omit it to keep the current asset, which a stamp cannot be without");
+			return false;
+		}
 		if (!AssetPath.IsEmpty())
 		{
 			typename FTraits::FAsset* Asset = Load<typename FTraits::FAsset>(AssetPath, OutError);
@@ -634,10 +661,11 @@ namespace
 			FVector Scale = FVector::OneVector;
 			if (Has(Entry, TEXT("scale")))
 			{
-				double Uniform = 0;
-				if (Entry->TryGetNumberField(TEXT("scale"), Uniform))
+				// TryGetNumberField would also read "2" or true as a uniform scale.
+				const TSharedPtr<FJsonValue> ScaleValue = Entry->TryGetField(TEXT("scale"));
+				if (ScaleValue.IsValid() && ScaleValue->Type == EJson::Number && FMath::IsFinite(ScaleValue->AsNumber()))
 				{
-					Scale = FVector(Uniform);
+					Scale = FVector(ScaleValue->AsNumber());
 				}
 				else if (!Vec(Entry, TEXT("scale"), Scale))
 				{
@@ -724,6 +752,20 @@ namespace
 		const FString Op = Str(Params, TEXT("op")).ToLower();
 		const bool bIncludeStamps = Bool(Params, TEXT("includeStamps"), false);
 
+		// Each op reads only its own fields; the rest would be ignored.
+		{
+			TArray<const TCHAR*> Allowed = { TEXT("actorPath"), TEXT("actorLabel"), TEXT("componentName"), TEXT("op"), TEXT("includeStamps"), TEXT("save") };
+			if (Op == TEXT("remove")) Allowed.Add(TEXT("index"));
+			if (Op == TEXT("update")) Allowed.Add(TEXT("indices"));
+			if (Op == TEXT("add"))
+			{
+				Allowed.Append({ TEXT("kind"), TEXT("asset"), TEXT("transforms"), TEXT("relativeToComponent"), TEXT("layer"), TEXT("blendMode"),
+					TEXT("priority"), TEXT("smoothness"), TEXT("behavior"), TEXT("applyOnVoid"), TEXT("heightPaddingMultiplier"),
+					TEXT("boundsExtensionMultiplier"), TEXT("maximumBoundsExtension"), TEXT("surfaceType"), TEXT("useTricubic"), TEXT("parameters") });
+			}
+			if (!OnlyKeys(Params, Allowed, FString::Printf(TEXT("op %s"), *Op), Err)) return Error(Err);
+		}
+
 		if (Op == TEXT("count"))
 		{
 			return Ok(InstancedJson(*Actor, *Component, bIncludeStamps));
@@ -760,10 +802,11 @@ namespace
 			{
 				const TArray<TSharedPtr<FJsonValue>>* Values = nullptr;
 				if (!Params->TryGetArrayField(TEXT("indices"), Values)) return Error(TEXT("indices must be an array of integers"));
+				if (Values->Num() == 0) return Error(TEXT("indices must not be empty; omit it to update every stamp"));
 				for (const TSharedPtr<FJsonValue>& Value : *Values)
 				{
-					double Number = 0;
-					if (!Value.IsValid() || !Value->TryGetNumber(Number) || Number != FMath::RoundToDouble(Number) || Number < 0 || Number >= Num)
+					const double Number = Value.IsValid() && Value->Type == EJson::Number ? Value->AsNumber() : -1;
+					if (Number != FMath::RoundToDouble(Number) || Number < 0 || Number >= Num)
 					{
 						return Error(FString::Printf(TEXT("indices entries must be integers in [0, %d)"), Num));
 					}
@@ -845,12 +888,79 @@ namespace
 
 void AddStampHandlers(TArray<FHandlerEntry>& Out)
 {
-	Out.Append(
+	// The stamp fields Configure reads, shared by voxel_stamp_set and voxel_instanced_stamps op add.
+	const auto StampFields = [](const TCHAR* AssetDescription, const TCHAR* LayerDescription)
 	{
-		{ TEXT("voxel_stamp_set"), &StampSet },
-		{ TEXT("voxel_stamp_read"), &StampRead },
-		{ TEXT("voxel_instanced_stamps"), &InstancedStamps },
+		return TArray<FMCPParamSpec>{
+			MCPParam::Optional(TEXT("asset"), EMCPParamType::String, AssetDescription),
+			MCPParam::Optional(TEXT("layer"), EMCPParamType::String, LayerDescription),
+			MCPParam::Optional(TEXT("blendMode"), EMCPParamType::String,
+				TEXT("EVoxelHeightBlendMode for height kinds (Max, Min, Override) or EVoxelVolumeBlendMode for volume kinds (Additive, Subtractive, Intersect, Override)."))
+				.Enum({ TEXT("Max"), TEXT("Min"), TEXT("Override"), TEXT("Additive"), TEXT("Subtractive"), TEXT("Intersect") }),
+			MCPParam::Optional(TEXT("priority"), EMCPParamType::Integer, TEXT("Priority within the layer, an int32; higher applies later.")).Range(MIN_int32, MAX_int32),
+			MCPParam::Optional(TEXT("smoothness"), EMCPParamType::Number, TEXT("Blend smoothness in centimetres, >= 0.")).Min(0),
+			MCPParam::Optional(TEXT("behavior"), EMCPParamType::String, TEXT("EVoxelStampBehavior: what the stamp writes."))
+				.Enum({ TEXT("AffectShape"), TEXT("AffectSurfaceType"), TEXT("AffectMetadata"), TEXT("AffectAll"),
+					TEXT("AffectShapeAndSurfaceType"), TEXT("AffectShapeAndMetadata"), TEXT("AffectSurfaceTypeAndMetadata") }),
+			MCPParam::Optional(TEXT("applyOnVoid"), EMCPParamType::Boolean, TEXT("False applies only where an earlier stamp already applied; ignored by Override and Intersect blends.")),
+			MCPParam::Optional(TEXT("heightPaddingMultiplier"), EMCPParamType::Number, TEXT("Height kinds only: bounds padding relative to the bounds size, >= 0.")).Min(0),
+			MCPParam::Optional(TEXT("boundsExtensionMultiplier"), EMCPParamType::Number, TEXT("Volume kinds only: bounds extension relative to the bounds size, >= 0.")).Min(0),
+			MCPParam::Optional(TEXT("maximumBoundsExtension"), EMCPParamType::Number, TEXT("Volume kinds only: cap on the bounds extension in centimetres, >= 0.")).Min(0),
+			MCPParam::Optional(TEXT("surfaceType"), EMCPParamType::String,
+				TEXT("heightmap: the default surface type; mesh: the surface type. A UVoxelSurfaceTypeInterface asset path; \"\" or null clears it.")).Nullable(),
+			MCPParam::Optional(TEXT("useTricubic"), EMCPParamType::Boolean, TEXT("mesh only: tricubic interpolation, slower and smoother.")),
+			Spec::ValueMap(TEXT("parameters"), false,
+				TEXT("Graph and spline kinds only: { parameterName: value } overrides; each value a string, number, boolean or null, parsed as the parameter's type, and null sets an object parameter to None.")),
+		};
+	};
+
+	TArray<FMCPParamSpec> SetParams = {
+		Spec::ActorPath(TEXT("Stamp actor object path; preferred, since stamp actors relabel themselves.")),
+		Spec::ActorLabel(TEXT("Stamp actor label; must match exactly one actor.")),
+		Spec::ComponentName(TEXT("UVoxelStampComponent object name; default the actor's first one.")),
+		MCPParam::Required(TEXT("kind"), EMCPParamType::String, TEXT("Stamp kind to build; a different kind replaces the current stamp."))
+			.Enum({ TEXT("height_graph"), TEXT("volume_graph"), TEXT("heightmap"), TEXT("mesh"), TEXT("height_spline"), TEXT("volume_spline") }),
+	};
+	SetParams.Append(StampFields(
+		TEXT("UVoxelHeightGraph, UVoxelVolumeGraph, UVoxelHeightmap, UVoxelStaticMesh, UVoxelHeightSplineGraph or UVoxelVolumeSplineGraph path matching kind; required unless the current stamp of this kind has one. Changing a graph clears its overrides."),
+		TEXT("UVoxelHeightLayer (height kinds) or UVoxelVolumeLayer (volume kinds) path; default keeps the current layer, else the project default layer.")));
+	SetParams.Add(Spec::SaveDirty());
+	Out.Add({ TEXT("voxel_stamp_set"), &StampSet, SetParams, Spec::OneActor() });
+
+	Out.Add({ TEXT("voxel_stamp_read"), &StampRead, {
+		Spec::ActorPath(TEXT("Stamp actor object path; preferred, since stamp actors relabel themselves.")),
+		Spec::ActorLabel(TEXT("Stamp actor label; must match exactly one actor.")),
+		Spec::ComponentName(TEXT("UVoxelStampComponent object name; default the actor's first one.")),
+	}, Spec::OneActor() });
+
+	TArray<FMCPParamSpec> InstancedParams = {
+		Spec::ActorPath(TEXT("Actor object path; preferred, since labels can repeat.")),
+		Spec::ActorLabel(TEXT("Actor label; must match exactly one actor.")),
+		Spec::ComponentName(TEXT("UVoxelInstancedStampComponent object name; default the actor's first one.")),
+		MCPParam::Required(TEXT("op"), EMCPParamType::String,
+			TEXT("add appends stamps, remove empties one slot (indices never shift), clear removes all, update re-evaluates stamps, count reports them. Each op takes only its own fields."))
+			.Enum({ TEXT("add"), TEXT("remove"), TEXT("clear"), TEXT("update"), TEXT("count") }),
+		MCPParam::Optional(TEXT("kind"), EMCPParamType::String, TEXT("add, required: the stamp kind; spline kinds need a stamp actor's spline component and are not offered."))
+			.Enum({ TEXT("height_graph"), TEXT("volume_graph"), TEXT("heightmap"), TEXT("mesh") }),
+		MCPParam::Optional(TEXT("transforms"), EMCPParamType::Array, TEXT("add, required: one stamp per entry, in world space unless relativeToComponent."))
+			.Items(EMCPParamType::Object).WithFields({
+				MCPParam::RequiredField(TEXT("location"), EMCPParamType::Vec3, TEXT("Location in centimetres.")),
+				MCPParam::OptionalField(TEXT("rotation"), EMCPParamType::Rotator, TEXT("Rotation in degrees; default zero.")),
+				MCPParam::OptionalField(TEXT("scale"), EMCPParamType::Any, TEXT("A uniform number or {x,y,z}, no component zero; default 1.")),
+			}),
+		MCPParam::Optional(TEXT("relativeToComponent"), EMCPParamType::Boolean, TEXT("add: transforms are relative to the component, baked to world space when added; default false.")),
+	};
+	InstancedParams.Append(StampFields(
+		TEXT("add, required: UVoxelHeightGraph, UVoxelVolumeGraph, UVoxelHeightmap or UVoxelStaticMesh path matching kind."),
+		TEXT("add: UVoxelHeightLayer (height kinds) or UVoxelVolumeLayer (volume kinds) path; default the project default layer.")));
+	InstancedParams.Append({
+		MCPParam::Optional(TEXT("index"), EMCPParamType::Integer, TEXT("remove, required: the stamp slot to empty, in [0, count).")).Range(0, MAX_int32),
+		MCPParam::Optional(TEXT("indices"), EMCPParamType::Array, TEXT("update: non-empty stamp slots to re-evaluate, each in [0, count); default every slot."))
+			.Items(EMCPParamType::Integer).Range(0, MAX_int32),
+		MCPParam::Optional(TEXT("includeStamps"), EMCPParamType::Boolean, TEXT("Include every non-empty stamp with its index and transform in the result; default false.")),
+		Spec::SaveDirty(),
 	});
+	Out.Add({ TEXT("voxel_instanced_stamps"), &InstancedStamps, InstancedParams, Spec::OneActor() });
 }
 }
 

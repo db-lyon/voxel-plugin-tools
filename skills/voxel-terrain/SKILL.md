@@ -7,6 +7,8 @@ description: Build procedural Voxel Plugin 2 terrain through ue-mcp's voxel cate
 
 Every step below is a `voxel(action=...)` call. All of them run as native handlers; never fall back to Python for Voxel work.
 
+Each action checks its parameters against its C++ contract before it runs (`tools(action="describe", category="voxel", method=...)` lists them). Wrong types, unknown keys, fractional integers, out-of-range numbers and enum values in another spelling are refused, not coerced, and an op or stamp kind refuses fields it does not read. Read the refusal and fix the call; it names the field.
+
 ## 0. Preflight: shader hooks
 
 Run `voxel_shader_hooks_status` first. Voxel materials render only when Voxel's patches to the engine shaders are applied; without them every generated surface shader compiles its voxel code out, so terrain shows the gray grid checker (Nanite) or renders near-black (non-Nanite), and nothing logs an error. If `allActive` is false: close the editor, run `UnrealEditor-Cmd.exe <project>.uproject -run=ApplyVoxelShaderHooks`, restart (shaders recompile). The patch lives in the engine install, so every machine that compiles shaders needs it.
@@ -49,7 +51,7 @@ Existing assets are returned, never overwritten (`existed: true`).
 
 ## 5. Sculpt layer
 
-`voxel_actor_spawn` `kind: "height_sculpt"` then `voxel_height_sculpt` (`sculpt_height`, `flatten`, `smooth`, `paint_surface`). Bind a save asset with `voxel_sculpt_asset_set` so the edits live outside the level.
+`voxel_actor_spawn` `kind: "height_sculpt"` then `voxel_height_sculpt` (`sculpt_height`, `flatten`, `smooth`, `paint_surface`). A `brush` names its `type` (`Circular`, `Alpha` or `Pattern`, the last two with a `texture`). Bind a save asset with `voxel_sculpt_asset_set` so the edits live outside the level.
 
 ## 6. PCG on the voxel surface
 
@@ -57,4 +59,12 @@ Create the engine graph with `pcg(action="create_graph")`, add `wait_for_world` 
 
 Feed the sampler's `Bounding Shape` pin from `wait_for_world`. The per-surface attribute is named after the surface type asset (`ST_Grass`); in `pcg(set_node_settings)` write the selector as `PCGBegin(ST_Grass)PCGEnd`.
 
-One sampler call refuses more than 1,048,576 candidate positions ((bounds width / distanceBetweenPoints)^2) and returns empty data with no log line. Past that, sample per cell: `Create Points Grid` (world space, cell size under 1024 x distanceBetweenPoints) → `Cull Points Outside Actor Bounds` (expansion = half a cell) → `Attribute Partition` on `$Position` → `Loop` over a subgraph holding the sampler pipeline. Set the PCG component's editing mode to Preview so the scatter regenerates on load instead of being saved into the level.
+One sampler call refuses more than 1,048,576 candidate positions ((bounds width / distanceBetweenPoints)^2) and returns empty data with no log line. Large areas need a partitioned PCG component (`bIsComponentPartitioned`, `GenerationTrigger: GenerateAtRuntime`; works without World Partition in 5.8): each partition cell samples its own bounds, so keep the partition grid under 1024 x distanceBetweenPoints. Never split sampling with a `Loop` over cells: Voxel's PCG tracker keys dependencies by component and node, so every iteration overwrites the last and only one cell reacts to terrain edits. In game worlds the tracker only refreshes runtime-generated components, so anything that must follow voxel edits in-game has to be `GenerateAtRuntime`. For editor preview set `bTreatEditorViewportAsGenerationSource` on the level's PCG world actor.
+
+Points within 1 m of a stamp's edge get a valid height and a NaN normal (the scatter's 100 cm gradient step samples past the edge), so their rotation is NaN and the ISM they spawn into gets NaN bounds and is culled whole. Filter `$Rotation.W > -2` right after the sampler and keep sampling bounds inside the terrain.
+
+Set the PCG component's editing mode to Preview so generated output regenerates on load instead of being saved into the level.
+
+## 7. Terrain edits from PCG
+
+Put a second height layer above the base one in the world's layer stack. Systems that place things sample the base layer; stamps they spawn (`stamp_spawner` with a height graph or heightmap template) go to the edits layer; scatter samples the edits layer. Placement then never invalidates itself, and scatter regenerates when edits change under it. The stamp spawner uses the full point transform including scale: reset scale when a footprint is already in a graph parameter. Map per-point values onto graph parameters with `SpawnedGraphParameterOverrideDescriptions` and onto stamp properties with `SpawnedStampPropertyOverrideDescriptions`; enum properties (BlendMode) cannot be set from a string attribute, so split points by value into spawners whose templates carry each mode.

@@ -1,11 +1,12 @@
 {
   "name": "voxel-plugin-tools",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "description": "Voxel Plugin 2 actions for ue-mcp: native C++ handlers for voxel worlds, stamps, sculpting, queries, assets, PCG and graph authoring.",
   "files": [
     "ue/Plugins/VoxelPluginTools/Source",
     "ue/Plugins/VoxelPluginTools/VoxelPluginTools.uplugin",
     "ue-mcp.plugin.yml",
+    "handler-specs.json",
     "knowledge",
     "skills",
     "README.md",
@@ -27,8 +28,8 @@
     "url": "https://github.com/db-lyon/voxel-plugin-tools.git"
   },
   "devDependencies": {
-    "ue-mcp": "^1.3.10-beta.11",
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "ue-mcp": "1.3.10-beta.13"
   },
   "scripts": {
     "check": "node scripts/check.mjs && ue-mcp plugin check-skills .",

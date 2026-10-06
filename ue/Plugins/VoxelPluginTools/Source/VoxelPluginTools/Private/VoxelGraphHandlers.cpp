@@ -47,18 +47,19 @@ namespace
 
 	FString ResolveGraph(const FParams& Params, FGraphTarget& Out)
 	{
-		const FString AssetPath = Str(Params, TEXT("assetPath"));
-		if (AssetPath.IsEmpty())
-		{
-			return TEXT("assetPath is required");
-		}
-		Out.Graph = LoadObject<UVoxelGraph>(nullptr, *AssetPath);
+		FString Err;
+		// Load accepts a bare package path (/Game/A/B), as every other handler's asset path does.
+		Out.Graph = Load<UVoxelGraph>(Str(Params, TEXT("assetPath")), Err);
 		if (!Out.Graph)
 		{
-			return FString::Printf(TEXT("No UVoxelGraph at '%s'"), *AssetPath);
+			return Err;
 		}
 
 		const FString TerminalGuid = Str(Params, TEXT("terminalGraph"));
+		if (TerminalGuid.IsEmpty() && Has(Params, TEXT("terminalGraph")))
+		{
+			return TEXT("terminalGraph must not be empty; omit it for the main terminal graph");
+		}
 		if (TerminalGuid.IsEmpty())
 		{
 			if (!Out.Graph->HasMainTerminalGraph())
@@ -473,6 +474,7 @@ namespace
 
 		const FString Query = Str(Params, TEXT("query"));
 		const int32 Limit = static_cast<int32>(Num(Params, TEXT("limit"), 100));
+		if (Limit < 1) return Error(TEXT("limit must be an integer >= 1"));
 		TArray<FString> Words;
 		Query.ParseIntoArray(Words, TEXT(" "));
 
@@ -612,7 +614,8 @@ namespace
 		if (!Node) return Error(Err);
 		UEdGraphPin* Pin = FindPin(*Node, Str(Params, TEXT("pin")), EGPD_Input, Err);
 		if (!Pin) return Error(Err);
-		if (!Params->HasField(TEXT("value"))) return Error(TEXT("value is required"));
+		FString Text;
+		if (!ScalarField(Params, TEXT("value"), Text)) return Error(TEXT("value is required: a string, number or boolean"));
 		if (Pin->LinkedTo.Num() > 0) return Error(FString::Printf(TEXT("Pin %s is connected; its default is unused"), *Pin->PinName.ToString()));
 
 		// Parse as Voxel does, so bad text is rejected and object pins land in DefaultObject.
@@ -622,9 +625,9 @@ namespace
 			return Error(FString::Printf(TEXT("Pin %s takes no default value"), *Pin->PinName.ToString()));
 		}
 		FVoxelPinValue Value(Type);
-		if (!ParseValue(Value, Str(Params, TEXT("value"))))
+		if (!ParseValue(Value, Text))
 		{
-			return Error(FString::Printf(TEXT("'%s' does not parse as %s"), *Str(Params, TEXT("value")), *Type.ToString()));
+			return Error(FString::Printf(TEXT("'%s' does not parse as %s"), *Text, *Type.ToString()));
 		}
 
 		const FString Previous = Pin->GetDefaultAsString();
@@ -669,10 +672,15 @@ namespace
 
 		TSet<UObject*> Nodes;
 		const TArray<TSharedPtr<FJsonValue>>* Ids = nullptr;
-		if (Params->TryGetArrayField(TEXT("nodes"), Ids) && Ids->Num() > 0)
+		if (Has(Params, TEXT("nodes")))
 		{
+			if (!Params->TryGetArrayField(TEXT("nodes"), Ids) || Ids->Num() == 0)
+			{
+				return Error(TEXT("nodes must be a non-empty array of node ids; omit it to export every copyable node"));
+			}
 			for (const TSharedPtr<FJsonValue>& Id : *Ids)
 			{
+				if (!Id.IsValid() || Id->Type != EJson::String) return Error(TEXT("nodes must contain only node id strings"));
 				FString Err;
 				UEdGraphNode* Node = FindNode(*Target.EdGraph, Id->AsString(), Err);
 				if (!Node) return Error(Err);
@@ -822,7 +830,11 @@ namespace
 			return Error(FString::Printf(TEXT("%s is not a valid voxel parameter type"), *Parameter.Type.ToString()));
 		}
 
-		const FString Default = Str(Params, TEXT("default"));
+		FString Default;
+		if (Has(Params, TEXT("default")) && (!ScalarField(Params, TEXT("default"), Default) || Default.IsEmpty()))
+		{
+			return Error(TEXT("default must be a non-empty string, a number or a boolean; omit it for the type's default"));
+		}
 		FVoxelPinValue Value(Parameter.Type.GetExposedType());
 		if (!Default.IsEmpty() && !ParseValue(Value, Default))
 		{
@@ -901,12 +913,13 @@ namespace
 		FGuid Guid;
 		FVoxelParameter Parameter;
 		if (!FindParameter(*Target.Graph, Name, Guid, Parameter)) return Error(FString::Printf(TEXT("No parameter '%s'"), *Name));
-		if (!Params->HasField(TEXT("value"))) return Error(TEXT("value is required"));
+		FString Text;
+		if (!ScalarField(Params, TEXT("value"), Text)) return Error(TEXT("value is required: a string, number or boolean"));
 
 		FVoxelPinValue Value(Parameter.Type.GetExposedType());
-		if (!ParseValue(Value, Str(Params, TEXT("value"))))
+		if (!ParseValue(Value, Text))
 		{
-			return Error(FString::Printf(TEXT("'%s' does not parse as %s"), *Str(Params, TEXT("value")), *Parameter.Type.ToString()));
+			return Error(FString::Printf(TEXT("'%s' does not parse as %s"), *Text, *Parameter.Type.ToString()));
 		}
 		const FScopedTransaction Transaction(LOCTEXT("SetParameterDefault", "Set Voxel Parameter Default"));
 		Target.Graph->Modify();
@@ -941,21 +954,18 @@ namespace
 		}
 
 		IVoxelParameterOverridesOwner& Owner = Stamp;
-		for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : (*Values)->Values)
+		for (const auto& Pair : (*Values)->Values)
 		{
 			FGuid Guid;
 			FVoxelParameter Parameter;
-			if (!FindParameter(*Graph, Pair.Key, Guid, Parameter))
+			if (!FindParameter(*Graph, FString(*Pair.Key), Guid, Parameter))
 			{
 				return Error(FString::Printf(TEXT("Graph %s has no parameter '%s'"), *Graph->GetName(), *Pair.Key));
 			}
 			FString Text;
-			if (!Pair.Value->TryGetString(Text))
+			if (!ScalarText(Pair.Value, Text))
 			{
-				double Number = 0;
-				bool bBool = false;
-				if (Pair.Value->TryGetNumber(Number)) Text = FString::SanitizeFloat(Number);
-				else if (Pair.Value->TryGetBool(bBool)) Text = bBool ? TEXT("true") : TEXT("false");
+				return Error(FString::Printf(TEXT("values.%s must be a string, number, boolean or null"), *Pair.Key));
 			}
 			FVoxelPinValue Value(Parameter.Type.GetExposedType());
 			if (!ParseValue(Value, Text))
@@ -1011,22 +1021,102 @@ namespace
 
 void AddGraphHandlers(TArray<FHandlerEntry>& Out)
 {
-	Out.Append(
+	// ResolveGraph's inputs, which every graph handler reads, followed by the handler's own.
+	const auto Graph = [](TArray<FMCPParamSpec> Rest, bool bMutates)
 	{
-		{ TEXT("voxel_graph_read"), &GraphRead },
-		{ TEXT("voxel_graph_list_node_types"), &ListNodeTypes },
-		{ TEXT("voxel_graph_add_node"), &AddNode },
-		{ TEXT("voxel_graph_connect"), [](const FParams& P) { return Connect(P, true); } },
-		{ TEXT("voxel_graph_disconnect"), [](const FParams& P) { return Connect(P, false); } },
-		{ TEXT("voxel_graph_set_pin_default"), &SetPinDefault },
-		{ TEXT("voxel_graph_delete_node"), &DeleteNode },
-		{ TEXT("voxel_graph_export_t3d"), &ExportT3D },
-		{ TEXT("voxel_graph_import_t3d"), &ImportT3D },
-		{ TEXT("voxel_graph_add_parameter"), &AddParameter },
-		{ TEXT("voxel_graph_remove_parameter"), &RemoveParameter },
-		{ TEXT("voxel_graph_set_parameter_default"), &SetParameterDefault },
-		{ TEXT("voxel_stamp_set_parameters"), &StampSetParameters },
-	});
+		Rest.Insert({
+			MCPParam::Required(TEXT("assetPath"), EMCPParamType::String, TEXT("UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves.")),
+			MCPParam::Optional(TEXT("terminalGraph"), EMCPParamType::String,
+				TEXT("Terminal graph GUID from voxel_graph_read; default the main graph. Required for graphs without one, such as function libraries.")),
+		}, 0);
+		if (bMutates)
+		{
+			Rest.Add(Spec::Save(TEXT("Save the graph after the edit; default true.")));
+		}
+		return Rest;
+	};
+	const auto NodeRef = [](const TCHAR* Name, const TCHAR* Description) { return MCPParam::Required(Name, EMCPParamType::String, Description); };
+	const auto Position = [](const TCHAR* Name, const TCHAR* Description) { return MCPParam::Optional(Name, EMCPParamType::Integer, Description).Range(MIN_int32, MAX_int32); };
+	const auto ScalarValue = [](const TCHAR* Name, bool bRequired, const TCHAR* Description)
+	{
+		FMCPParamSpec Param = MCPParam::Optional(Name, EMCPParamType::String, Description).Or(EMCPParamType::Number).Or(EMCPParamType::Boolean);
+		Param.bRequired = bRequired;
+		return Param;
+	};
+	const auto Link = [&]
+	{
+		return Graph({
+			NodeRef(TEXT("fromNode"), TEXT("Source node: id (GUID), object name or unique title.")),
+			NodeRef(TEXT("fromPin"), TEXT("Visible output pin on fromNode, by name or display name, case-insensitive.")),
+			NodeRef(TEXT("toNode"), TEXT("Target node: id (GUID), object name or unique title.")),
+			NodeRef(TEXT("toPin"), TEXT("Visible input pin on toNode, by name or display name, case-insensitive.")),
+		}, true);
+	};
+	const auto ParameterName = [] { return MCPParam::Required(TEXT("name"), EMCPParamType::String, TEXT("Graph parameter name, case-insensitive.")); };
+
+	Out.Add({ TEXT("voxel_graph_read"), &GraphRead, Graph({
+		MCPParam::Optional(TEXT("includePins"), EMCPParamType::Boolean, TEXT("Include each node's pins, defaults and links; default true.")),
+	}, false) });
+
+	Out.Add({ TEXT("voxel_graph_list_node_types"), &ListNodeTypes, Graph({
+		MCPParam::Optional(TEXT("query"), EMCPParamType::String, TEXT("Space-separated words that must all match the type key or tooltip, case-insensitive; default every type.")),
+		MCPParam::Optional(TEXT("limit"), EMCPParamType::Integer, TEXT("Most rows returned, >= 1; default 100. total still counts every match.")).Range(1, MAX_int32),
+	}, false) });
+
+	Out.Add({ TEXT("voxel_graph_add_node"), &AddNode, Graph({
+		NodeRef(TEXT("nodeType"), TEXT("Type key from voxel_graph_list_node_types ('Category|Name'), or the bare name when it is unique.")),
+		Position(TEXT("x"), TEXT("Node X position in graph units; default 0.")),
+		Position(TEXT("y"), TEXT("Node Y position in graph units; default 0.")),
+	}, true) });
+
+	Out.Add({ TEXT("voxel_graph_connect"), [](const FParams& P) { return Connect(P, true); }, Link() });
+	Out.Add({ TEXT("voxel_graph_disconnect"), [](const FParams& P) { return Connect(P, false); }, Link() });
+
+	Out.Add({ TEXT("voxel_graph_set_pin_default"), &SetPinDefault, Graph({
+		NodeRef(TEXT("node"), TEXT("Node id (GUID), object name or unique title.")),
+		NodeRef(TEXT("pin"), TEXT("Unconnected visible input pin, by name or display name.")),
+		ScalarValue(TEXT("value"), true, TEXT("Pin default text, e.g. 5000, true or (X=1,Y=2), or an asset path for object pins; numbers and booleans are written as text.")),
+	}, true) });
+
+	Out.Add({ TEXT("voxel_graph_delete_node"), &DeleteNode, Graph({
+		NodeRef(TEXT("node"), TEXT("Node id (GUID), object name or unique title.")),
+	}, true) });
+
+	Out.Add({ TEXT("voxel_graph_export_t3d"), &ExportT3D, Graph({
+		MCPParam::Optional(TEXT("nodes"), EMCPParamType::Array, TEXT("Node ids, names or unique titles to export, non-empty; default every copyable node."))
+			.Items(EMCPParamType::String),
+	}, false) });
+
+	Out.Add({ TEXT("voxel_graph_import_t3d"), &ImportT3D, Graph({
+		NodeRef(TEXT("t3d"), TEXT("Clipboard T3D node text, e.g. from voxel_graph_export_t3d.")),
+		Position(TEXT("offsetX"), TEXT("Added to each pasted node's X position; default 0.")),
+		Position(TEXT("offsetY"), TEXT("Added to each pasted node's Y position; default 0.")),
+	}, true) });
+
+	Out.Add({ TEXT("voxel_graph_add_parameter"), &AddParameter, Graph({
+		MCPParam::Required(TEXT("name"), EMCPParamType::String, TEXT("New parameter name, unique in the graph (case-insensitive).")),
+		MCPParam::Required(TEXT("type"), EMCPParamType::String,
+			TEXT("float, double, int32 (or int), int64, bool, name, vector2d, vector, color (or linearcolor), seed, or struct:, object:, class: or enum: followed by an asset path; case-insensitive.")),
+		ScalarValue(TEXT("default"), false, TEXT("Default value text, validated against the type before anything changes; default the type's own default.")),
+		MCPParam::Optional(TEXT("category"), EMCPParamType::String, TEXT("Category shown in the graph's members panel.")),
+		MCPParam::Optional(TEXT("description"), EMCPParamType::String, TEXT("Parameter tooltip.")),
+	}, true) });
+
+	Out.Add({ TEXT("voxel_graph_remove_parameter"), &RemoveParameter, Graph({ ParameterName() }, true) });
+
+	Out.Add({ TEXT("voxel_graph_set_parameter_default"), &SetParameterDefault, Graph({
+		ParameterName(),
+		ScalarValue(TEXT("value"), true, TEXT("Value text, e.g. 5000, true or (X=1,Y=2), or an asset path for object parameters; numbers and booleans are written as text.")),
+	}, true) });
+
+	Out.Add({ TEXT("voxel_stamp_set_parameters"), &StampSetParameters, {
+		Spec::ActorPath(TEXT("Stamp actor object path; preferred, since stamp actors relabel themselves.")),
+		Spec::ActorLabel(TEXT("Stamp actor label; must match exactly one actor.")),
+		Spec::ComponentName(TEXT("UVoxelStampComponent object name; default the actor's first one.")),
+		Spec::ValueMap(TEXT("values"), true,
+			TEXT("Non-empty { parameterName: value } overrides on the stamp's height or volume graph; each value a string, number, boolean or null, parsed as the parameter's type, and null sets an object parameter to None.")),
+		Spec::SaveDirty(),
+	}, Spec::OneActor() });
 }
 
 void ReleaseCatalog()

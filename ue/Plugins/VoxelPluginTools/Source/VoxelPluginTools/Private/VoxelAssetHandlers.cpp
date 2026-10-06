@@ -85,13 +85,14 @@ namespace
 		return Fill(Out.Value.GetObjAddress(), OutError);
 	}
 
-	// Asset references in import text are loaded up front so a bad path is an error, not a silent None.
+	// Asset references in import text are loaded up front so a bad path is an error, not a silent None. Soft
+	// references too: their import text stores any path, loadable or not.
 	bool PreloadObjectRefs(const FProperty& Property, const FString& Text, FString& OutError)
 	{
-		const FObjectProperty* ObjectProperty = CastField<FObjectProperty>(&Property);
+		const FObjectPropertyBase* ObjectProperty = CastField<FObjectPropertyBase>(&Property);
 		if (const FArrayProperty* ArrayProperty = CastField<FArrayProperty>(&Property))
 		{
-			ObjectProperty = CastField<FObjectProperty>(ArrayProperty->Inner);
+			ObjectProperty = CastField<FObjectPropertyBase>(ArrayProperty->Inner);
 		}
 		if (!ObjectProperty)
 		{
@@ -126,6 +127,25 @@ namespace
 		return true;
 	}
 
+	// The enum value an import text names, by name; ImportText would also take a bare index.
+	bool CheckEnumText(const FProperty& Property, const FString& Text, FString& OutError)
+	{
+		const UEnum* Enum = nullptr;
+		if (const FEnumProperty* EnumProperty = CastField<FEnumProperty>(&Property)) Enum = EnumProperty->GetEnum();
+		else if (const FByteProperty* ByteProperty = CastField<FByteProperty>(&Property)) Enum = ByteProperty->Enum;
+		if (!Enum || Enum->GetIndexByNameString(Text.TrimStartAndEnd()) != INDEX_NONE)
+		{
+			return true;
+		}
+		TArray<FString> Names;
+		for (int32 Index = 0; Index < Enum->NumEnums() - (Enum->ContainsExistingMax() ? 1 : 0); Index++)
+		{
+			Names.Add(Enum->GetNameStringByIndex(Index));
+		}
+		OutError = FString::Printf(TEXT("'%s' is not a %s value; use one of: %s"), *Text, *Enum->GetName(), *FString::Join(Names, TEXT(", ")));
+		return false;
+	}
+
 	bool PrepareText(UObject& Object, FProperty* Property, const FString& InText, FPendingEdit& Out, FString& OutError)
 	{
 		if (!Property)
@@ -141,7 +161,7 @@ namespace
 			OutError = FString::Printf(TEXT("Empty value for %s"), *Property->GetName());
 			return false;
 		}
-		if (!PreloadObjectRefs(*Property, Text, OutError))
+		if (!PreloadObjectRefs(*Property, Text, OutError) || !CheckEnumText(*Property, Text, OutError))
 		{
 			return false;
 		}
@@ -189,33 +209,47 @@ namespace
 		}, Out, OutError);
 	}
 
-	// JSON scalar or array to UE import text.
-	FString JsonToText(const FProperty& Property, const TSharedPtr<FJsonValue>& Value)
+	// JSON string, number, boolean, null (the empty text) or array of those to UE import text.
+	bool JsonToText(const FProperty& Property, const TSharedPtr<FJsonValue>& Value, FString& Out, FString& OutError)
 	{
-		if (!Value.IsValid())
-		{
-			return FString();
-		}
-		if (Value->Type == EJson::Array)
+		if (Value.IsValid() && Value->Type == EJson::Array)
 		{
 			TArray<FString> Items;
 			for (const TSharedPtr<FJsonValue>& Item : Value->AsArray())
 			{
 				FString Text;
-				Items.Add(Item.IsValid() && Item->TryGetString(Text) ? TEXT("\"") + Text.ReplaceCharWithEscapedChar() + TEXT("\"") : ValueText(Item));
+				if (!Item.IsValid() || Item->Type == EJson::Null || !ScalarText(Item, Text))
+				{
+					OutError = FString::Printf(TEXT("%s array items must be strings, numbers or booleans"), *Property.GetName());
+					return false;
+				}
+				Items.Add(Item->Type == EJson::String ? TEXT("\"") + Text.ReplaceCharWithEscapedChar() + TEXT("\"") : Text);
 			}
-			return TEXT("(") + FString::Join(Items, TEXT(",")) + TEXT(")");
+			Out = TEXT("(") + FString::Join(Items, TEXT(",")) + TEXT(")");
+			return true;
 		}
-		double Number = 0;
-		if (Value->Type == EJson::Number && Value->TryGetNumber(Number))
+		if (Value.IsValid() && Value->Type == EJson::Number)
 		{
+			const double Number = Value->AsNumber();
 			const FNumericProperty* Numeric = CastField<FNumericProperty>(&Property);
 			if (Numeric && Numeric->IsInteger())
 			{
-				return FString::Printf(TEXT("%lld"), static_cast<long long>(FMath::RoundToDouble(Number)));
+				// Rounding 2.6 to 3 would store a value nobody passed.
+				if (Number != FMath::RoundToDouble(Number) || FMath::Abs(Number) > 9007199254740992.0)
+				{
+					OutError = FString::Printf(TEXT("%s is an integer property; %s is not an integer"), *Property.GetName(), *FString::SanitizeFloat(Number, 0));
+					return false;
+				}
+				Out = FString::Printf(TEXT("%lld"), static_cast<long long>(Number));
+				return true;
 			}
 		}
-		return ValueText(Value);
+		if (!ScalarText(Value, Out))
+		{
+			OutError = FString::Printf(TEXT("%s takes a string, number, boolean or array, not an object"), *Property.GetName());
+			return false;
+		}
+		return true;
 	}
 
 	bool PrepareJson(UObject& Object, const FName PropertyName, const TSharedPtr<FJsonValue>& Value, FPendingEdit& Out, FString& OutError)
@@ -226,10 +260,12 @@ namespace
 			OutError = FString::Printf(TEXT("%s has no property %s"), *Object.GetClass()->GetName(), *PropertyName.ToString());
 			return false;
 		}
-		return PrepareText(Object, Property, JsonToText(*Property, Value), Out, OutError);
+		FString Text;
+		return JsonToText(*Property, Value, Text, OutError) && PrepareText(Object, Property, Text, Out, OutError);
 	}
 
-	// Object array from asset paths; deduplicated, in the given order, after the current entries when appending.
+	// Object array from distinct asset paths, in the given order, after the current entries when appending (an entry
+	// already present is kept where it is).
 	bool PrepareObjectArray(UObject& Object, const FName PropertyName, const TArray<FString>& Paths, const bool bAppend, FPendingEdit& Out, FString& OutError)
 	{
 		FArrayProperty* ArrayProperty = CastField<FArrayProperty>(Object.GetClass()->FindPropertyByName(PropertyName));
@@ -245,6 +281,12 @@ namespace
 			UObject* Loaded = LoadTyped(Path, Inner->PropertyClass, OutError);
 			if (!Loaded)
 			{
+				return false;
+			}
+			// A repeated entry would be dropped; the list the caller sent is not the list that lands.
+			if (Objects.Contains(Loaded))
+			{
+				OutError = FString::Printf(TEXT("%s is listed twice"), *Loaded->GetPathName());
 				return false;
 			}
 			Objects.Add(Loaded);
@@ -362,27 +404,105 @@ namespace
 		return Out;
 	}
 
+	// The property a JSON field edits, and the field's contract; the field's name is Spec.Name.
 	struct FFieldMap
 	{
-		const TCHAR* Param;
 		FName Property;
+		FMCPParamSpec Spec;
 	};
 
 	bool PrepareFields(UObject& Object, const FParams& Params, TConstArrayView<FFieldMap> Fields, TArray<FPendingEdit>& Edits, FString& OutError)
 	{
 		for (const FFieldMap& Field : Fields)
 		{
-			if (!Has(Params, Field.Param))
+			const TCHAR* Param = *Field.Spec.Name;
+			if (!Has(Params, Param))
 			{
 				continue;
 			}
-			if (!PrepareJson(Object, Field.Property, Params->TryGetField(Field.Param), Edits.AddDefaulted_GetRef(), OutError))
+			if (!PrepareJson(Object, Field.Property, Params->TryGetField(Param), Edits.AddDefaulted_GetRef(), OutError))
 			{
-				OutError = FString::Printf(TEXT("%s: %s"), Field.Param, *OutError);
+				OutError = FString::Printf(TEXT("%s: %s"), Param, *OutError);
 				return false;
 			}
 		}
 		return true;
+	}
+
+	TArray<FMCPParamSpec> SpecsOf(TConstArrayView<FFieldMap> Fields)
+	{
+		TArray<FMCPParamSpec> Out;
+		for (const FFieldMap& Field : Fields)
+		{
+			Out.Add(Field.Spec);
+		}
+		return Out;
+	}
+
+	FMCPParamSpec AssetRef(const TCHAR* Name, const TCHAR* Description)
+	{
+		return MCPParam::Optional(Name, EMCPParamType::String, Description).Nullable();
+	}
+
+	FMCPParamSpec Flag(const TCHAR* Name, const TCHAR* Description)
+	{
+		return MCPParam::Optional(Name, EMCPParamType::Boolean, Description);
+	}
+
+	FMCPParamSpec GenerationType(const TCHAR* Name, const TCHAR* Description)
+	{
+		return MCPParam::Optional(Name, EMCPParamType::String, Description).Enum({ TEXT("Custom"), TEXT("Generated") });
+	}
+
+	const TArray<FFieldMap>& MegaMaterialFields()
+	{
+		static const TArray<FFieldMap> Fields =
+		{
+			{ GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, bAutomaticallyDetectNewSurfaces), Flag(TEXT("automaticallyDetectNewSurfaces"), TEXT("Notify when a rendered surface is missing from the list; default true.")) },
+			{ GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, AttributePostProcess), AssetRef(TEXT("attributePostProcess"),
+				TEXT("UMaterialFunction applied everywhere, one MaterialAttributes in and out; \"\" or null clears it.")) },
+			{ GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, NonNaniteMaterialType), GenerationType(TEXT("nonNaniteMaterialType"), TEXT("Non-Nanite meshes use customNonNaniteMaterial (Custom) or a generated one; default Custom.")) },
+			{ GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, CustomNonNaniteMaterial), AssetRef(TEXT("customNonNaniteMaterial"), TEXT("UMaterialInterface for non-Nanite meshes when Custom; \"\" or null clears it.")) },
+			{ GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, NaniteDisplacementMaterialType), GenerationType(TEXT("naniteDisplacementMaterialType"),
+				TEXT("Nanite displacement comes from customNaniteDisplacementMaterial (Custom) or is generated; default Generated.")) },
+			{ GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, CustomNaniteDisplacementMaterial), AssetRef(TEXT("customNaniteDisplacementMaterial"),
+				TEXT("UMaterialInterface whose displacement replaces the generated one when Custom; \"\" or null clears it.")) },
+			{ GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, LumenMaterialType), GenerationType(TEXT("lumenMaterialType"), TEXT("Lumen uses customLumenMaterial (Custom) or a generated material; default Generated.")) },
+			{ GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, CustomLumenMaterial), AssetRef(TEXT("customLumenMaterial"), TEXT("UMaterialInterface Lumen uses when Custom; \"\" or null clears it.")) },
+			{ GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, bEnableSmoothBlends), Flag(TEXT("enableSmoothBlends"), TEXT("Dither-based smooth blends; default true.")) },
+			{ GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, bGenerateMaskedMaterial), Flag(TEXT("generateMaskedMaterial"), TEXT("Generated materials use the Masked blend mode; default false.")) },
+			{ GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, bGenerateTwoSidedMaterial), Flag(TEXT("generateTwoSidedMaterial"), TEXT("Generated materials are two-sided; default false.")) },
+			{ GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, bSetHasPixelAnimation), Flag(TEXT("setHasPixelAnimation"), TEXT("Set bHasPixelAnimation to reduce TSR blur; default false.")) },
+			{ GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, bEnablePixelDepthOffset), Flag(TEXT("enablePixelDepthOffset"), TEXT("Compile PixelDepthOffset into the non-Nanite material; default false.")) },
+			{ GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, bEnableDitherNoiseTexture), Flag(TEXT("enableDitherNoiseTexture"), TEXT("Use ditherNoiseTexture for smooth-blend dithering; default false.")) },
+			{ GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, DitherNoiseTexture), AssetRef(TEXT("ditherNoiseTexture"),
+				TEXT("UTexture2D asset path for dither noise, which must load; \"\" or null clears it.")) },
+			{ GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, CustomOutputsMaterial), AssetRef(TEXT("customOutputsMaterial"),
+				TEXT("UMaterialInterface whose custom output nodes are copied into the generated material; \"\" or null clears it.")) },
+		};
+		return Fields;
+	}
+
+	const TArray<FFieldMap>& SurfaceTypeFields()
+	{
+		static const TArray<FFieldMap> Fields =
+		{
+			{ GET_MEMBER_NAME_CHECKED(UVoxelSurfaceTypeAsset, Material), AssetRef(TEXT("material"), TEXT("UMaterialInterface asset path (material or instance); \"\" or null clears it.")) },
+			{ GET_MEMBER_NAME_CHECKED(UVoxelSurfaceTypeAsset, bInvisible), Flag(TEXT("invisible"), TEXT("Render nothing, to cut holes in the terrain; default false.")) },
+			{ GET_MEMBER_NAME_CHECKED(UVoxelSurfaceTypeAsset, BlendSmoothness), MCPParam::Optional(TEXT("blendSmoothness"), EMCPParamType::Number,
+				TEXT("Smooth blend amount, >= 0 (ClampMin); the details panel offers 0 to 1. Default 0.5.")).Min(0) },
+		};
+		return Fields;
+	}
+
+	const TArray<FFieldMap>& LayerStackFields()
+	{
+		static const TArray<FFieldMap> Fields =
+		{
+			{ GET_MEMBER_NAME_CHECKED(UVoxelLayerStack, MaxDistance), MCPParam::Optional(TEXT("maxDistance"), EMCPParamType::Number,
+				TEXT("How far up and down the height distance field extends, in centimetres; default 100000.")) },
+		};
+		return Fields;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -596,7 +716,8 @@ namespace
 		}
 
 		TArray<FPendingEdit> Edits;
-		if (!PrepareText(*Asset, Property, JsonToText(*Property, Params->TryGetField(TEXT("value"))), Edits.AddDefaulted_GetRef(), Err))
+		FString Text;
+		if (!JsonToText(*Property, Params->TryGetField(TEXT("value")), Text, Err) || !PrepareText(*Asset, Property, Text, Edits.AddDefaulted_GetRef(), Err))
 		{
 			return Error(Err);
 		}
@@ -626,6 +747,7 @@ namespace
 		FString Mode = Str(Params, TEXT("mode")).TrimStartAndEnd().ToLower();
 		if (Mode.IsEmpty()) Mode = TEXT("replace");
 		if (Mode != TEXT("replace") && Mode != TEXT("append")) return Error(FString::Printf(TEXT("mode '%s' must be replace or append"), *Mode));
+		if (Has(Params, TEXT("mode")) && !Has(Params, TEXT("surfaceTypes"))) return Error(TEXT("mode only applies with surfaceTypes"));
 
 		TArray<FPendingEdit> Edits;
 		if (Has(Params, TEXT("surfaceTypes")))
@@ -638,26 +760,7 @@ namespace
 			}
 		}
 
-		const FFieldMap Fields[] =
-		{
-			{ TEXT("automaticallyDetectNewSurfaces"), GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, bAutomaticallyDetectNewSurfaces) },
-			{ TEXT("attributePostProcess"), GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, AttributePostProcess) },
-			{ TEXT("nonNaniteMaterialType"), GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, NonNaniteMaterialType) },
-			{ TEXT("customNonNaniteMaterial"), GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, CustomNonNaniteMaterial) },
-			{ TEXT("naniteDisplacementMaterialType"), GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, NaniteDisplacementMaterialType) },
-			{ TEXT("customNaniteDisplacementMaterial"), GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, CustomNaniteDisplacementMaterial) },
-			{ TEXT("lumenMaterialType"), GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, LumenMaterialType) },
-			{ TEXT("customLumenMaterial"), GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, CustomLumenMaterial) },
-			{ TEXT("enableSmoothBlends"), GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, bEnableSmoothBlends) },
-			{ TEXT("generateMaskedMaterial"), GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, bGenerateMaskedMaterial) },
-			{ TEXT("generateTwoSidedMaterial"), GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, bGenerateTwoSidedMaterial) },
-			{ TEXT("setHasPixelAnimation"), GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, bSetHasPixelAnimation) },
-			{ TEXT("enablePixelDepthOffset"), GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, bEnablePixelDepthOffset) },
-			{ TEXT("enableDitherNoiseTexture"), GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, bEnableDitherNoiseTexture) },
-			{ TEXT("ditherNoiseTexture"), GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, DitherNoiseTexture) },
-			{ TEXT("customOutputsMaterial"), GET_MEMBER_NAME_CHECKED(UVoxelMegaMaterial, CustomOutputsMaterial) },
-		};
-		if (!PrepareFields(*Material, Params, Fields, Edits, Err)) return Error(Err);
+		if (!PrepareFields(*Material, Params, MegaMaterialFields(), Edits, Err)) return Error(Err);
 		if (Edits.Num() == 0) return Error(TEXT("Nothing to set: pass surfaceTypes or a mega material setting"));
 
 		const FScopedTransaction Transaction(LOCTEXT("SetMegaMaterialSurfaces", "Set Voxel Mega Material Surfaces"));
@@ -679,17 +782,12 @@ namespace
 		if (!Surface) return Error(Err);
 
 		TArray<FPendingEdit> Edits;
-		const FFieldMap Fields[] =
-		{
-			{ TEXT("material"), GET_MEMBER_NAME_CHECKED(UVoxelSurfaceTypeAsset, Material) },
-			{ TEXT("invisible"), GET_MEMBER_NAME_CHECKED(UVoxelSurfaceTypeAsset, bInvisible) },
-			{ TEXT("blendSmoothness"), GET_MEMBER_NAME_CHECKED(UVoxelSurfaceTypeAsset, BlendSmoothness) },
-		};
-		if (!PrepareFields(*Surface, Params, Fields, Edits, Err)) return Error(Err);
+		if (!PrepareFields(*Surface, Params, SurfaceTypeFields(), Edits, Err)) return Error(Err);
 
 		if (Has(Params, TEXT("seed")))
 		{
-			const FString Seed = ValueText(Params->TryGetField(TEXT("seed")));
+			FString Seed;
+			if (!ScalarField(Params, TEXT("seed"), Seed)) return Error(TEXT("seed must be a string or a number"));
 			FProperty* SeedProperty = Surface->GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UVoxelSurfaceTypeAsset, Seed));
 			if (!PrepareCustom(*Surface, SeedProperty, [&](void* Value, FString&)
 			{
@@ -761,14 +859,15 @@ namespace
 			const TSharedPtr<FJsonObject>* Parameters = nullptr;
 			if (!Params->TryGetObjectField(TEXT("parameters"), Parameters)) return Error(TEXT("parameters must be an object { name: value }"));
 			if (!TargetGraph) return Error(TEXT("parameters need a graph; the smart surface type has none"));
-			for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : (*Parameters)->Values)
+			for (const auto& Pair : (*Parameters)->Values)
 			{
 				FVoxelParameter Parameter;
-				if (!FindGraphParameter(*TargetGraph, Pair.Key, Parameter))
+				if (!FindGraphParameter(*TargetGraph, FString(*Pair.Key), Parameter))
 				{
 					return Error(FString::Printf(TEXT("Graph %s has no parameter '%s'"), *TargetGraph->GetName(), *Pair.Key));
 				}
-				const FString Text = ValueText(Pair.Value);
+				FString Text;
+				if (!ScalarText(Pair.Value, Text)) return Error(FString::Printf(TEXT("parameters.%s must be a string, number, boolean or null"), *Pair.Key));
 				FVoxelPinValue Value(Parameter.Type.GetExposedType());
 				if (!ParseValue(Value, Text))
 				{
@@ -853,11 +952,7 @@ namespace
 				return Error(FString::Printf(TEXT("%s: %s"), Array.Key, *Err));
 			}
 		}
-		const FFieldMap Fields[] =
-		{
-			{ TEXT("maxDistance"), GET_MEMBER_NAME_CHECKED(UVoxelLayerStack, MaxDistance) },
-		};
-		if (!PrepareFields(*Stack, Params, Fields, Edits, Err)) return Error(Err);
+		if (!PrepareFields(*Stack, Params, LayerStackFields(), Edits, Err)) return Error(Err);
 		if (Edits.Num() == 0) return Error(TEXT("Nothing to set: pass heightLayers, volumeLayers or maxDistance"));
 
 		const FScopedTransaction Transaction(LOCTEXT("SetLayerStack", "Set Voxel Layer Stack"));
@@ -951,8 +1046,12 @@ namespace
 
 		if (Has(Params, TEXT("x")) || Has(Params, TEXT("y")))
 		{
+			// An axis not given keeps the position AddNodeOfType chose.
+			int32 X = 0;
+			int32 Y = 0;
+			Node->GetNodePosition(X, Y);
 			Node->Modify();
-			Node->SetNodePosition(FMath::RoundToInt32(Num(Params, TEXT("x"), 0)), FMath::RoundToInt32(Num(Params, TEXT("y"), 0)));
+			Node->SetNodePosition(static_cast<int32>(Num(Params, TEXT("x"), X)), static_cast<int32>(Num(Params, TEXT("y"), Y)));
 		}
 
 		TSharedRef<FJsonObject> Out = PCGNodeJson(*Node);
@@ -995,6 +1094,45 @@ namespace
 		return nullptr;
 	}
 
+	// A sampler setting: its property on each sampler class (None where that class lacks it) and its contract.
+	struct FSamplerField
+	{
+		FName V1;
+		FName V2;
+		FMCPParamSpec Spec;
+	};
+
+	const TArray<FSamplerField>& SamplerFields()
+	{
+		static const TArray<FSamplerField> Fields =
+		{
+			{ GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerSettings, bUnbounded), GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerV2Settings, bUnbounded),
+				Flag(TEXT("unbounded"), TEXT("Sample the whole surface instead of the actor or bounding-shape bounds; default false.")) },
+			{ GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerSettings, Looseness), GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerV2Settings, Looseness),
+				MCPParam::Optional(TEXT("looseness"), EMCPParamType::Number, TEXT("Point jitter, >= 0 (ClampMin); default 1.")).Min(0) },
+			{ GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerSettings, LOD), GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerV2Settings, LOD),
+				MCPParam::Optional(TEXT("lod"), EMCPParamType::Integer, TEXT("LOD to sample, an integer >= 0 (ClampMin); default 0.")).Range(0, MAX_int32) },
+			{ GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerSettings, bResolveSmartSurfaceTypes), GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerV2Settings, bResolveSmartSurfaceTypes),
+				Flag(TEXT("resolveSmartSurfaceTypes"), TEXT("Resolve smart surface types to surface types; default true.")) },
+			{ NAME_None, GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerV2Settings, DistanceBetweenPoints),
+				MCPParam::Optional(TEXT("distanceBetweenPoints"), EMCPParamType::Number, TEXT("sampler_v2 only: point spacing in centimetres; default 100.")) },
+			{ NAME_None, GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerV2Settings, HeightScatterType),
+				MCPParam::Optional(TEXT("heightScatterType"), EMCPParamType::String, TEXT("sampler_v2 only: EVoxelHeightScatterType point distribution; default Grid."))
+					.Enum({ TEXT("Grid"), TEXT("Sobol"), TEXT("Halton") }) },
+			{ NAME_None, GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerV2Settings, MinCellArea),
+				MCPParam::Optional(TEXT("minCellArea"), EMCPParamType::Number, TEXT("sampler_v2 only: skip cells with less surface than this, >= 0 (ClampMin); default 0.03.")).Min(0) },
+			{ GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerSettings, PointsPerSquaredMeter), NAME_None,
+				MCPParam::Optional(TEXT("pointsPerSquaredMeter"), EMCPParamType::Number, TEXT("sampler only: point density per square metre; default 0.1.")) },
+			{ GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerSettings, CellSize), NAME_None,
+				MCPParam::Optional(TEXT("cellSize"), EMCPParamType::Number, TEXT("sampler only: cell size in centimetres; default 100.")) },
+			{ GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerSettings, Tolerance), NAME_None,
+				MCPParam::Optional(TEXT("tolerance"), EMCPParamType::Number, TEXT("sampler only: tolerance, >= 0 (ClampMin); default 0.")).Min(0) },
+			{ GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerSettings, bApplyDensityToPoints), NAME_None,
+				Flag(TEXT("applyDensityToPoints"), TEXT("sampler only: write density to the points; default true.")) },
+		};
+		return Fields;
+	}
+
 	FResult PCGConfigureSampler(const FParams& Params)
 	{
 		FString Err;
@@ -1011,39 +1149,19 @@ namespace
 			return Error(FString::Printf(TEXT("Node %s holds %s, not a Voxel Sampler"), *Node->GetName(), Settings ? *Settings->GetClass()->GetName() : TEXT("no settings")));
 		}
 
-		struct FSamplerField
-		{
-			const TCHAR* Param;
-			FName V1;
-			FName V2;
-		};
-		const FSamplerField Fields[] =
-		{
-			{ TEXT("unbounded"), GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerSettings, bUnbounded), GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerV2Settings, bUnbounded) },
-			{ TEXT("looseness"), GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerSettings, Looseness), GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerV2Settings, Looseness) },
-			{ TEXT("lod"), GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerSettings, LOD), GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerV2Settings, LOD) },
-			{ TEXT("resolveSmartSurfaceTypes"), GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerSettings, bResolveSmartSurfaceTypes), GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerV2Settings, bResolveSmartSurfaceTypes) },
-			{ TEXT("distanceBetweenPoints"), NAME_None, GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerV2Settings, DistanceBetweenPoints) },
-			{ TEXT("heightScatterType"), NAME_None, GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerV2Settings, HeightScatterType) },
-			{ TEXT("minCellArea"), NAME_None, GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerV2Settings, MinCellArea) },
-			{ TEXT("pointsPerSquaredMeter"), GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerSettings, PointsPerSquaredMeter), NAME_None },
-			{ TEXT("cellSize"), GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerSettings, CellSize), NAME_None },
-			{ TEXT("tolerance"), GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerSettings, Tolerance), NAME_None },
-			{ TEXT("applyDensityToPoints"), GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerSettings, bApplyDensityToPoints), NAME_None },
-		};
-
 		TArray<FPendingEdit> Edits;
-		for (const FSamplerField& Field : Fields)
+		for (const FSamplerField& Field : SamplerFields())
 		{
-			if (!Has(Params, Field.Param)) continue;
+			const TCHAR* Param = *Field.Spec.Name;
+			if (!Has(Params, Param)) continue;
 			const FName Property = V2 ? Field.V2 : Field.V1;
 			if (Property.IsNone())
 			{
-				return Error(FString::Printf(TEXT("%s does not apply to %s"), Field.Param, *Settings->GetClass()->GetName()));
+				return Error(FString::Printf(TEXT("%s does not apply to %s"), Param, *Settings->GetClass()->GetName()));
 			}
-			if (!PrepareJson(*Settings, Property, Params->TryGetField(Field.Param), Edits.AddDefaulted_GetRef(), Err))
+			if (!PrepareJson(*Settings, Property, Params->TryGetField(Param), Edits.AddDefaulted_GetRef(), Err))
 			{
-				return Error(FString::Printf(TEXT("%s: %s"), Field.Param, *Err));
+				return Error(FString::Printf(TEXT("%s: %s"), Param, *Err));
 			}
 		}
 
@@ -1108,17 +1226,105 @@ namespace
 
 void AddAssetHandlers(TArray<FHandlerEntry>& Out)
 {
-	Out.Append(
+	const auto AssetPath = [](const TCHAR* Description) { return MCPParam::Required(TEXT("assetPath"), EMCPParamType::String, Description); };
+	const auto SavePackage = [] { return Spec::Save(TEXT("Save the asset's package after the edit; default true.")); };
+	const auto Paths = [](const TCHAR* Name, const TCHAR* Description) { return MCPParam::Optional(Name, EMCPParamType::Array, Description).Items(EMCPParamType::String); };
+
+	TArray<FString> TypeKeys;
+	for (const FAssetType& Type : GAssetTypes)
 	{
-		{ TEXT("voxel_asset_create"), &AssetCreate },
-		{ TEXT("voxel_asset_set_property"), &AssetSetProperty },
-		{ TEXT("voxel_mega_material_set_surfaces"), &MegaMaterialSetSurfaces },
-		{ TEXT("voxel_surface_type_set"), &SurfaceTypeSet },
-		{ TEXT("voxel_smart_surface_set"), &SmartSurfaceSet },
-		{ TEXT("voxel_layer_stack_set"), &LayerStackSet },
-		{ TEXT("voxel_pcg_add_node"), &PCGAddNode },
-		{ TEXT("voxel_pcg_configure_sampler"), &PCGConfigureSampler },
-	});
+		TypeKeys.Add(Type.Key);
+	}
+	Out.Add({ TEXT("voxel_asset_create"), &AssetCreate, {
+		MCPParam::Required(TEXT("type"), EMCPParamType::String,
+			TEXT("Voxel asset type, made through its own factory; graph types start from their template with an output node.")).Enum(TypeKeys),
+		MCPParam::Required(TEXT("name"), EMCPParamType::String, TEXT("Asset name without a path; a valid object and package name.")),
+		MCPParam::Optional(TEXT("packagePath"), EMCPParamType::String, TEXT("Content folder; default /Game/Voxel.")),
+		MCPParam::Optional(TEXT("onConflict"), EMCPParamType::String,
+			TEXT("When the asset exists: skip returns it with existed: true (an error if it is another class), error refuses. An existing asset is never overwritten. Default skip."))
+			.Enum({ TEXT("error"), TEXT("skip") }),
+		SavePackage(),
+	}, MCPSpec::ContractExempt(TEXT("Creates and saves an asset named by the contract values before anything can fail")) });
+
+	Out.Add({ TEXT("voxel_asset_set_property"), &AssetSetProperty, {
+		AssetPath(TEXT("Asset path; levels, level actors and class defaults are refused.")),
+		MCPParam::Required(TEXT("propertyName"), EMCPParamType::String, TEXT("Top-level C++ property name, e.g. MaxDistance or bInvisible; matched exactly, then case-insensitively.")),
+		MCPParam::Required(TEXT("value"), EMCPParamType::Array,
+			TEXT("UE import text such as '0.5', 'true', '/Game/M.M' or '(X=1,Y=2,Z=3)'; a number, a boolean, or an array of strings, numbers and booleans ((a,b) import text). An integer property takes only whole numbers, an enum only its value names, and an object reference \"\" to clear."))
+			.Or(EMCPParamType::String).Or(EMCPParamType::Number).Or(EMCPParamType::Boolean),
+		SavePackage(),
+	} });
+
+	TArray<FMCPParamSpec> MegaParams = {
+		AssetPath(TEXT("UVoxelMegaMaterial asset path.")),
+		Paths(TEXT("surfaceTypes"), TEXT("Distinct UVoxelSurfaceTypeAsset paths; the list the generated material covers.")),
+		MCPParam::Optional(TEXT("mode"), EMCPParamType::String,
+			TEXT("With surfaceTypes: replace sets the list, append adds the entries not already in it; default replace.")).Enum({ TEXT("replace"), TEXT("append") }),
+	};
+	const TArray<FMCPParamSpec> MegaSettings = SpecsOf(MegaMaterialFields());
+	MegaParams.Append(MegaSettings);
+	MegaParams.Add(SavePackage());
+	TArray<TArray<FString>> MegaBranches = { { TEXT("surfaceTypes") } };
+	MegaBranches.Append(Spec::Branches(MegaSettings));
+	Out.Add({ TEXT("voxel_mega_material_set_surfaces"), &MegaMaterialSetSurfaces, MegaParams, MCPSpec::AtLeastOne(MegaBranches) });
+
+	TArray<FMCPParamSpec> SurfaceParams = { AssetPath(TEXT("UVoxelSurfaceTypeAsset asset path.")) };
+	SurfaceParams.Append(SpecsOf(SurfaceTypeFields()));
+	SurfaceParams.Add(MCPParam::Optional(TEXT("seed"), EMCPParamType::String, TEXT("Text for the surface's exposed seed; a number is written as its text.")).Or(EMCPParamType::Number));
+	TArray<TArray<FString>> SurfaceBranches = Spec::Branches(SpecsOf(SurfaceTypeFields()));
+	SurfaceBranches.Add({ TEXT("seed") });
+	SurfaceParams.Add(SavePackage());
+	Out.Add({ TEXT("voxel_surface_type_set"), &SurfaceTypeSet, SurfaceParams, MCPSpec::AtLeastOne(SurfaceBranches) });
+
+	Out.Add({ TEXT("voxel_smart_surface_set"), &SmartSurfaceSet, {
+		AssetPath(TEXT("UVoxelSmartSurfaceType asset path.")),
+		MCPParam::Optional(TEXT("graph"), EMCPParamType::String, TEXT("UVoxelSmartSurfaceTypeGraph asset path; \"\", None or null clears it.")).Nullable(),
+		Spec::ValueMap(TEXT("parameters"), false,
+			TEXT("{ parameterName: value } overrides on the target graph's parameters; each value a string, number or boolean, parsed as the parameter's type before anything changes.")),
+		SavePackage(),
+	}, MCPSpec::AtLeastOne({ { TEXT("graph") }, { TEXT("parameters") } }) });
+
+	TArray<FMCPParamSpec> StackParams = {
+		AssetPath(TEXT("UVoxelLayerStack asset path.")),
+		Paths(TEXT("heightLayers"), TEXT("Distinct UVoxelHeightLayer paths, bottom to top; replaces the list.")),
+		Paths(TEXT("volumeLayers"), TEXT("Distinct UVoxelVolumeLayer paths, bottom to top; replaces the list.")),
+	};
+	StackParams.Append(SpecsOf(LayerStackFields()));
+	StackParams.Add(SavePackage());
+	TArray<TArray<FString>> StackBranches = { { TEXT("heightLayers") }, { TEXT("volumeLayers") } };
+	StackBranches.Append(Spec::Branches(SpecsOf(LayerStackFields())));
+	Out.Add({ TEXT("voxel_layer_stack_set"), &LayerStackSet, StackParams, MCPSpec::AtLeastOne(StackBranches) });
+
+	TArray<FString> NodeKeys;
+	for (const FPCGNodeType& Type : GPCGNodeTypes)
+	{
+		NodeKeys.Add(Type.Key);
+	}
+	Out.Add({ TEXT("voxel_pcg_add_node"), &PCGAddNode, {
+		MCPParam::Required(TEXT("graphPath"), EMCPParamType::String, TEXT("UPCGGraph asset path.")),
+		MCPParam::Required(TEXT("nodeType"), EMCPParamType::String, TEXT("Voxel PCG node to add; sampler_v2 is Voxel Sampler Experimental.")).Enum(NodeKeys),
+		MCPParam::Optional(TEXT("x"), EMCPParamType::Integer, TEXT("Node X position; default where the graph placed it.")).Range(MIN_int32, MAX_int32),
+		MCPParam::Optional(TEXT("y"), EMCPParamType::Integer, TEXT("Node Y position; default where the graph placed it.")).Range(MIN_int32, MAX_int32),
+		SavePackage(),
+	} });
+
+	TArray<FMCPParamSpec> SamplerParams = {
+		MCPParam::Required(TEXT("graphPath"), EMCPParamType::String, TEXT("UPCGGraph asset path.")),
+		MCPParam::Required(TEXT("node"), EMCPParamType::String, TEXT("Sampler node by object name, or by authored or displayed title when unique (case-insensitive).")),
+		MCPParam::Optional(TEXT("stack"), EMCPParamType::String, TEXT("UVoxelLayerStack asset path; the layer is kept unless layer is given.")),
+		MCPParam::Optional(TEXT("layer"), EMCPParamType::String, TEXT("UVoxelHeightLayer or UVoxelVolumeLayer asset path; the stack is kept unless stack is given.")),
+		Paths(TEXT("metadatasToQuery"), TEXT("Distinct UVoxelMetadata asset paths written as point attributes; replaces the list.")),
+	};
+	TArray<FMCPParamSpec> SamplerSettings;
+	for (const FSamplerField& Field : SamplerFields())
+	{
+		SamplerSettings.Add(Field.Spec);
+	}
+	SamplerParams.Append(SamplerSettings);
+	SamplerParams.Add(SavePackage());
+	TArray<TArray<FString>> SamplerBranches = { { TEXT("stack") }, { TEXT("layer") }, { TEXT("metadatasToQuery") } };
+	SamplerBranches.Append(Spec::Branches(SamplerSettings));
+	Out.Add({ TEXT("voxel_pcg_configure_sampler"), &PCGConfigureSampler, SamplerParams, MCPSpec::AtLeastOne(SamplerBranches) });
 }
 }
 

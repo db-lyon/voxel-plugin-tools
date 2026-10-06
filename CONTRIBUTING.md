@@ -11,17 +11,21 @@ flowchart LR
 
 ## Layout
 
-- `Private/VoxelToolsCommon.*`: shared parsing, actor lookup, errors, handler registry.
+- `Private/VoxelToolsCommon.*`: shared parsing, actor lookup, errors, handler registry, shared contract pieces (`Spec::`).
+- Contracts are enforced by the bridge itself (`UEMCP::ContractViolation`, bridge ABI 2) on every call, whoever sent it; handlers do not re-check what a contract states.
 - `Private/Voxel*Handlers.cpp`: one file per area (world, stamps, sculpt and queries, assets and PCG, graphs). Each keeps its helpers in an anonymous namespace; the module builds without unity for that reason.
-- `Private/VoxelPluginToolsModule.cpp`: registers handlers; saves content packages a call dirtied and turns non-finite numbers into `null` before replying.
-- `ue-mcp.plugin.yml`: one entry per handler with `effect`, a description ending in a `Params:` clause, and a described schema field per parameter.
+- `Private/VoxelPluginToolsModule.cpp`: registers each handler with its contract (bridge ABI 2) and its timeout, logs an error for any contract the bridge refuses; checks the contract, saves content packages a call dirtied and turns non-finite numbers into `null` before replying.
+- Each `Add*Handlers` registers `Out.Add({ name, fn, { params }, rules })`: every key the handler reads, with its exact type, required flag, enum (the spelling the code accepts), range, nested fields, variants and choices, and `save` on every mutating handler. One sentence per description, stating defaults and units.
+- `ue-mcp.plugin.yml`: one entry per handler with `effect`, a description without a `Params:` clause (the server generates it from the contract), and `timeoutSeconds` for long handlers.
+- `handler-specs.json`: the contracts recorded from a live editor (`ue-mcp plugin record-specs --project <uproject>`), which the server builds the surface from. Re-record after any contract change; `--check` fails when it is stale.
 
 ## Rules
 
 - Read the Voxel header (and cite it) before calling an API; Voxel `dev` moves.
 - Validate every input before mutating; wrap mutations in `FScopedTransaction` with `Modify()` first.
 - Never `check()` or `ensure()` on user input, including reflected properties a Voxel update could rename.
-- Never name a parameter `action` (the gateway's selector) or one that collides with a built-in.
+- Never declare a routing name the dispatcher consumes (`action`, `timeoutMs`, `select`, `omit`, `editor`, `toEditor`); the bridge refuses the contract.
+- A handler refuses input it would otherwise coerce, ignore or default: no lenient booleans, no fields an op does not read, no empty string standing in for an omitted one.
 
 ## Test project
 
@@ -35,7 +39,8 @@ npm run check                       # manifest vs host schema vs C++ registratio
 # close the test editor (Live Coding blocks builds), then:
 "<UE_5.8>/Engine/Build/BatchFiles/Build.bat" voxel_plugin_toolsEditor Win64 Development -Project=<abs path>/tests/voxel_plugin_tools/voxel_plugin_tools.uproject -WaitMutex
 # start the editor, open an empty map, then:
-node scripts/live-test.mjs          # every action against the live editor; must pass before release
+node scripts/live-test.mjs          # every action, and every contract rule refused, against the live editor; must pass before release
+npx ue-mcp plugin record-specs --project <abs path>/tests/voxel_plugin_tools/voxel_plugin_tools.uproject   # after a contract change
 node scripts/bridge-call.mjs <method> '<json>'   # one call by hand
 ```
 

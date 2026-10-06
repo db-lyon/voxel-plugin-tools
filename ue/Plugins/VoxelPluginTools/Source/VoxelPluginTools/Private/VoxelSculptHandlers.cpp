@@ -201,6 +201,12 @@ namespace
 
 		if (B.IsValid())
 		{
+			// The type picks which fields the brush has (the contract's variants), so it is never implied.
+			if (!Has(B, TEXT("type")))
+			{
+				OutError = TEXT("brush.type is required: Circular, Alpha or Pattern");
+				return false;
+			}
 			if (!ParseEnum(B, TEXT("type"), Brush.BrushType, OutError)) return false;
 
 			UVoxelTexture* Texture = nullptr;
@@ -271,6 +277,11 @@ namespace
 		}
 		if (B.IsValid() && Has(B, TEXT("falloffAmount")))
 		{
+			if (bTopLevelFalloff && Has(Params, TEXT("falloff")))
+			{
+				OutError = TEXT("falloff and brush.falloffAmount both set the brush falloff; pass one");
+				return false;
+			}
 			return OptFloat(B, TEXT("falloffAmount"), Falloff->Amount, 0, 1, OutError);
 		}
 		return !bTopLevelFalloff || OptFloat(Params, TEXT("falloff"), Falloff->Amount, 0, 1, OutError);
@@ -289,15 +300,20 @@ namespace
 			OutError = TEXT("metadata must be an object { metadataPath: value }");
 			return false;
 		}
-		for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : (*Values)->Values)
+		for (const auto& Pair : (*Values)->Values)
 		{
-			UVoxelMetadata* Metadata = Load<UVoxelMetadata>(Pair.Key, OutError);
+			UVoxelMetadata* Metadata = Load<UVoxelMetadata>(FString(*Pair.Key), OutError);
 			if (!Metadata) return false;
 
 			FVoxelMetadataOverride& Override = Out.Overrides.AddDefaulted_GetRef();
 			Override.Metadata = Metadata;
 			Override.Value = FVoxelPinValue(Metadata->GetInnerType().GetExposedType());
-			const FString Text = ValueText(Pair.Value);
+			FString Text;
+			if (!ScalarText(Pair.Value, Text))
+			{
+				OutError = FString::Printf(TEXT("metadata value for %s must be a string, number, boolean or null"), *Pair.Key);
+				return false;
+			}
 			if (!ParseValue(Override.Value, Text))
 			{
 				OutError = FString::Printf(TEXT("'%s' does not parse as %s for metadata %s"),
@@ -321,14 +337,14 @@ namespace
 			OutError = TEXT("parameters must be an object { parameterName: value }");
 			return false;
 		}
-		for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : (*Values)->Values)
+		for (const auto& Pair : (*Values)->Values)
 		{
 			bool bFound = false;
 			FGuid Guid;
 			FVoxelParameter Parameter;
 			Graph.ForeachParameter([&](const FGuid& InGuid, const FVoxelParameter& InParameter)
 			{
-				if (!bFound && InParameter.Name.ToString().Equals(Pair.Key, ESearchCase::IgnoreCase))
+				if (!bFound && InParameter.Name.ToString().Equals(FString(*Pair.Key), ESearchCase::IgnoreCase))
 				{
 					Guid = InGuid;
 					Parameter = InParameter;
@@ -341,7 +357,12 @@ namespace
 				return false;
 			}
 			FVoxelPinValue Value(Parameter.Type.GetExposedType());
-			const FString Text = ValueText(Pair.Value);
+			FString Text;
+			if (!ScalarText(Pair.Value, Text))
+			{
+				OutError = FString::Printf(TEXT("parameters.%s must be a string, number, boolean or null"), *Pair.Key);
+				return false;
+			}
 			if (!ParseValue(Value, Text))
 			{
 				OutError = FString::Printf(TEXT("'%s' does not parse as %s for parameter '%s'"), *Text, *Parameter.Type.ToString(), *Pair.Key);
@@ -553,6 +574,29 @@ namespace
 		if (!Actor) return Error(Err);
 
 		const FString Op = Str(Params, TEXT("op"));
+
+		// The fields each op reads; any other would be ignored, so it is refused.
+		static const TMap<FString, TArray<const TCHAR*>> OpFields =
+		{
+			{ TEXT("clear_cache"), {} },
+			{ TEXT("clear_data"), { TEXT("wait") } },
+			{ TEXT("sculpt_height"), { TEXT("center"), TEXT("radius"), TEXT("strength"), TEXT("mode"), TEXT("falloff"), TEXT("brush"), TEXT("wait") } },
+			{ TEXT("flatten"), { TEXT("center"), TEXT("radius"), TEXT("height"), TEXT("falloff"), TEXT("levelType"), TEXT("brush"), TEXT("wait") } },
+			{ TEXT("smooth"), { TEXT("center"), TEXT("radius"), TEXT("strength"), TEXT("falloff"), TEXT("brush"), TEXT("wait") } },
+			{ TEXT("paint_surface"), { TEXT("center"), TEXT("radius"), TEXT("strength"), TEXT("mode"), TEXT("falloff"), TEXT("brush"), TEXT("surfaceType"), TEXT("metadata"), TEXT("wait") } },
+			{ TEXT("apply_graph"), { TEXT("center"), TEXT("radius"), TEXT("graph"), TEXT("parameters"), TEXT("wait") } },
+		};
+		const TArray<const TCHAR*>* Fields = OpFields.Find(Op);
+		if (!Fields)
+		{
+			return Error(FString::Printf(TEXT("op '%s' is not valid. Use one of: sculpt_height, flatten, smooth, paint_surface, apply_graph, clear_data, clear_cache"), *Op));
+		}
+		{
+			TArray<const TCHAR*> Allowed = { TEXT("actorPath"), TEXT("actorLabel"), TEXT("op"), TEXT("save") };
+			Allowed.Append(*Fields);
+			if (!OnlyKeys(Params, Allowed, FString::Printf(TEXT("op %s"), *Op), Err)) return Error(Err);
+		}
+
 		if (Op == TEXT("clear_cache"))
 		{
 			return ClearCache(*Actor);
@@ -564,13 +608,6 @@ namespace
 				UVoxelHeightSculptBlueprintLibrary::ClearSculptData(Actor);
 				return FVoxelFuture();
 			});
-		}
-
-		static const TCHAR* Ops = TEXT("sculpt_height, flatten, smooth, paint_surface, apply_graph, clear_data, clear_cache");
-		if (Op != TEXT("sculpt_height") && Op != TEXT("flatten") && Op != TEXT("smooth") &&
-			Op != TEXT("paint_surface") && Op != TEXT("apply_graph"))
-		{
-			return Error(FString::Printf(TEXT("op '%s' is not valid. Use one of: %s"), *Op, Ops));
 		}
 
 		FVector2D Center;
@@ -670,6 +707,32 @@ namespace
 		if (!Actor) return Error(Err);
 
 		const FString Op = Str(Params, TEXT("op"));
+
+		// The fields each op reads; any other would be ignored, so it is refused.
+		static const TMap<FString, TArray<const TCHAR*>> OpFields =
+		{
+			{ TEXT("clear_cache"), {} },
+			{ TEXT("clear_data"), { TEXT("wait") } },
+			{ TEXT("sphere"), { TEXT("center"), TEXT("radius"), TEXT("mode"), TEXT("smoothness"), TEXT("wait") } },
+			{ TEXT("cube"), { TEXT("center"), TEXT("size"), TEXT("rotation"), TEXT("roundness"), TEXT("mode"), TEXT("smoothness"), TEXT("wait") } },
+			{ TEXT("flatten"), { TEXT("center"), TEXT("radius"), TEXT("normal"), TEXT("height"), TEXT("falloff"), TEXT("levelType"), TEXT("wait") } },
+			{ TEXT("smooth"), { TEXT("center"), TEXT("radius"), TEXT("strength"), TEXT("falloff"), TEXT("brush"), TEXT("wait") } },
+			{ TEXT("surface"), { TEXT("center"), TEXT("radius"), TEXT("strength"), TEXT("mode"), TEXT("falloff"), TEXT("brush"), TEXT("wait") } },
+			{ TEXT("angle"), { TEXT("center"), TEXT("radius"), TEXT("strength"), TEXT("planePoint"), TEXT("planeNormal"), TEXT("mergeMode"), TEXT("falloff"), TEXT("brush"), TEXT("wait") } },
+			{ TEXT("paint"), { TEXT("center"), TEXT("radius"), TEXT("strength"), TEXT("mode"), TEXT("falloff"), TEXT("brush"), TEXT("surfaceType"), TEXT("metadata"), TEXT("wait") } },
+			{ TEXT("apply_graph"), { TEXT("center"), TEXT("radius"), TEXT("graph"), TEXT("parameters"), TEXT("rotation"), TEXT("wait") } },
+		};
+		const TArray<const TCHAR*>* Fields = OpFields.Find(Op);
+		if (!Fields)
+		{
+			return Error(FString::Printf(TEXT("op '%s' is not valid. Use one of: sphere, cube, flatten, smooth, surface, angle, paint, apply_graph, clear_data, clear_cache"), *Op));
+		}
+		{
+			TArray<const TCHAR*> Allowed = { TEXT("actorPath"), TEXT("actorLabel"), TEXT("op"), TEXT("save") };
+			Allowed.Append(*Fields);
+			if (!OnlyKeys(Params, Allowed, FString::Printf(TEXT("op %s"), *Op), Err)) return Error(Err);
+		}
+
 		if (Op == TEXT("clear_cache"))
 		{
 			return ClearCache(*Actor);
@@ -681,13 +744,6 @@ namespace
 				UVoxelVolumeSculptBlueprintLibrary::ClearSculptData(Actor);
 				return FVoxelFuture();
 			});
-		}
-
-		static const TCHAR* Ops = TEXT("sphere, cube, flatten, smooth, surface, angle, paint, apply_graph, clear_data, clear_cache");
-		static const TSet<FString> Known = { TEXT("sphere"), TEXT("cube"), TEXT("flatten"), TEXT("smooth"), TEXT("surface"), TEXT("angle"), TEXT("paint"), TEXT("apply_graph") };
-		if (!Known.Contains(Op))
-		{
-			return Error(FString::Printf(TEXT("op '%s' is not valid. Use one of: %s"), *Op, Ops));
 		}
 
 		FVector Center;
@@ -957,6 +1013,10 @@ namespace
 			return Error(TEXT("asset is required (a sculpt asset path, or \"\" / null to detach)"));
 		}
 		const FString AssetPath = Str(Params, TEXT("asset"));
+		if (AssetPath.IsEmpty() && Has(Params, TEXT("load")))
+		{
+			return Error(TEXT("load only applies when binding an asset; detaching keeps the actor's data in the level"));
+		}
 
 		if (AVoxelSculptHeight* Height = Cast<AVoxelSculptHeight>(Actor))
 		{
@@ -1053,9 +1113,10 @@ namespace
 			const bool bOk = (*PointValues)[Index].IsValid() && (*PointValues)[Index]->TryGetObject(Point) &&
 				(*Point)->TryGetNumberField(TEXT("x"), X) && (*Point)->TryGetNumberField(TEXT("y"), Y) &&
 				(bHeight || (*Point)->TryGetNumberField(TEXT("z"), Z));
-			if (!bOk || !FMath::IsFinite(X) || !FMath::IsFinite(Y) || !FMath::IsFinite(Z))
+			// A height layer is sampled at (x, y); a z there would be dropped without a word.
+			if (!bOk || !FMath::IsFinite(X) || !FMath::IsFinite(Y) || !FMath::IsFinite(Z) || (bHeight && (*Point)->HasField(TEXT("z"))))
 			{
-				return Error(FString::Printf(TEXT("points[%d] must be %s"), Index, bHeight ? TEXT("{x,y}") : TEXT("{x,y,z}")));
+				return Error(FString::Printf(TEXT("points[%d] must be %s"), Index, bHeight ? TEXT("{x,y} for a height layer") : TEXT("{x,y,z}")));
 			}
 			Positions.Add(FVector(X, Y, Z));
 		}
@@ -1070,12 +1131,19 @@ namespace
 			}
 			for (const TSharedPtr<FJsonValue>& Value : *MetadataValues)
 			{
-				UVoxelMetadata* Metadata = Load<UVoxelMetadata>(ValueText(Value), Err);
+				if (!Value.IsValid() || Value->Type != EJson::String) return Error(TEXT("metadata must contain only UVoxelMetadata asset paths"));
+				UVoxelMetadata* Metadata = Load<UVoxelMetadata>(Value->AsString(), Err);
 				if (!Metadata) return Error(Err);
+				if (Metadatas.Contains(Metadata)) return Error(FString::Printf(TEXT("metadata lists %s twice"), *Metadata->GetPathName()));
 				Metadatas.Add(Metadata);
 			}
 		}
 		const TVoxelArray<FVoxelMetadataRef> MetadataRefs = FVoxelMetadataRef::GetUniqueValidRefs(Metadatas);
+		// GetUniqueValidRefs drops what it cannot query; the result would silently miss those keys.
+		if (MetadataRefs.Num() != Metadatas.Num())
+		{
+			return Error(TEXT("metadata names an asset Voxel cannot query (no valid metadata ref)"));
+		}
 
 		// Mirrors UVoxelQueryBlueprintLibrary::MultiQueryVoxelLayer, adding LOD and the full surface blend.
 		const TSharedRef<FQueryOutput> Output = MakeShared<FQueryOutput>();
@@ -1246,21 +1314,20 @@ namespace
 		{
 			return true;
 		}
-		FString Text;
-		double Number = 0;
+		// By JSON type: TryGetNumber would also read "0.5" or true as a constant.
 		const TSharedPtr<FJsonObject>* Object = nullptr;
-		if (Value->TryGetString(Text) && Text.Equals(TEXT("height"), ESearchCase::IgnoreCase))
+		if (Value->Type == EJson::String && Value->AsString().Equals(TEXT("height"), ESearchCase::IgnoreCase))
 		{
 			Out = UVoxelQueryBlueprintLibrary::QueryHeight();
 			bOutIsHeight = true;
 			return true;
 		}
-		if (Value->TryGetNumber(Number) && FMath::IsFinite(Number))
+		if (Value->Type == EJson::Number && FMath::IsFinite(Value->AsNumber()))
 		{
-			Out = UVoxelQueryBlueprintLibrary::MakeConstant(static_cast<float>(Number));
+			Out = UVoxelQueryBlueprintLibrary::MakeConstant(static_cast<float>(Value->AsNumber()));
 			return true;
 		}
-		if (Value->TryGetObject(Object))
+		if (Value->Type == EJson::Object && Value->TryGetObject(Object))
 		{
 			UVoxelMetadata* Metadata = Load<UVoxelMetadata>(Str(*Object, TEXT("metadata")), OutError);
 			if (!Metadata) return false;
@@ -1370,15 +1437,192 @@ namespace
 
 void AddSculptHandlers(TArray<FHandlerEntry>& Out)
 {
-	Out.Append(
+	const auto Number = [](const TCHAR* Name, const TCHAR* Description, double Min, double Max)
 	{
-		{ TEXT("voxel_height_sculpt"), &HeightSculpt },
-		{ TEXT("voxel_volume_sculpt"), &VolumeSculpt },
-		{ TEXT("voxel_sculpt_asset_get"), &SculptAssetGet },
-		{ TEXT("voxel_sculpt_asset_set"), &SculptAssetSet },
-		{ TEXT("voxel_query_layer"), &QueryLayer },
-		{ TEXT("voxel_export_to_render_target"), &ExportToRenderTarget },
+		return MCPParam::Optional(Name, EMCPParamType::Number, Description).Range(Min, Max);
+	};
+	const auto Direction = [](const TCHAR* Name, const TCHAR* Description) { return MCPParam::OptionalField(Name, EMCPParamType::Vec3, Description); };
+	const auto Falloff = [] { return MCPParam::OptionalField(TEXT("falloffType"), EMCPParamType::String, TEXT("EVoxelFalloffType; default Smooth."))
+		.Enum({ TEXT("None"), TEXT("Linear"), TEXT("Smooth"), TEXT("Spherical"), TEXT("Tip") }); };
+	const auto FalloffAmount = [] { return MCPParam::OptionalField(TEXT("falloffAmount"), EMCPParamType::Number,
+		TEXT("Brush falloff 0..1; default 0.5. Pass this or the top-level falloff, not both.")).Range(0, 1); };
+	const auto Texture = [] { return MCPParam::RequiredField(TEXT("texture"), EMCPParamType::String, TEXT("UVoxelTexture asset path sampled as the brush mask.")); };
+	const auto Channel = [] { return MCPParam::OptionalField(TEXT("textureChannel"), EMCPParamType::String, TEXT("Texture channel sampled; default R."))
+		.Enum({ TEXT("R"), TEXT("G"), TEXT("B"), TEXT("A") }); };
+	const auto Strokes = [&]
+	{
+		return TArray<FMCPParamField>{
+			Falloff(),
+			FalloffAmount(),
+			Direction(TEXT("hitNormal"), TEXT("Surface normal the brush aligns to, non-zero; default up {0,0,1}.")),
+			Direction(TEXT("strokeDirection"), TEXT("Stroke direction, non-zero; default {1,0,0}.")),
+		};
+	};
+	const auto Brush = [&](const TCHAR* Description)
+	{
+		TArray<FMCPParamField> Alpha = { Texture(), Channel(),
+			MCPParam::OptionalField(TEXT("autoRotate"), EMCPParamType::Boolean, TEXT("Rotate the mask along the stroke; default true.")),
+			MCPParam::OptionalField(TEXT("use2DProjection"), EMCPParamType::Boolean, TEXT("Project the mask in 2D; default false.")),
+			MCPParam::OptionalField(TEXT("fixedRotation"), EMCPParamType::Number, TEXT("Mask rotation in degrees, -360..360; default 0.")).Range(-360, 360),
+		};
+		Alpha.Append(Strokes());
+		TArray<FMCPParamField> Pattern = { Texture(), Channel(),
+			MCPParam::OptionalField(TEXT("centerTextureOnOrigin"), EMCPParamType::Boolean, TEXT("Center the pattern on origin; default false.")),
+			MCPParam::OptionalField(TEXT("textureRotation"), EMCPParamType::Number, TEXT("Pattern rotation in degrees, -360..360; default 0.")).Range(-360, 360),
+			MCPParam::OptionalField(TEXT("repeatSize"), EMCPParamType::Number, TEXT("World size of one pattern repeat in centimetres, > 0; default 1000.")).Range(UE_KINDA_SMALL_NUMBER, UE_BIG_NUMBER),
+			MCPParam::OptionalField(TEXT("origin"), EMCPParamType::Object, TEXT("Pattern origin {x,y} in world centimetres; default {0,0}.")).WithFields({
+				MCPParam::RequiredField(TEXT("x"), EMCPParamType::Number, TEXT("World X in centimetres.")),
+				MCPParam::RequiredField(TEXT("y"), EMCPParamType::Number, TEXT("World Y in centimetres.")),
+			}),
+		};
+		Pattern.Append(Strokes());
+		return MCPParam::Optional(TEXT("brush"), EMCPParamType::Object, Description).Tagged(TEXT("type"), {
+			MCPParam::Variant(TEXT("Circular"), TEXT("A round brush shaped by its falloff."), Strokes()),
+			MCPParam::Variant(TEXT("Alpha"), TEXT("A texture mask stamped along the stroke."), Alpha),
+			MCPParam::Variant(TEXT("Pattern"), TEXT("A texture tiled in world space."), Pattern),
+		});
+	};
+	const auto Sculpt = [](const TCHAR* ActorClass, TArray<FMCPParamSpec> Rest)
+	{
+		Rest.Insert({
+			Spec::ActorPath(*FString::Printf(TEXT("%s actor object path; preferred, since voxel actors relabel themselves."), ActorClass)),
+			Spec::ActorLabel(*FString::Printf(TEXT("%s actor label; must match exactly one actor."), ActorClass)),
+		}, 0);
+		Rest.Append({
+			MCPParam::Optional(TEXT("wait"), EMCPParamType::Boolean,
+				TEXT("Wait for the edit to finish; default true. false returns queued: true, and the queued edit is covered by neither undo nor the auto-save.")),
+			Spec::SaveDirty(),
+		});
+		return Rest;
+	};
+	const auto Strength = [&](const TCHAR* Description) { return Number(TEXT("strength"), Description, 0, UE_BIG_NUMBER); };
+	const auto Radius = [&](const TCHAR* Description) { return Number(TEXT("radius"), Description, UE_KINDA_SMALL_NUMBER, UE_BIG_NUMBER); };
+	const auto Mode = [](const TCHAR* Description) { return MCPParam::Optional(TEXT("mode"), EMCPParamType::String, Description).Enum({ TEXT("Add"), TEXT("Remove") }); };
+	const auto LevelType = [] { return MCPParam::Optional(TEXT("levelType"), EMCPParamType::String, TEXT("flatten EVoxelLevelToolType; default Additive."))
+		.Enum({ TEXT("Additive"), TEXT("Subtractive"), TEXT("Both") }); };
+	const auto SurfaceType = [](const TCHAR* Op) { return MCPParam::Optional(TEXT("surfaceType"), EMCPParamType::String,
+		*FString::Printf(TEXT("%s: UVoxelSurfaceTypeInterface asset path to paint; %s needs this and/or metadata."), Op, Op)); };
+	const auto Metadata = [](const TCHAR* Op) { return Spec::ValueMap(TEXT("metadata"), false,
+		*FString::Printf(TEXT("%s: { UVoxelMetadata asset path: value } to paint; each value a string, number or boolean, parsed as the metadata's type."), Op)); };
+	const auto GraphPath = [](const TCHAR* Class) { return MCPParam::Optional(TEXT("graph"), EMCPParamType::String,
+		*FString::Printf(TEXT("apply_graph, required: %s asset path."), Class)); };
+	const auto GraphParameters = [] { return Spec::ValueMap(TEXT("parameters"), false,
+		TEXT("apply_graph: { parameterName: value } overrides on the sculpt graph; each value a string, number or boolean, parsed as the parameter's type.")); };
+	const auto Falloff01 = [&](const TCHAR* Description) { return Number(TEXT("falloff"), Description, 0, 1); };
+
+	Out.Add({ TEXT("voxel_height_sculpt"), &HeightSculpt, Sculpt(TEXT("AVoxelSculptHeight"), {
+		MCPParam::Required(TEXT("op"), EMCPParamType::String, TEXT("The edit; each op takes only its own fields."))
+			.Enum({ TEXT("sculpt_height"), TEXT("flatten"), TEXT("smooth"), TEXT("paint_surface"), TEXT("apply_graph"), TEXT("clear_data"), TEXT("clear_cache") }),
+		MCPParam::Optional(TEXT("center"), EMCPParamType::Object, TEXT("Required except for clear_data and clear_cache: the brush center in world centimetres.")).WithFields({
+			MCPParam::RequiredField(TEXT("x"), EMCPParamType::Number, TEXT("World X in centimetres.")),
+			MCPParam::RequiredField(TEXT("y"), EMCPParamType::Number, TEXT("World Y in centimetres.")),
+			MCPParam::OptionalField(TEXT("z"), EMCPParamType::Number, TEXT("Accepted so a full location can be passed; a height sculpt ignores it.")),
+		}),
+		Radius(TEXT("Brush radius in world centimetres, > 0; default 1000 for smooth, 500 otherwise.")),
+		Strength(TEXT("sculpt_height speed (default 0.5), smooth strength (default 1) or paint_surface strength (default 0.05), >= 0.")),
+		Mode(TEXT("sculpt_height and paint_surface: EVoxelSculptMode; default Add.")),
+		Falloff01(TEXT("0..1. flatten: the flatten falloff, default 0.1. sculpt_height, smooth, paint_surface: the brush falloff unless brush.falloffAmount is set.")),
+		Number(TEXT("height"), TEXT("flatten, required: target height, world Z in centimetres."), -UE_BIG_NUMBER, UE_BIG_NUMBER),
+		LevelType(),
+		SurfaceType(TEXT("paint_surface")),
+		Metadata(TEXT("paint_surface")),
+		GraphPath(TEXT("UVoxelHeightSculptGraph")),
+		GraphParameters(),
+		Brush(TEXT("sculpt_height, flatten, smooth, paint_surface: the brush; type picks its fields. Default a Circular brush.")),
+	}), Spec::OneActor() });
+
+	Out.Add({ TEXT("voxel_volume_sculpt"), &VolumeSculpt, Sculpt(TEXT("AVoxelSculptVolume"), {
+		MCPParam::Required(TEXT("op"), EMCPParamType::String, TEXT("The edit; each op takes only its own fields."))
+			.Enum({ TEXT("sphere"), TEXT("cube"), TEXT("flatten"), TEXT("smooth"), TEXT("surface"), TEXT("angle"), TEXT("paint"), TEXT("apply_graph"), TEXT("clear_data"), TEXT("clear_cache") }),
+		Spec::Vec3(TEXT("center"), TEXT("Required except for clear_data and clear_cache: the edit center in world centimetres.")),
+		Radius(TEXT("Every op but cube: radius in world centimetres, > 0; default 1000 for sphere and smooth, 500 otherwise.")),
+		Strength(TEXT("smooth (default 1), surface (default 0.5), angle (default 1) or paint (default 0.05) strength, >= 0.")),
+		Mode(TEXT("sphere, cube, surface and paint: EVoxelSculptMode; default Add.")),
+		Number(TEXT("smoothness"), TEXT("sphere and cube: add/remove smoothness, >= 0; default 0."), 0, UE_BIG_NUMBER),
+		Spec::Vec3(TEXT("size"), TEXT("cube: size in centimetres, each component > 0; default 1000 on every axis.")),
+		MCPParam::Optional(TEXT("rotation"), EMCPParamType::Rotator, TEXT("cube and apply_graph: rotation in degrees; default zero.")),
+		Number(TEXT("roundness"), TEXT("cube: corner roundness 0..1; default 0."), 0, 1),
+		Spec::Vec3(TEXT("normal"), TEXT("flatten: plane normal, non-zero; default up {0,0,1}.")),
+		Number(TEXT("height"), TEXT("flatten: distance up and down to sculpt in centimetres, >= 0; default 1000."), 0, UE_BIG_NUMBER),
+		Falloff01(TEXT("0..1. flatten: the flatten falloff, default 0.1. smooth, surface, angle, paint: the brush falloff unless brush.falloffAmount is set.")),
+		LevelType(),
+		Spec::Vec3(TEXT("planePoint"), TEXT("angle: a point on the target plane in world centimetres; default center.")),
+		Spec::Vec3(TEXT("planeNormal"), TEXT("angle: target plane normal, non-zero; default up {0,0,1}.")),
+		MCPParam::Optional(TEXT("mergeMode"), EMCPParamType::String, TEXT("angle: EVoxelSDFMergeMode; default Override."))
+			.Enum({ TEXT("Union"), TEXT("Intersection"), TEXT("Override") }),
+		SurfaceType(TEXT("paint")),
+		Metadata(TEXT("paint")),
+		GraphPath(TEXT("UVoxelVolumeSculptGraph")),
+		GraphParameters(),
+		Brush(TEXT("smooth, surface, angle, paint: the brush; type picks its fields. Default a Circular brush.")),
+	}), Spec::OneActor() });
+
+	Out.Add({ TEXT("voxel_sculpt_asset_get"), &SculptAssetGet, {
+		Spec::ActorPath(TEXT("AVoxelSculptHeight or AVoxelSculptVolume actor object path; preferred.")),
+		Spec::ActorLabel(TEXT("Sculpt actor label; must match exactly one actor.")),
+	}, Spec::OneActor() });
+
+	Out.Add({ TEXT("voxel_sculpt_asset_set"), &SculptAssetSet, {
+		Spec::ActorPath(TEXT("AVoxelSculptHeight or AVoxelSculptVolume actor object path; preferred.")),
+		Spec::ActorLabel(TEXT("Sculpt actor label; must match exactly one actor.")),
+		MCPParam::Required(TEXT("asset"), EMCPParamType::String,
+			TEXT("UVoxelSculptHeightAsset (height actor) or UVoxelSculptVolumeAsset (volume actor) path; \"\" or null detaches and keeps the data in the level.")).Nullable(),
+		MCPParam::Optional(TEXT("load"), EMCPParamType::Boolean,
+			TEXT("When binding: true adopts the asset's data (an empty asset receives the actor's), false overwrites the asset with the actor's data; default true.")),
+		Spec::Save(TEXT("Save the asset after load: false writes into it, and the content packages the call dirties; default true. Levels are never saved.")),
+	}, Spec::OneActor() });
+
+	const auto StackLayer = [](const TCHAR* LayerDescription)
+	{
+		return TArray<FMCPParamSpec>{
+			MCPParam::Optional(TEXT("stack"), EMCPParamType::String, TEXT("UVoxelLayerStack asset path; default the project default stack.")),
+			MCPParam::Optional(TEXT("layer"), EMCPParamType::String, LayerDescription),
+		};
+	};
+
+	TArray<FMCPParamSpec> QueryParams = StackLayer(TEXT("UVoxelHeightLayer or UVoxelVolumeLayer path matching layerKind; default that kind's default layer."));
+	QueryParams.Append({
+		MCPParam::Optional(TEXT("layerKind"), EMCPParamType::String, TEXT("Which layer type to sample; default height.")).Enum({ TEXT("height"), TEXT("volume") }),
+		MCPParam::Required(TEXT("points"), EMCPParamType::Array, TEXT("1 to 4096 positions in world centimetres: {x,y} for a height layer, {x,y,z} for a volume layer."))
+			.Items(EMCPParamType::Object).WithFields({
+				MCPParam::RequiredField(TEXT("x"), EMCPParamType::Number, TEXT("World X in centimetres.")),
+				MCPParam::RequiredField(TEXT("y"), EMCPParamType::Number, TEXT("World Y in centimetres.")),
+				MCPParam::OptionalField(TEXT("z"), EMCPParamType::Number, TEXT("World Z in centimetres; volume layers only, where it is required.")),
+			}),
+		MCPParam::Optional(TEXT("lod"), EMCPParamType::Integer, TEXT("Query LOD, 0..30; default 0.")).Range(0, MaxQueryLOD),
+		MCPParam::Optional(TEXT("querySurface"), EMCPParamType::Boolean,
+			TEXT("Resolve surface types and return unresolvedSurfaceType, surfaceType and surfaceWeights per point; default false.")),
+		Number(TEXT("gradientStep"), TEXT("Step in centimetres for normals and smart surface types, > 0; default 100."), UE_KINDA_SMALL_NUMBER, UE_BIG_NUMBER),
+		MCPParam::Optional(TEXT("metadata"), EMCPParamType::Array, TEXT("Distinct UVoxelMetadata asset paths whose values to return per point.")).Items(EMCPParamType::String),
 	});
+	Out.Add({ TEXT("voxel_query_layer"), &QueryLayer, QueryParams });
+
+	const auto ChannelSpec = [](const TCHAR* Name, const TCHAR* Description)
+	{
+		return MCPParam::Optional(Name, EMCPParamType::Object, Description).WithFields({
+			MCPParam::RequiredField(TEXT("metadata"), EMCPParamType::String, TEXT("UVoxelMetadata asset path to sample.")),
+			MCPParam::OptionalField(TEXT("component"), EMCPParamType::String, TEXT("Metadata component written; default R.")).Enum({ TEXT("R"), TEXT("G"), TEXT("B"), TEXT("A") }),
+		}).Or(EMCPParamType::String).Or(EMCPParamType::Number);
+	};
+	TArray<FMCPParamSpec> ExportParams = StackLayer(TEXT("UVoxelHeightLayer asset path; default the default height layer."));
+	ExportParams.Append({
+		MCPParam::Optional(TEXT("layerKind"), EMCPParamType::String, TEXT("The export reads height layers only.")).Literal(TEXT("height")),
+		MCPParam::Required(TEXT("bounds"), EMCPParamType::Object, TEXT("Region sampled over the render target, world centimetres; max > min on both axes.")).WithFields({
+			MCPParam::RequiredField(TEXT("minX"), EMCPParamType::Number, TEXT("Lowest world X.")),
+			MCPParam::RequiredField(TEXT("minY"), EMCPParamType::Number, TEXT("Lowest world Y.")),
+			MCPParam::RequiredField(TEXT("maxX"), EMCPParamType::Number, TEXT("Highest world X.")),
+			MCPParam::RequiredField(TEXT("maxY"), EMCPParamType::Number, TEXT("Highest world Y.")),
+		}),
+		MCPParam::Required(TEXT("renderTarget"), EMCPParamType::String,
+			TEXT("UTextureRenderTarget2D asset path; heights need R16f, RG16f, RGBA16f, R32f, RG32f or RGBA32f, and OverrideFormat must be unset.")),
+		ChannelSpec(TEXT("r"), TEXT("Red channel: \"height\", a constant number, or {metadata, component?}; default height when no channel is given, else 0.")),
+		ChannelSpec(TEXT("g"), TEXT("Green channel: \"height\", a constant number, or {metadata, component?}; default 0.")),
+		ChannelSpec(TEXT("b"), TEXT("Blue channel: \"height\", a constant number, or {metadata, component?}; default 0.")),
+		ChannelSpec(TEXT("a"), TEXT("Alpha channel: \"height\", a constant number, or {metadata, component?}; default 0.")),
+		MCPParam::Optional(TEXT("wait"), EMCPParamType::Boolean, TEXT("Wait for the GPU write and report its failure; default true. false returns queued: true.")),
+		Spec::SaveDirty(),
+	});
+	Out.Add({ TEXT("voxel_export_to_render_target"), &ExportToRenderTarget, ExportParams });
 }
 }
 

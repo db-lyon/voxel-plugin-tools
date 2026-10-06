@@ -1,0 +1,3453 @@
+{
+  "handlerCount": 38,
+  "handlers": {
+    "voxel_actor_spawn": {
+      "params": [
+        {
+          "name": "kind",
+          "type": "string",
+          "required": true,
+          "description": "stamp (AVoxelStampActor), height_sculpt (AVoxelSculptHeight), volume_sculpt (AVoxelSculptVolume), collision_baker (AVoxelCollisionBaker) or debug (AVoxelDebugActor).",
+          "enum": [
+            "stamp",
+            "height_sculpt",
+            "volume_sculpt",
+            "collision_baker",
+            "debug"
+          ]
+        },
+        {
+          "name": "label",
+          "type": "string",
+          "required": false,
+          "description": "Actor label, non-empty; stamp actors use it as a prefix and append their stamp description."
+        },
+        {
+          "name": "location",
+          "type": "vec3",
+          "required": false,
+          "description": "World location in centimetres; default the origin."
+        },
+        {
+          "name": "rotation",
+          "type": "rotator",
+          "required": false,
+          "description": "World rotation in degrees; default zero."
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the content packages this call dirties before replying; default true. Levels are never saved."
+        }
+      ],
+      "contractExempt": "The contract values spawn a Voxel actor before anything can fail"
+    },
+    "voxel_asset_create": {
+      "params": [
+        {
+          "name": "type",
+          "type": "string",
+          "required": true,
+          "description": "Voxel asset type, made through its own factory; graph types start from their template with an output node.",
+          "enum": [
+            "height_graph",
+            "volume_graph",
+            "scatter_graph",
+            "height_spline_graph",
+            "volume_spline_graph",
+            "height_sculpt_graph",
+            "volume_sculpt_graph",
+            "smart_surface_type_graph",
+            "pcg_graph",
+            "height_layer",
+            "volume_layer",
+            "layer_stack",
+            "function_library",
+            "surface_type",
+            "smart_surface_type",
+            "mega_material",
+            "heightmap",
+            "static_mesh",
+            "height_sculpt_asset",
+            "volume_sculpt_asset"
+          ]
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "description": "Asset name without a path; a valid object and package name."
+        },
+        {
+          "name": "packagePath",
+          "type": "string",
+          "required": false,
+          "description": "Content folder; default /Game/Voxel."
+        },
+        {
+          "name": "onConflict",
+          "type": "string",
+          "required": false,
+          "description": "When the asset exists: skip returns it with existed: true (an error if it is another class), error refuses. An existing asset is never overwritten. Default skip.",
+          "enum": [
+            "error",
+            "skip"
+          ]
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the asset's package after the edit; default true."
+        }
+      ],
+      "contractExempt": "Creates and saves an asset named by the contract values before anything can fail"
+    },
+    "voxel_asset_set_property": {
+      "params": [
+        {
+          "name": "assetPath",
+          "type": "string",
+          "required": true,
+          "description": "Asset path; levels, level actors and class defaults are refused."
+        },
+        {
+          "name": "propertyName",
+          "type": "string",
+          "required": true,
+          "description": "Top-level C++ property name, e.g. MaxDistance or bInvisible; matched exactly, then case-insensitively."
+        },
+        {
+          "name": "value",
+          "type": "array",
+          "required": true,
+          "description": "UE import text such as '0.5', 'true', '/Game/M.M' or '(X=1,Y=2,Z=3)'; a number, a boolean, or an array of strings, numbers and booleans ((a,b) import text). An integer property takes only whole numbers, an enum only its value names, and an object reference \"\" to clear.",
+          "orTypes": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the asset's package after the edit; default true."
+        }
+      ]
+    },
+    "voxel_component_add": {
+      "params": [
+        {
+          "name": "actorPath",
+          "type": "string",
+          "required": false,
+          "description": "Actor object path; preferred, since labels can repeat."
+        },
+        {
+          "name": "actorLabel",
+          "type": "string",
+          "required": false,
+          "description": "Actor label; must match exactly one actor."
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "required": true,
+          "description": "stamp (UVoxelStampComponent), instanced_stamp (UVoxelInstancedStampComponent) or no_clipping (UVoxelNoClippingComponent).",
+          "enum": [
+            "stamp",
+            "instanced_stamp",
+            "no_clipping"
+          ]
+        },
+        {
+          "name": "componentName",
+          "type": "string",
+          "required": false,
+          "description": "Object name for the new component, a valid object name not used by another subobject of the actor; default a generated unique name."
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the content packages this call dirties before replying; default true. Levels are never saved."
+        }
+      ],
+      "choices": [
+        {
+          "mode": "exactlyOne",
+          "branches": [
+            [
+              "actorPath"
+            ],
+            [
+              "actorLabel"
+            ]
+          ]
+        }
+      ]
+    },
+    "voxel_export_to_render_target": {
+      "params": [
+        {
+          "name": "stack",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelLayerStack asset path; default the project default stack."
+        },
+        {
+          "name": "layer",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelHeightLayer asset path; default the default height layer."
+        },
+        {
+          "name": "layerKind",
+          "type": "string",
+          "required": false,
+          "description": "The export reads height layers only.",
+          "literal": "height"
+        },
+        {
+          "name": "bounds",
+          "type": "object",
+          "required": true,
+          "description": "Region sampled over the render target, world centimetres; max > min on both axes.",
+          "fields": [
+            {
+              "name": "minX",
+              "type": "number",
+              "required": true,
+              "description": "Lowest world X."
+            },
+            {
+              "name": "minY",
+              "type": "number",
+              "required": true,
+              "description": "Lowest world Y."
+            },
+            {
+              "name": "maxX",
+              "type": "number",
+              "required": true,
+              "description": "Highest world X."
+            },
+            {
+              "name": "maxY",
+              "type": "number",
+              "required": true,
+              "description": "Highest world Y."
+            }
+          ]
+        },
+        {
+          "name": "renderTarget",
+          "type": "string",
+          "required": true,
+          "description": "UTextureRenderTarget2D asset path; heights need R16f, RG16f, RGBA16f, R32f, RG32f or RGBA32f, and OverrideFormat must be unset."
+        },
+        {
+          "name": "r",
+          "type": "object",
+          "required": false,
+          "description": "Red channel: \"height\", a constant number, or {metadata, component?}; default height when no channel is given, else 0.",
+          "orTypes": [
+            "string",
+            "number"
+          ],
+          "fields": [
+            {
+              "name": "metadata",
+              "type": "string",
+              "required": true,
+              "description": "UVoxelMetadata asset path to sample."
+            },
+            {
+              "name": "component",
+              "type": "string",
+              "required": false,
+              "description": "Metadata component written; default R.",
+              "enum": [
+                "R",
+                "G",
+                "B",
+                "A"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "g",
+          "type": "object",
+          "required": false,
+          "description": "Green channel: \"height\", a constant number, or {metadata, component?}; default 0.",
+          "orTypes": [
+            "string",
+            "number"
+          ],
+          "fields": [
+            {
+              "name": "metadata",
+              "type": "string",
+              "required": true,
+              "description": "UVoxelMetadata asset path to sample."
+            },
+            {
+              "name": "component",
+              "type": "string",
+              "required": false,
+              "description": "Metadata component written; default R.",
+              "enum": [
+                "R",
+                "G",
+                "B",
+                "A"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "b",
+          "type": "object",
+          "required": false,
+          "description": "Blue channel: \"height\", a constant number, or {metadata, component?}; default 0.",
+          "orTypes": [
+            "string",
+            "number"
+          ],
+          "fields": [
+            {
+              "name": "metadata",
+              "type": "string",
+              "required": true,
+              "description": "UVoxelMetadata asset path to sample."
+            },
+            {
+              "name": "component",
+              "type": "string",
+              "required": false,
+              "description": "Metadata component written; default R.",
+              "enum": [
+                "R",
+                "G",
+                "B",
+                "A"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "a",
+          "type": "object",
+          "required": false,
+          "description": "Alpha channel: \"height\", a constant number, or {metadata, component?}; default 0.",
+          "orTypes": [
+            "string",
+            "number"
+          ],
+          "fields": [
+            {
+              "name": "metadata",
+              "type": "string",
+              "required": true,
+              "description": "UVoxelMetadata asset path to sample."
+            },
+            {
+              "name": "component",
+              "type": "string",
+              "required": false,
+              "description": "Metadata component written; default R.",
+              "enum": [
+                "R",
+                "G",
+                "B",
+                "A"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "wait",
+          "type": "boolean",
+          "required": false,
+          "description": "Wait for the GPU write and report its failure; default true. false returns queued: true."
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the content packages this call dirties before replying; default true. Levels are never saved."
+        }
+      ]
+    },
+    "voxel_graph_add_node": {
+      "params": [
+        {
+          "name": "assetPath",
+          "type": "string",
+          "required": true,
+          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+        },
+        {
+          "name": "terminalGraph",
+          "type": "string",
+          "required": false,
+          "description": "Terminal graph GUID from voxel_graph_read; default the main graph. Required for graphs without one, such as function libraries."
+        },
+        {
+          "name": "nodeType",
+          "type": "string",
+          "required": true,
+          "description": "Type key from voxel_graph_list_node_types ('Category|Name'), or the bare name when it is unique."
+        },
+        {
+          "name": "x",
+          "type": "integer",
+          "required": false,
+          "description": "Node X position in graph units; default 0.",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        {
+          "name": "y",
+          "type": "integer",
+          "required": false,
+          "description": "Node Y position in graph units; default 0.",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the graph after the edit; default true."
+        }
+      ]
+    },
+    "voxel_graph_add_parameter": {
+      "params": [
+        {
+          "name": "assetPath",
+          "type": "string",
+          "required": true,
+          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+        },
+        {
+          "name": "terminalGraph",
+          "type": "string",
+          "required": false,
+          "description": "Terminal graph GUID from voxel_graph_read; default the main graph. Required for graphs without one, such as function libraries."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "description": "New parameter name, unique in the graph (case-insensitive)."
+        },
+        {
+          "name": "type",
+          "type": "string",
+          "required": true,
+          "description": "float, double, int32 (or int), int64, bool, name, vector2d, vector, color (or linearcolor), seed, or struct:, object:, class: or enum: followed by an asset path; case-insensitive."
+        },
+        {
+          "name": "default",
+          "type": "string",
+          "required": false,
+          "description": "Default value text, validated against the type before anything changes; default the type's own default.",
+          "orTypes": [
+            "number",
+            "boolean"
+          ]
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "required": false,
+          "description": "Category shown in the graph's members panel."
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "required": false,
+          "description": "Parameter tooltip."
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the graph after the edit; default true."
+        }
+      ]
+    },
+    "voxel_graph_connect": {
+      "params": [
+        {
+          "name": "assetPath",
+          "type": "string",
+          "required": true,
+          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+        },
+        {
+          "name": "terminalGraph",
+          "type": "string",
+          "required": false,
+          "description": "Terminal graph GUID from voxel_graph_read; default the main graph. Required for graphs without one, such as function libraries."
+        },
+        {
+          "name": "fromNode",
+          "type": "string",
+          "required": true,
+          "description": "Source node: id (GUID), object name or unique title."
+        },
+        {
+          "name": "fromPin",
+          "type": "string",
+          "required": true,
+          "description": "Visible output pin on fromNode, by name or display name, case-insensitive."
+        },
+        {
+          "name": "toNode",
+          "type": "string",
+          "required": true,
+          "description": "Target node: id (GUID), object name or unique title."
+        },
+        {
+          "name": "toPin",
+          "type": "string",
+          "required": true,
+          "description": "Visible input pin on toNode, by name or display name, case-insensitive."
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the graph after the edit; default true."
+        }
+      ]
+    },
+    "voxel_graph_delete_node": {
+      "params": [
+        {
+          "name": "assetPath",
+          "type": "string",
+          "required": true,
+          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+        },
+        {
+          "name": "terminalGraph",
+          "type": "string",
+          "required": false,
+          "description": "Terminal graph GUID from voxel_graph_read; default the main graph. Required for graphs without one, such as function libraries."
+        },
+        {
+          "name": "node",
+          "type": "string",
+          "required": true,
+          "description": "Node id (GUID), object name or unique title."
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the graph after the edit; default true."
+        }
+      ]
+    },
+    "voxel_graph_disconnect": {
+      "params": [
+        {
+          "name": "assetPath",
+          "type": "string",
+          "required": true,
+          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+        },
+        {
+          "name": "terminalGraph",
+          "type": "string",
+          "required": false,
+          "description": "Terminal graph GUID from voxel_graph_read; default the main graph. Required for graphs without one, such as function libraries."
+        },
+        {
+          "name": "fromNode",
+          "type": "string",
+          "required": true,
+          "description": "Source node: id (GUID), object name or unique title."
+        },
+        {
+          "name": "fromPin",
+          "type": "string",
+          "required": true,
+          "description": "Visible output pin on fromNode, by name or display name, case-insensitive."
+        },
+        {
+          "name": "toNode",
+          "type": "string",
+          "required": true,
+          "description": "Target node: id (GUID), object name or unique title."
+        },
+        {
+          "name": "toPin",
+          "type": "string",
+          "required": true,
+          "description": "Visible input pin on toNode, by name or display name, case-insensitive."
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the graph after the edit; default true."
+        }
+      ]
+    },
+    "voxel_graph_export_t3d": {
+      "params": [
+        {
+          "name": "assetPath",
+          "type": "string",
+          "required": true,
+          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+        },
+        {
+          "name": "terminalGraph",
+          "type": "string",
+          "required": false,
+          "description": "Terminal graph GUID from voxel_graph_read; default the main graph. Required for graphs without one, such as function libraries."
+        },
+        {
+          "name": "nodes",
+          "type": "array",
+          "required": false,
+          "description": "Node ids, names or unique titles to export, non-empty; default every copyable node.",
+          "items": "string"
+        }
+      ]
+    },
+    "voxel_graph_import_t3d": {
+      "params": [
+        {
+          "name": "assetPath",
+          "type": "string",
+          "required": true,
+          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+        },
+        {
+          "name": "terminalGraph",
+          "type": "string",
+          "required": false,
+          "description": "Terminal graph GUID from voxel_graph_read; default the main graph. Required for graphs without one, such as function libraries."
+        },
+        {
+          "name": "t3d",
+          "type": "string",
+          "required": true,
+          "description": "Clipboard T3D node text, e.g. from voxel_graph_export_t3d."
+        },
+        {
+          "name": "offsetX",
+          "type": "integer",
+          "required": false,
+          "description": "Added to each pasted node's X position; default 0.",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        {
+          "name": "offsetY",
+          "type": "integer",
+          "required": false,
+          "description": "Added to each pasted node's Y position; default 0.",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the graph after the edit; default true."
+        }
+      ]
+    },
+    "voxel_graph_list_node_types": {
+      "params": [
+        {
+          "name": "assetPath",
+          "type": "string",
+          "required": true,
+          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+        },
+        {
+          "name": "terminalGraph",
+          "type": "string",
+          "required": false,
+          "description": "Terminal graph GUID from voxel_graph_read; default the main graph. Required for graphs without one, such as function libraries."
+        },
+        {
+          "name": "query",
+          "type": "string",
+          "required": false,
+          "description": "Space-separated words that must all match the type key or tooltip, case-insensitive; default every type."
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "required": false,
+          "description": "Most rows returned, >= 1; default 100. total still counts every match.",
+          "minimum": 1,
+          "maximum": 2147483647
+        }
+      ]
+    },
+    "voxel_graph_read": {
+      "params": [
+        {
+          "name": "assetPath",
+          "type": "string",
+          "required": true,
+          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+        },
+        {
+          "name": "terminalGraph",
+          "type": "string",
+          "required": false,
+          "description": "Terminal graph GUID from voxel_graph_read; default the main graph. Required for graphs without one, such as function libraries."
+        },
+        {
+          "name": "includePins",
+          "type": "boolean",
+          "required": false,
+          "description": "Include each node's pins, defaults and links; default true."
+        }
+      ]
+    },
+    "voxel_graph_remove_parameter": {
+      "params": [
+        {
+          "name": "assetPath",
+          "type": "string",
+          "required": true,
+          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+        },
+        {
+          "name": "terminalGraph",
+          "type": "string",
+          "required": false,
+          "description": "Terminal graph GUID from voxel_graph_read; default the main graph. Required for graphs without one, such as function libraries."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "description": "Graph parameter name, case-insensitive."
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the graph after the edit; default true."
+        }
+      ]
+    },
+    "voxel_graph_set_parameter_default": {
+      "params": [
+        {
+          "name": "assetPath",
+          "type": "string",
+          "required": true,
+          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+        },
+        {
+          "name": "terminalGraph",
+          "type": "string",
+          "required": false,
+          "description": "Terminal graph GUID from voxel_graph_read; default the main graph. Required for graphs without one, such as function libraries."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "description": "Graph parameter name, case-insensitive."
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "description": "Value text, e.g. 5000, true or (X=1,Y=2), or an asset path for object parameters; numbers and booleans are written as text.",
+          "orTypes": [
+            "number",
+            "boolean"
+          ]
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the graph after the edit; default true."
+        }
+      ]
+    },
+    "voxel_graph_set_pin_default": {
+      "params": [
+        {
+          "name": "assetPath",
+          "type": "string",
+          "required": true,
+          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+        },
+        {
+          "name": "terminalGraph",
+          "type": "string",
+          "required": false,
+          "description": "Terminal graph GUID from voxel_graph_read; default the main graph. Required for graphs without one, such as function libraries."
+        },
+        {
+          "name": "node",
+          "type": "string",
+          "required": true,
+          "description": "Node id (GUID), object name or unique title."
+        },
+        {
+          "name": "pin",
+          "type": "string",
+          "required": true,
+          "description": "Unconnected visible input pin, by name or display name."
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "required": true,
+          "description": "Pin default text, e.g. 5000, true or (X=1,Y=2), or an asset path for object pins; numbers and booleans are written as text.",
+          "orTypes": [
+            "number",
+            "boolean"
+          ]
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the graph after the edit; default true."
+        }
+      ]
+    },
+    "voxel_height_sculpt": {
+      "params": [
+        {
+          "name": "actorPath",
+          "type": "string",
+          "required": false,
+          "description": "AVoxelSculptHeight actor object path; preferred, since voxel actors relabel themselves."
+        },
+        {
+          "name": "actorLabel",
+          "type": "string",
+          "required": false,
+          "description": "AVoxelSculptHeight actor label; must match exactly one actor."
+        },
+        {
+          "name": "op",
+          "type": "string",
+          "required": true,
+          "description": "The edit; each op takes only its own fields.",
+          "enum": [
+            "sculpt_height",
+            "flatten",
+            "smooth",
+            "paint_surface",
+            "apply_graph",
+            "clear_data",
+            "clear_cache"
+          ]
+        },
+        {
+          "name": "center",
+          "type": "object",
+          "required": false,
+          "description": "Required except for clear_data and clear_cache: the brush center in world centimetres.",
+          "fields": [
+            {
+              "name": "x",
+              "type": "number",
+              "required": true,
+              "description": "World X in centimetres."
+            },
+            {
+              "name": "y",
+              "type": "number",
+              "required": true,
+              "description": "World Y in centimetres."
+            },
+            {
+              "name": "z",
+              "type": "number",
+              "required": false,
+              "description": "Accepted so a full location can be passed; a height sculpt ignores it."
+            }
+          ]
+        },
+        {
+          "name": "radius",
+          "type": "number",
+          "required": false,
+          "description": "Brush radius in world centimetres, > 0; default 1000 for smooth, 500 otherwise.",
+          "minimum": 0.00009999999747378752,
+          "maximum": 3.3999999521443642e+38
+        },
+        {
+          "name": "strength",
+          "type": "number",
+          "required": false,
+          "description": "sculpt_height speed (default 0.5), smooth strength (default 1) or paint_surface strength (default 0.05), >= 0.",
+          "minimum": 0,
+          "maximum": 3.3999999521443642e+38
+        },
+        {
+          "name": "mode",
+          "type": "string",
+          "required": false,
+          "description": "sculpt_height and paint_surface: EVoxelSculptMode; default Add.",
+          "enum": [
+            "Add",
+            "Remove"
+          ]
+        },
+        {
+          "name": "falloff",
+          "type": "number",
+          "required": false,
+          "description": "0..1. flatten: the flatten falloff, default 0.1. sculpt_height, smooth, paint_surface: the brush falloff unless brush.falloffAmount is set.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        {
+          "name": "height",
+          "type": "number",
+          "required": false,
+          "description": "flatten, required: target height, world Z in centimetres.",
+          "minimum": -3.3999999521443642e+38,
+          "maximum": 3.3999999521443642e+38
+        },
+        {
+          "name": "levelType",
+          "type": "string",
+          "required": false,
+          "description": "flatten EVoxelLevelToolType; default Additive.",
+          "enum": [
+            "Additive",
+            "Subtractive",
+            "Both"
+          ]
+        },
+        {
+          "name": "surfaceType",
+          "type": "string",
+          "required": false,
+          "description": "paint_surface: UVoxelSurfaceTypeInterface asset path to paint; paint_surface needs this and/or metadata."
+        },
+        {
+          "name": "metadata",
+          "type": "any",
+          "required": false,
+          "description": "paint_surface: { UVoxelMetadata asset path: value } to paint; each value a string, number or boolean, parsed as the metadata's type.",
+          "forms": [
+            "scalarMap"
+          ]
+        },
+        {
+          "name": "graph",
+          "type": "string",
+          "required": false,
+          "description": "apply_graph, required: UVoxelHeightSculptGraph asset path."
+        },
+        {
+          "name": "parameters",
+          "type": "any",
+          "required": false,
+          "description": "apply_graph: { parameterName: value } overrides on the sculpt graph; each value a string, number or boolean, parsed as the parameter's type.",
+          "forms": [
+            "scalarMap"
+          ]
+        },
+        {
+          "name": "brush",
+          "type": "object",
+          "required": false,
+          "description": "sculpt_height, flatten, smooth, paint_surface: the brush; type picks its fields. Default a Circular brush.",
+          "oneOf": {
+            "key": "type",
+            "variants": [
+              {
+                "tag": "Circular",
+                "description": "A round brush shaped by its falloff.",
+                "fields": [
+                  {
+                    "name": "falloffType",
+                    "type": "string",
+                    "required": false,
+                    "description": "EVoxelFalloffType; default Smooth.",
+                    "enum": [
+                      "None",
+                      "Linear",
+                      "Smooth",
+                      "Spherical",
+                      "Tip"
+                    ]
+                  },
+                  {
+                    "name": "falloffAmount",
+                    "type": "number",
+                    "required": false,
+                    "description": "Brush falloff 0..1; default 0.5. Pass this or the top-level falloff, not both.",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  {
+                    "name": "hitNormal",
+                    "type": "vec3",
+                    "required": false,
+                    "description": "Surface normal the brush aligns to, non-zero; default up {0,0,1}."
+                  },
+                  {
+                    "name": "strokeDirection",
+                    "type": "vec3",
+                    "required": false,
+                    "description": "Stroke direction, non-zero; default {1,0,0}."
+                  }
+                ]
+              },
+              {
+                "tag": "Alpha",
+                "description": "A texture mask stamped along the stroke.",
+                "fields": [
+                  {
+                    "name": "texture",
+                    "type": "string",
+                    "required": true,
+                    "description": "UVoxelTexture asset path sampled as the brush mask."
+                  },
+                  {
+                    "name": "textureChannel",
+                    "type": "string",
+                    "required": false,
+                    "description": "Texture channel sampled; default R.",
+                    "enum": [
+                      "R",
+                      "G",
+                      "B",
+                      "A"
+                    ]
+                  },
+                  {
+                    "name": "autoRotate",
+                    "type": "boolean",
+                    "required": false,
+                    "description": "Rotate the mask along the stroke; default true."
+                  },
+                  {
+                    "name": "use2DProjection",
+                    "type": "boolean",
+                    "required": false,
+                    "description": "Project the mask in 2D; default false."
+                  },
+                  {
+                    "name": "fixedRotation",
+                    "type": "number",
+                    "required": false,
+                    "description": "Mask rotation in degrees, -360..360; default 0.",
+                    "minimum": -360,
+                    "maximum": 360
+                  },
+                  {
+                    "name": "falloffType",
+                    "type": "string",
+                    "required": false,
+                    "description": "EVoxelFalloffType; default Smooth.",
+                    "enum": [
+                      "None",
+                      "Linear",
+                      "Smooth",
+                      "Spherical",
+                      "Tip"
+                    ]
+                  },
+                  {
+                    "name": "falloffAmount",
+                    "type": "number",
+                    "required": false,
+                    "description": "Brush falloff 0..1; default 0.5. Pass this or the top-level falloff, not both.",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  {
+                    "name": "hitNormal",
+                    "type": "vec3",
+                    "required": false,
+                    "description": "Surface normal the brush aligns to, non-zero; default up {0,0,1}."
+                  },
+                  {
+                    "name": "strokeDirection",
+                    "type": "vec3",
+                    "required": false,
+                    "description": "Stroke direction, non-zero; default {1,0,0}."
+                  }
+                ]
+              },
+              {
+                "tag": "Pattern",
+                "description": "A texture tiled in world space.",
+                "fields": [
+                  {
+                    "name": "texture",
+                    "type": "string",
+                    "required": true,
+                    "description": "UVoxelTexture asset path sampled as the brush mask."
+                  },
+                  {
+                    "name": "textureChannel",
+                    "type": "string",
+                    "required": false,
+                    "description": "Texture channel sampled; default R.",
+                    "enum": [
+                      "R",
+                      "G",
+                      "B",
+                      "A"
+                    ]
+                  },
+                  {
+                    "name": "centerTextureOnOrigin",
+                    "type": "boolean",
+                    "required": false,
+                    "description": "Center the pattern on origin; default false."
+                  },
+                  {
+                    "name": "textureRotation",
+                    "type": "number",
+                    "required": false,
+                    "description": "Pattern rotation in degrees, -360..360; default 0.",
+                    "minimum": -360,
+                    "maximum": 360
+                  },
+                  {
+                    "name": "repeatSize",
+                    "type": "number",
+                    "required": false,
+                    "description": "World size of one pattern repeat in centimetres, > 0; default 1000.",
+                    "minimum": 0.00009999999747378752,
+                    "maximum": 3.3999999521443642e+38
+                  },
+                  {
+                    "name": "origin",
+                    "type": "object",
+                    "required": false,
+                    "description": "Pattern origin {x,y} in world centimetres; default {0,0}.",
+                    "fields": [
+                      {
+                        "name": "x",
+                        "type": "number",
+                        "required": true,
+                        "description": "World X in centimetres."
+                      },
+                      {
+                        "name": "y",
+                        "type": "number",
+                        "required": true,
+                        "description": "World Y in centimetres."
+                      }
+                    ]
+                  },
+                  {
+                    "name": "falloffType",
+                    "type": "string",
+                    "required": false,
+                    "description": "EVoxelFalloffType; default Smooth.",
+                    "enum": [
+                      "None",
+                      "Linear",
+                      "Smooth",
+                      "Spherical",
+                      "Tip"
+                    ]
+                  },
+                  {
+                    "name": "falloffAmount",
+                    "type": "number",
+                    "required": false,
+                    "description": "Brush falloff 0..1; default 0.5. Pass this or the top-level falloff, not both.",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  {
+                    "name": "hitNormal",
+                    "type": "vec3",
+                    "required": false,
+                    "description": "Surface normal the brush aligns to, non-zero; default up {0,0,1}."
+                  },
+                  {
+                    "name": "strokeDirection",
+                    "type": "vec3",
+                    "required": false,
+                    "description": "Stroke direction, non-zero; default {1,0,0}."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "wait",
+          "type": "boolean",
+          "required": false,
+          "description": "Wait for the edit to finish; default true. false returns queued: true, and the queued edit is covered by neither undo nor the auto-save."
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the content packages this call dirties before replying; default true. Levels are never saved."
+        }
+      ],
+      "choices": [
+        {
+          "mode": "exactlyOne",
+          "branches": [
+            [
+              "actorPath"
+            ],
+            [
+              "actorLabel"
+            ]
+          ]
+        }
+      ]
+    },
+    "voxel_instanced_stamps": {
+      "params": [
+        {
+          "name": "actorPath",
+          "type": "string",
+          "required": false,
+          "description": "Actor object path; preferred, since labels can repeat."
+        },
+        {
+          "name": "actorLabel",
+          "type": "string",
+          "required": false,
+          "description": "Actor label; must match exactly one actor."
+        },
+        {
+          "name": "componentName",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelInstancedStampComponent object name; default the actor's first one."
+        },
+        {
+          "name": "op",
+          "type": "string",
+          "required": true,
+          "description": "add appends stamps, remove empties one slot (indices never shift), clear removes all, update re-evaluates stamps, count reports them. Each op takes only its own fields.",
+          "enum": [
+            "add",
+            "remove",
+            "clear",
+            "update",
+            "count"
+          ]
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "required": false,
+          "description": "add, required: the stamp kind; spline kinds need a stamp actor's spline component and are not offered.",
+          "enum": [
+            "height_graph",
+            "volume_graph",
+            "heightmap",
+            "mesh"
+          ]
+        },
+        {
+          "name": "transforms",
+          "type": "array",
+          "required": false,
+          "description": "add, required: one stamp per entry, in world space unless relativeToComponent.",
+          "items": "object",
+          "fields": [
+            {
+              "name": "location",
+              "type": "vec3",
+              "required": true,
+              "description": "Location in centimetres."
+            },
+            {
+              "name": "rotation",
+              "type": "rotator",
+              "required": false,
+              "description": "Rotation in degrees; default zero."
+            },
+            {
+              "name": "scale",
+              "type": "any",
+              "required": false,
+              "description": "A uniform number or {x,y,z}, no component zero; default 1."
+            }
+          ]
+        },
+        {
+          "name": "relativeToComponent",
+          "type": "boolean",
+          "required": false,
+          "description": "add: transforms are relative to the component, baked to world space when added; default false."
+        },
+        {
+          "name": "asset",
+          "type": "string",
+          "required": false,
+          "description": "add, required: UVoxelHeightGraph, UVoxelVolumeGraph, UVoxelHeightmap or UVoxelStaticMesh path matching kind."
+        },
+        {
+          "name": "layer",
+          "type": "string",
+          "required": false,
+          "description": "add: UVoxelHeightLayer (height kinds) or UVoxelVolumeLayer (volume kinds) path; default the project default layer."
+        },
+        {
+          "name": "blendMode",
+          "type": "string",
+          "required": false,
+          "description": "EVoxelHeightBlendMode for height kinds (Max, Min, Override) or EVoxelVolumeBlendMode for volume kinds (Additive, Subtractive, Intersect, Override).",
+          "enum": [
+            "Max",
+            "Min",
+            "Override",
+            "Additive",
+            "Subtractive",
+            "Intersect"
+          ]
+        },
+        {
+          "name": "priority",
+          "type": "integer",
+          "required": false,
+          "description": "Priority within the layer, an int32; higher applies later.",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        {
+          "name": "smoothness",
+          "type": "number",
+          "required": false,
+          "description": "Blend smoothness in centimetres, >= 0.",
+          "minimum": 0
+        },
+        {
+          "name": "behavior",
+          "type": "string",
+          "required": false,
+          "description": "EVoxelStampBehavior: what the stamp writes.",
+          "enum": [
+            "AffectShape",
+            "AffectSurfaceType",
+            "AffectMetadata",
+            "AffectAll",
+            "AffectShapeAndSurfaceType",
+            "AffectShapeAndMetadata",
+            "AffectSurfaceTypeAndMetadata"
+          ]
+        },
+        {
+          "name": "applyOnVoid",
+          "type": "boolean",
+          "required": false,
+          "description": "False applies only where an earlier stamp already applied; ignored by Override and Intersect blends."
+        },
+        {
+          "name": "heightPaddingMultiplier",
+          "type": "number",
+          "required": false,
+          "description": "Height kinds only: bounds padding relative to the bounds size, >= 0.",
+          "minimum": 0
+        },
+        {
+          "name": "boundsExtensionMultiplier",
+          "type": "number",
+          "required": false,
+          "description": "Volume kinds only: bounds extension relative to the bounds size, >= 0.",
+          "minimum": 0
+        },
+        {
+          "name": "maximumBoundsExtension",
+          "type": "number",
+          "required": false,
+          "description": "Volume kinds only: cap on the bounds extension in centimetres, >= 0.",
+          "minimum": 0
+        },
+        {
+          "name": "surfaceType",
+          "type": "string",
+          "required": false,
+          "description": "heightmap: the default surface type; mesh: the surface type. A UVoxelSurfaceTypeInterface asset path; \"\" or null clears it.",
+          "nullable": true
+        },
+        {
+          "name": "useTricubic",
+          "type": "boolean",
+          "required": false,
+          "description": "mesh only: tricubic interpolation, slower and smoother."
+        },
+        {
+          "name": "parameters",
+          "type": "any",
+          "required": false,
+          "description": "Graph and spline kinds only: { parameterName: value } overrides; each value a string, number, boolean or null, parsed as the parameter's type, and null sets an object parameter to None.",
+          "forms": [
+            "scalarMap"
+          ]
+        },
+        {
+          "name": "index",
+          "type": "integer",
+          "required": false,
+          "description": "remove, required: the stamp slot to empty, in [0, count).",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        {
+          "name": "indices",
+          "type": "array",
+          "required": false,
+          "description": "update: non-empty stamp slots to re-evaluate, each in [0, count); default every slot.",
+          "items": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        {
+          "name": "includeStamps",
+          "type": "boolean",
+          "required": false,
+          "description": "Include every non-empty stamp with its index and transform in the result; default false."
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the content packages this call dirties before replying; default true. Levels are never saved."
+        }
+      ],
+      "choices": [
+        {
+          "mode": "exactlyOne",
+          "branches": [
+            [
+              "actorPath"
+            ],
+            [
+              "actorLabel"
+            ]
+          ]
+        }
+      ]
+    },
+    "voxel_layer_stack_set": {
+      "params": [
+        {
+          "name": "assetPath",
+          "type": "string",
+          "required": true,
+          "description": "UVoxelLayerStack asset path."
+        },
+        {
+          "name": "heightLayers",
+          "type": "array",
+          "required": false,
+          "description": "Distinct UVoxelHeightLayer paths, bottom to top; replaces the list.",
+          "items": "string"
+        },
+        {
+          "name": "volumeLayers",
+          "type": "array",
+          "required": false,
+          "description": "Distinct UVoxelVolumeLayer paths, bottom to top; replaces the list.",
+          "items": "string"
+        },
+        {
+          "name": "maxDistance",
+          "type": "number",
+          "required": false,
+          "description": "How far up and down the height distance field extends, in centimetres; default 100000."
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the asset's package after the edit; default true."
+        }
+      ],
+      "choices": [
+        {
+          "mode": "atLeastOne",
+          "branches": [
+            [
+              "heightLayers"
+            ],
+            [
+              "volumeLayers"
+            ],
+            [
+              "maxDistance"
+            ]
+          ]
+        }
+      ]
+    },
+    "voxel_mega_material_set_surfaces": {
+      "params": [
+        {
+          "name": "assetPath",
+          "type": "string",
+          "required": true,
+          "description": "UVoxelMegaMaterial asset path."
+        },
+        {
+          "name": "surfaceTypes",
+          "type": "array",
+          "required": false,
+          "description": "Distinct UVoxelSurfaceTypeAsset paths; the list the generated material covers.",
+          "items": "string"
+        },
+        {
+          "name": "mode",
+          "type": "string",
+          "required": false,
+          "description": "With surfaceTypes: replace sets the list, append adds the entries not already in it; default replace.",
+          "enum": [
+            "replace",
+            "append"
+          ]
+        },
+        {
+          "name": "automaticallyDetectNewSurfaces",
+          "type": "boolean",
+          "required": false,
+          "description": "Notify when a rendered surface is missing from the list; default true."
+        },
+        {
+          "name": "attributePostProcess",
+          "type": "string",
+          "required": false,
+          "description": "UMaterialFunction applied everywhere, one MaterialAttributes in and out; \"\" or null clears it.",
+          "nullable": true
+        },
+        {
+          "name": "nonNaniteMaterialType",
+          "type": "string",
+          "required": false,
+          "description": "Non-Nanite meshes use customNonNaniteMaterial (Custom) or a generated one; default Custom.",
+          "enum": [
+            "Custom",
+            "Generated"
+          ]
+        },
+        {
+          "name": "customNonNaniteMaterial",
+          "type": "string",
+          "required": false,
+          "description": "UMaterialInterface for non-Nanite meshes when Custom; \"\" or null clears it.",
+          "nullable": true
+        },
+        {
+          "name": "naniteDisplacementMaterialType",
+          "type": "string",
+          "required": false,
+          "description": "Nanite displacement comes from customNaniteDisplacementMaterial (Custom) or is generated; default Generated.",
+          "enum": [
+            "Custom",
+            "Generated"
+          ]
+        },
+        {
+          "name": "customNaniteDisplacementMaterial",
+          "type": "string",
+          "required": false,
+          "description": "UMaterialInterface whose displacement replaces the generated one when Custom; \"\" or null clears it.",
+          "nullable": true
+        },
+        {
+          "name": "lumenMaterialType",
+          "type": "string",
+          "required": false,
+          "description": "Lumen uses customLumenMaterial (Custom) or a generated material; default Generated.",
+          "enum": [
+            "Custom",
+            "Generated"
+          ]
+        },
+        {
+          "name": "customLumenMaterial",
+          "type": "string",
+          "required": false,
+          "description": "UMaterialInterface Lumen uses when Custom; \"\" or null clears it.",
+          "nullable": true
+        },
+        {
+          "name": "enableSmoothBlends",
+          "type": "boolean",
+          "required": false,
+          "description": "Dither-based smooth blends; default true."
+        },
+        {
+          "name": "generateMaskedMaterial",
+          "type": "boolean",
+          "required": false,
+          "description": "Generated materials use the Masked blend mode; default false."
+        },
+        {
+          "name": "generateTwoSidedMaterial",
+          "type": "boolean",
+          "required": false,
+          "description": "Generated materials are two-sided; default false."
+        },
+        {
+          "name": "setHasPixelAnimation",
+          "type": "boolean",
+          "required": false,
+          "description": "Set bHasPixelAnimation to reduce TSR blur; default false."
+        },
+        {
+          "name": "enablePixelDepthOffset",
+          "type": "boolean",
+          "required": false,
+          "description": "Compile PixelDepthOffset into the non-Nanite material; default false."
+        },
+        {
+          "name": "enableDitherNoiseTexture",
+          "type": "boolean",
+          "required": false,
+          "description": "Use ditherNoiseTexture for smooth-blend dithering; default false."
+        },
+        {
+          "name": "ditherNoiseTexture",
+          "type": "string",
+          "required": false,
+          "description": "UTexture2D asset path for dither noise, which must load; \"\" or null clears it.",
+          "nullable": true
+        },
+        {
+          "name": "customOutputsMaterial",
+          "type": "string",
+          "required": false,
+          "description": "UMaterialInterface whose custom output nodes are copied into the generated material; \"\" or null clears it.",
+          "nullable": true
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the asset's package after the edit; default true."
+        }
+      ],
+      "choices": [
+        {
+          "mode": "atLeastOne",
+          "branches": [
+            [
+              "surfaceTypes"
+            ],
+            [
+              "automaticallyDetectNewSurfaces"
+            ],
+            [
+              "attributePostProcess"
+            ],
+            [
+              "nonNaniteMaterialType"
+            ],
+            [
+              "customNonNaniteMaterial"
+            ],
+            [
+              "naniteDisplacementMaterialType"
+            ],
+            [
+              "customNaniteDisplacementMaterial"
+            ],
+            [
+              "lumenMaterialType"
+            ],
+            [
+              "customLumenMaterial"
+            ],
+            [
+              "enableSmoothBlends"
+            ],
+            [
+              "generateMaskedMaterial"
+            ],
+            [
+              "generateTwoSidedMaterial"
+            ],
+            [
+              "setHasPixelAnimation"
+            ],
+            [
+              "enablePixelDepthOffset"
+            ],
+            [
+              "enableDitherNoiseTexture"
+            ],
+            [
+              "ditherNoiseTexture"
+            ],
+            [
+              "customOutputsMaterial"
+            ]
+          ]
+        }
+      ]
+    },
+    "voxel_no_clipping_set_layer": {
+      "params": [
+        {
+          "name": "actorPath",
+          "type": "string",
+          "required": false,
+          "description": "Actor object path; preferred, since labels can repeat."
+        },
+        {
+          "name": "actorLabel",
+          "type": "string",
+          "required": false,
+          "description": "Actor label; must match exactly one actor."
+        },
+        {
+          "name": "componentName",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelNoClippingComponent object name; default the actor's first one."
+        },
+        {
+          "name": "stack",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelLayerStack asset path; with only layer given, the project default stack."
+        },
+        {
+          "name": "layer",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelVolumeLayer asset path, since the component samples a volume layer; with only stack given, the default volume layer."
+        },
+        {
+          "name": "autoAdjustPlayer",
+          "type": "boolean",
+          "required": false,
+          "description": "Teleport the owner back to its last valid location when it clips into the volume."
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the content packages this call dirties before replying; default true. Levels are never saved."
+        }
+      ],
+      "choices": [
+        {
+          "mode": "exactlyOne",
+          "branches": [
+            [
+              "actorPath"
+            ],
+            [
+              "actorLabel"
+            ]
+          ]
+        },
+        {
+          "mode": "atLeastOne",
+          "branches": [
+            [
+              "stack"
+            ],
+            [
+              "layer"
+            ],
+            [
+              "autoAdjustPlayer"
+            ]
+          ]
+        }
+      ]
+    },
+    "voxel_pcg_add_node": {
+      "params": [
+        {
+          "name": "graphPath",
+          "type": "string",
+          "required": true,
+          "description": "UPCGGraph asset path."
+        },
+        {
+          "name": "nodeType",
+          "type": "string",
+          "required": true,
+          "description": "Voxel PCG node to add; sampler_v2 is Voxel Sampler Experimental.",
+          "enum": [
+            "call_graph",
+            "sampler",
+            "sampler_v2",
+            "query",
+            "stamp_spawner",
+            "spawn_actor",
+            "apply_on_graph",
+            "create_spline",
+            "projection",
+            "elevation_isolines",
+            "wait_for_world"
+          ]
+        },
+        {
+          "name": "x",
+          "type": "integer",
+          "required": false,
+          "description": "Node X position; default where the graph placed it.",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        {
+          "name": "y",
+          "type": "integer",
+          "required": false,
+          "description": "Node Y position; default where the graph placed it.",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the asset's package after the edit; default true."
+        }
+      ]
+    },
+    "voxel_pcg_configure_sampler": {
+      "params": [
+        {
+          "name": "graphPath",
+          "type": "string",
+          "required": true,
+          "description": "UPCGGraph asset path."
+        },
+        {
+          "name": "node",
+          "type": "string",
+          "required": true,
+          "description": "Sampler node by object name, or by authored or displayed title when unique (case-insensitive)."
+        },
+        {
+          "name": "stack",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelLayerStack asset path; the layer is kept unless layer is given."
+        },
+        {
+          "name": "layer",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelHeightLayer or UVoxelVolumeLayer asset path; the stack is kept unless stack is given."
+        },
+        {
+          "name": "metadatasToQuery",
+          "type": "array",
+          "required": false,
+          "description": "Distinct UVoxelMetadata asset paths written as point attributes; replaces the list.",
+          "items": "string"
+        },
+        {
+          "name": "unbounded",
+          "type": "boolean",
+          "required": false,
+          "description": "Sample the whole surface instead of the actor or bounding-shape bounds; default false."
+        },
+        {
+          "name": "looseness",
+          "type": "number",
+          "required": false,
+          "description": "Point jitter, >= 0 (ClampMin); default 1.",
+          "minimum": 0
+        },
+        {
+          "name": "lod",
+          "type": "integer",
+          "required": false,
+          "description": "LOD to sample, an integer >= 0 (ClampMin); default 0.",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        {
+          "name": "resolveSmartSurfaceTypes",
+          "type": "boolean",
+          "required": false,
+          "description": "Resolve smart surface types to surface types; default true."
+        },
+        {
+          "name": "distanceBetweenPoints",
+          "type": "number",
+          "required": false,
+          "description": "sampler_v2 only: point spacing in centimetres; default 100."
+        },
+        {
+          "name": "heightScatterType",
+          "type": "string",
+          "required": false,
+          "description": "sampler_v2 only: EVoxelHeightScatterType point distribution; default Grid.",
+          "enum": [
+            "Grid",
+            "Sobol",
+            "Halton"
+          ]
+        },
+        {
+          "name": "minCellArea",
+          "type": "number",
+          "required": false,
+          "description": "sampler_v2 only: skip cells with less surface than this, >= 0 (ClampMin); default 0.03.",
+          "minimum": 0
+        },
+        {
+          "name": "pointsPerSquaredMeter",
+          "type": "number",
+          "required": false,
+          "description": "sampler only: point density per square metre; default 0.1."
+        },
+        {
+          "name": "cellSize",
+          "type": "number",
+          "required": false,
+          "description": "sampler only: cell size in centimetres; default 100."
+        },
+        {
+          "name": "tolerance",
+          "type": "number",
+          "required": false,
+          "description": "sampler only: tolerance, >= 0 (ClampMin); default 0.",
+          "minimum": 0
+        },
+        {
+          "name": "applyDensityToPoints",
+          "type": "boolean",
+          "required": false,
+          "description": "sampler only: write density to the points; default true."
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the asset's package after the edit; default true."
+        }
+      ],
+      "choices": [
+        {
+          "mode": "atLeastOne",
+          "branches": [
+            [
+              "stack"
+            ],
+            [
+              "layer"
+            ],
+            [
+              "metadatasToQuery"
+            ],
+            [
+              "unbounded"
+            ],
+            [
+              "looseness"
+            ],
+            [
+              "lod"
+            ],
+            [
+              "resolveSmartSurfaceTypes"
+            ],
+            [
+              "distanceBetweenPoints"
+            ],
+            [
+              "heightScatterType"
+            ],
+            [
+              "minCellArea"
+            ],
+            [
+              "pointsPerSquaredMeter"
+            ],
+            [
+              "cellSize"
+            ],
+            [
+              "tolerance"
+            ],
+            [
+              "applyDensityToPoints"
+            ]
+          ]
+        }
+      ]
+    },
+    "voxel_query_layer": {
+      "params": [
+        {
+          "name": "stack",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelLayerStack asset path; default the project default stack."
+        },
+        {
+          "name": "layer",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelHeightLayer or UVoxelVolumeLayer path matching layerKind; default that kind's default layer."
+        },
+        {
+          "name": "layerKind",
+          "type": "string",
+          "required": false,
+          "description": "Which layer type to sample; default height.",
+          "enum": [
+            "height",
+            "volume"
+          ]
+        },
+        {
+          "name": "points",
+          "type": "array",
+          "required": true,
+          "description": "1 to 4096 positions in world centimetres: {x,y} for a height layer, {x,y,z} for a volume layer.",
+          "items": "object",
+          "fields": [
+            {
+              "name": "x",
+              "type": "number",
+              "required": true,
+              "description": "World X in centimetres."
+            },
+            {
+              "name": "y",
+              "type": "number",
+              "required": true,
+              "description": "World Y in centimetres."
+            },
+            {
+              "name": "z",
+              "type": "number",
+              "required": false,
+              "description": "World Z in centimetres; volume layers only, where it is required."
+            }
+          ]
+        },
+        {
+          "name": "lod",
+          "type": "integer",
+          "required": false,
+          "description": "Query LOD, 0..30; default 0.",
+          "minimum": 0,
+          "maximum": 30
+        },
+        {
+          "name": "querySurface",
+          "type": "boolean",
+          "required": false,
+          "description": "Resolve surface types and return unresolvedSurfaceType, surfaceType and surfaceWeights per point; default false."
+        },
+        {
+          "name": "gradientStep",
+          "type": "number",
+          "required": false,
+          "description": "Step in centimetres for normals and smart surface types, > 0; default 100.",
+          "minimum": 0.00009999999747378752,
+          "maximum": 3.3999999521443642e+38
+        },
+        {
+          "name": "metadata",
+          "type": "array",
+          "required": false,
+          "description": "Distinct UVoxelMetadata asset paths whose values to return per point.",
+          "items": "string"
+        }
+      ]
+    },
+    "voxel_sculpt_asset_get": {
+      "params": [
+        {
+          "name": "actorPath",
+          "type": "string",
+          "required": false,
+          "description": "AVoxelSculptHeight or AVoxelSculptVolume actor object path; preferred."
+        },
+        {
+          "name": "actorLabel",
+          "type": "string",
+          "required": false,
+          "description": "Sculpt actor label; must match exactly one actor."
+        }
+      ],
+      "choices": [
+        {
+          "mode": "exactlyOne",
+          "branches": [
+            [
+              "actorPath"
+            ],
+            [
+              "actorLabel"
+            ]
+          ]
+        }
+      ]
+    },
+    "voxel_sculpt_asset_set": {
+      "params": [
+        {
+          "name": "actorPath",
+          "type": "string",
+          "required": false,
+          "description": "AVoxelSculptHeight or AVoxelSculptVolume actor object path; preferred."
+        },
+        {
+          "name": "actorLabel",
+          "type": "string",
+          "required": false,
+          "description": "Sculpt actor label; must match exactly one actor."
+        },
+        {
+          "name": "asset",
+          "type": "string",
+          "required": true,
+          "description": "UVoxelSculptHeightAsset (height actor) or UVoxelSculptVolumeAsset (volume actor) path; \"\" or null detaches and keeps the data in the level.",
+          "nullable": true
+        },
+        {
+          "name": "load",
+          "type": "boolean",
+          "required": false,
+          "description": "When binding: true adopts the asset's data (an empty asset receives the actor's), false overwrites the asset with the actor's data; default true."
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the asset after load: false writes into it, and the content packages the call dirties; default true. Levels are never saved."
+        }
+      ],
+      "choices": [
+        {
+          "mode": "exactlyOne",
+          "branches": [
+            [
+              "actorPath"
+            ],
+            [
+              "actorLabel"
+            ]
+          ]
+        }
+      ]
+    },
+    "voxel_shader_hooks_status": {
+      "params": []
+    },
+    "voxel_smart_surface_set": {
+      "params": [
+        {
+          "name": "assetPath",
+          "type": "string",
+          "required": true,
+          "description": "UVoxelSmartSurfaceType asset path."
+        },
+        {
+          "name": "graph",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelSmartSurfaceTypeGraph asset path; \"\", None or null clears it.",
+          "nullable": true
+        },
+        {
+          "name": "parameters",
+          "type": "any",
+          "required": false,
+          "description": "{ parameterName: value } overrides on the target graph's parameters; each value a string, number or boolean, parsed as the parameter's type before anything changes.",
+          "forms": [
+            "scalarMap"
+          ]
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the asset's package after the edit; default true."
+        }
+      ],
+      "choices": [
+        {
+          "mode": "atLeastOne",
+          "branches": [
+            [
+              "graph"
+            ],
+            [
+              "parameters"
+            ]
+          ]
+        }
+      ]
+    },
+    "voxel_stamp_read": {
+      "params": [
+        {
+          "name": "actorPath",
+          "type": "string",
+          "required": false,
+          "description": "Stamp actor object path; preferred, since stamp actors relabel themselves."
+        },
+        {
+          "name": "actorLabel",
+          "type": "string",
+          "required": false,
+          "description": "Stamp actor label; must match exactly one actor."
+        },
+        {
+          "name": "componentName",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelStampComponent object name; default the actor's first one."
+        }
+      ],
+      "choices": [
+        {
+          "mode": "exactlyOne",
+          "branches": [
+            [
+              "actorPath"
+            ],
+            [
+              "actorLabel"
+            ]
+          ]
+        }
+      ]
+    },
+    "voxel_stamp_set": {
+      "params": [
+        {
+          "name": "actorPath",
+          "type": "string",
+          "required": false,
+          "description": "Stamp actor object path; preferred, since stamp actors relabel themselves."
+        },
+        {
+          "name": "actorLabel",
+          "type": "string",
+          "required": false,
+          "description": "Stamp actor label; must match exactly one actor."
+        },
+        {
+          "name": "componentName",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelStampComponent object name; default the actor's first one."
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "required": true,
+          "description": "Stamp kind to build; a different kind replaces the current stamp.",
+          "enum": [
+            "height_graph",
+            "volume_graph",
+            "heightmap",
+            "mesh",
+            "height_spline",
+            "volume_spline"
+          ]
+        },
+        {
+          "name": "asset",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelHeightGraph, UVoxelVolumeGraph, UVoxelHeightmap, UVoxelStaticMesh, UVoxelHeightSplineGraph or UVoxelVolumeSplineGraph path matching kind; required unless the current stamp of this kind has one. Changing a graph clears its overrides."
+        },
+        {
+          "name": "layer",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelHeightLayer (height kinds) or UVoxelVolumeLayer (volume kinds) path; default keeps the current layer, else the project default layer."
+        },
+        {
+          "name": "blendMode",
+          "type": "string",
+          "required": false,
+          "description": "EVoxelHeightBlendMode for height kinds (Max, Min, Override) or EVoxelVolumeBlendMode for volume kinds (Additive, Subtractive, Intersect, Override).",
+          "enum": [
+            "Max",
+            "Min",
+            "Override",
+            "Additive",
+            "Subtractive",
+            "Intersect"
+          ]
+        },
+        {
+          "name": "priority",
+          "type": "integer",
+          "required": false,
+          "description": "Priority within the layer, an int32; higher applies later.",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        {
+          "name": "smoothness",
+          "type": "number",
+          "required": false,
+          "description": "Blend smoothness in centimetres, >= 0.",
+          "minimum": 0
+        },
+        {
+          "name": "behavior",
+          "type": "string",
+          "required": false,
+          "description": "EVoxelStampBehavior: what the stamp writes.",
+          "enum": [
+            "AffectShape",
+            "AffectSurfaceType",
+            "AffectMetadata",
+            "AffectAll",
+            "AffectShapeAndSurfaceType",
+            "AffectShapeAndMetadata",
+            "AffectSurfaceTypeAndMetadata"
+          ]
+        },
+        {
+          "name": "applyOnVoid",
+          "type": "boolean",
+          "required": false,
+          "description": "False applies only where an earlier stamp already applied; ignored by Override and Intersect blends."
+        },
+        {
+          "name": "heightPaddingMultiplier",
+          "type": "number",
+          "required": false,
+          "description": "Height kinds only: bounds padding relative to the bounds size, >= 0.",
+          "minimum": 0
+        },
+        {
+          "name": "boundsExtensionMultiplier",
+          "type": "number",
+          "required": false,
+          "description": "Volume kinds only: bounds extension relative to the bounds size, >= 0.",
+          "minimum": 0
+        },
+        {
+          "name": "maximumBoundsExtension",
+          "type": "number",
+          "required": false,
+          "description": "Volume kinds only: cap on the bounds extension in centimetres, >= 0.",
+          "minimum": 0
+        },
+        {
+          "name": "surfaceType",
+          "type": "string",
+          "required": false,
+          "description": "heightmap: the default surface type; mesh: the surface type. A UVoxelSurfaceTypeInterface asset path; \"\" or null clears it.",
+          "nullable": true
+        },
+        {
+          "name": "useTricubic",
+          "type": "boolean",
+          "required": false,
+          "description": "mesh only: tricubic interpolation, slower and smoother."
+        },
+        {
+          "name": "parameters",
+          "type": "any",
+          "required": false,
+          "description": "Graph and spline kinds only: { parameterName: value } overrides; each value a string, number, boolean or null, parsed as the parameter's type, and null sets an object parameter to None.",
+          "forms": [
+            "scalarMap"
+          ]
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the content packages this call dirties before replying; default true. Levels are never saved."
+        }
+      ],
+      "choices": [
+        {
+          "mode": "exactlyOne",
+          "branches": [
+            [
+              "actorPath"
+            ],
+            [
+              "actorLabel"
+            ]
+          ]
+        }
+      ]
+    },
+    "voxel_stamp_set_parameters": {
+      "params": [
+        {
+          "name": "actorPath",
+          "type": "string",
+          "required": false,
+          "description": "Stamp actor object path; preferred, since stamp actors relabel themselves."
+        },
+        {
+          "name": "actorLabel",
+          "type": "string",
+          "required": false,
+          "description": "Stamp actor label; must match exactly one actor."
+        },
+        {
+          "name": "componentName",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelStampComponent object name; default the actor's first one."
+        },
+        {
+          "name": "values",
+          "type": "any",
+          "required": true,
+          "description": "Non-empty { parameterName: value } overrides on the stamp's height or volume graph; each value a string, number, boolean or null, parsed as the parameter's type, and null sets an object parameter to None.",
+          "forms": [
+            "scalarMap"
+          ]
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the content packages this call dirties before replying; default true. Levels are never saved."
+        }
+      ],
+      "choices": [
+        {
+          "mode": "exactlyOne",
+          "branches": [
+            [
+              "actorPath"
+            ],
+            [
+              "actorLabel"
+            ]
+          ]
+        }
+      ]
+    },
+    "voxel_surface_type_set": {
+      "params": [
+        {
+          "name": "assetPath",
+          "type": "string",
+          "required": true,
+          "description": "UVoxelSurfaceTypeAsset asset path."
+        },
+        {
+          "name": "material",
+          "type": "string",
+          "required": false,
+          "description": "UMaterialInterface asset path (material or instance); \"\" or null clears it.",
+          "nullable": true
+        },
+        {
+          "name": "invisible",
+          "type": "boolean",
+          "required": false,
+          "description": "Render nothing, to cut holes in the terrain; default false."
+        },
+        {
+          "name": "blendSmoothness",
+          "type": "number",
+          "required": false,
+          "description": "Smooth blend amount, >= 0 (ClampMin); the details panel offers 0 to 1. Default 0.5.",
+          "minimum": 0
+        },
+        {
+          "name": "seed",
+          "type": "string",
+          "required": false,
+          "description": "Text for the surface's exposed seed; a number is written as its text.",
+          "orTypes": [
+            "number"
+          ]
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the asset's package after the edit; default true."
+        }
+      ],
+      "choices": [
+        {
+          "mode": "atLeastOne",
+          "branches": [
+            [
+              "material"
+            ],
+            [
+              "invisible"
+            ],
+            [
+              "blendSmoothness"
+            ],
+            [
+              "seed"
+            ]
+          ]
+        }
+      ]
+    },
+    "voxel_volume_sculpt": {
+      "params": [
+        {
+          "name": "actorPath",
+          "type": "string",
+          "required": false,
+          "description": "AVoxelSculptVolume actor object path; preferred, since voxel actors relabel themselves."
+        },
+        {
+          "name": "actorLabel",
+          "type": "string",
+          "required": false,
+          "description": "AVoxelSculptVolume actor label; must match exactly one actor."
+        },
+        {
+          "name": "op",
+          "type": "string",
+          "required": true,
+          "description": "The edit; each op takes only its own fields.",
+          "enum": [
+            "sphere",
+            "cube",
+            "flatten",
+            "smooth",
+            "surface",
+            "angle",
+            "paint",
+            "apply_graph",
+            "clear_data",
+            "clear_cache"
+          ]
+        },
+        {
+          "name": "center",
+          "type": "vec3",
+          "required": false,
+          "description": "Required except for clear_data and clear_cache: the edit center in world centimetres."
+        },
+        {
+          "name": "radius",
+          "type": "number",
+          "required": false,
+          "description": "Every op but cube: radius in world centimetres, > 0; default 1000 for sphere and smooth, 500 otherwise.",
+          "minimum": 0.00009999999747378752,
+          "maximum": 3.3999999521443642e+38
+        },
+        {
+          "name": "strength",
+          "type": "number",
+          "required": false,
+          "description": "smooth (default 1), surface (default 0.5), angle (default 1) or paint (default 0.05) strength, >= 0.",
+          "minimum": 0,
+          "maximum": 3.3999999521443642e+38
+        },
+        {
+          "name": "mode",
+          "type": "string",
+          "required": false,
+          "description": "sphere, cube, surface and paint: EVoxelSculptMode; default Add.",
+          "enum": [
+            "Add",
+            "Remove"
+          ]
+        },
+        {
+          "name": "smoothness",
+          "type": "number",
+          "required": false,
+          "description": "sphere and cube: add/remove smoothness, >= 0; default 0.",
+          "minimum": 0,
+          "maximum": 3.3999999521443642e+38
+        },
+        {
+          "name": "size",
+          "type": "vec3",
+          "required": false,
+          "description": "cube: size in centimetres, each component > 0; default 1000 on every axis."
+        },
+        {
+          "name": "rotation",
+          "type": "rotator",
+          "required": false,
+          "description": "cube and apply_graph: rotation in degrees; default zero."
+        },
+        {
+          "name": "roundness",
+          "type": "number",
+          "required": false,
+          "description": "cube: corner roundness 0..1; default 0.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        {
+          "name": "normal",
+          "type": "vec3",
+          "required": false,
+          "description": "flatten: plane normal, non-zero; default up {0,0,1}."
+        },
+        {
+          "name": "height",
+          "type": "number",
+          "required": false,
+          "description": "flatten: distance up and down to sculpt in centimetres, >= 0; default 1000.",
+          "minimum": 0,
+          "maximum": 3.3999999521443642e+38
+        },
+        {
+          "name": "falloff",
+          "type": "number",
+          "required": false,
+          "description": "0..1. flatten: the flatten falloff, default 0.1. smooth, surface, angle, paint: the brush falloff unless brush.falloffAmount is set.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        {
+          "name": "levelType",
+          "type": "string",
+          "required": false,
+          "description": "flatten EVoxelLevelToolType; default Additive.",
+          "enum": [
+            "Additive",
+            "Subtractive",
+            "Both"
+          ]
+        },
+        {
+          "name": "planePoint",
+          "type": "vec3",
+          "required": false,
+          "description": "angle: a point on the target plane in world centimetres; default center."
+        },
+        {
+          "name": "planeNormal",
+          "type": "vec3",
+          "required": false,
+          "description": "angle: target plane normal, non-zero; default up {0,0,1}."
+        },
+        {
+          "name": "mergeMode",
+          "type": "string",
+          "required": false,
+          "description": "angle: EVoxelSDFMergeMode; default Override.",
+          "enum": [
+            "Union",
+            "Intersection",
+            "Override"
+          ]
+        },
+        {
+          "name": "surfaceType",
+          "type": "string",
+          "required": false,
+          "description": "paint: UVoxelSurfaceTypeInterface asset path to paint; paint needs this and/or metadata."
+        },
+        {
+          "name": "metadata",
+          "type": "any",
+          "required": false,
+          "description": "paint: { UVoxelMetadata asset path: value } to paint; each value a string, number or boolean, parsed as the metadata's type.",
+          "forms": [
+            "scalarMap"
+          ]
+        },
+        {
+          "name": "graph",
+          "type": "string",
+          "required": false,
+          "description": "apply_graph, required: UVoxelVolumeSculptGraph asset path."
+        },
+        {
+          "name": "parameters",
+          "type": "any",
+          "required": false,
+          "description": "apply_graph: { parameterName: value } overrides on the sculpt graph; each value a string, number or boolean, parsed as the parameter's type.",
+          "forms": [
+            "scalarMap"
+          ]
+        },
+        {
+          "name": "brush",
+          "type": "object",
+          "required": false,
+          "description": "smooth, surface, angle, paint: the brush; type picks its fields. Default a Circular brush.",
+          "oneOf": {
+            "key": "type",
+            "variants": [
+              {
+                "tag": "Circular",
+                "description": "A round brush shaped by its falloff.",
+                "fields": [
+                  {
+                    "name": "falloffType",
+                    "type": "string",
+                    "required": false,
+                    "description": "EVoxelFalloffType; default Smooth.",
+                    "enum": [
+                      "None",
+                      "Linear",
+                      "Smooth",
+                      "Spherical",
+                      "Tip"
+                    ]
+                  },
+                  {
+                    "name": "falloffAmount",
+                    "type": "number",
+                    "required": false,
+                    "description": "Brush falloff 0..1; default 0.5. Pass this or the top-level falloff, not both.",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  {
+                    "name": "hitNormal",
+                    "type": "vec3",
+                    "required": false,
+                    "description": "Surface normal the brush aligns to, non-zero; default up {0,0,1}."
+                  },
+                  {
+                    "name": "strokeDirection",
+                    "type": "vec3",
+                    "required": false,
+                    "description": "Stroke direction, non-zero; default {1,0,0}."
+                  }
+                ]
+              },
+              {
+                "tag": "Alpha",
+                "description": "A texture mask stamped along the stroke.",
+                "fields": [
+                  {
+                    "name": "texture",
+                    "type": "string",
+                    "required": true,
+                    "description": "UVoxelTexture asset path sampled as the brush mask."
+                  },
+                  {
+                    "name": "textureChannel",
+                    "type": "string",
+                    "required": false,
+                    "description": "Texture channel sampled; default R.",
+                    "enum": [
+                      "R",
+                      "G",
+                      "B",
+                      "A"
+                    ]
+                  },
+                  {
+                    "name": "autoRotate",
+                    "type": "boolean",
+                    "required": false,
+                    "description": "Rotate the mask along the stroke; default true."
+                  },
+                  {
+                    "name": "use2DProjection",
+                    "type": "boolean",
+                    "required": false,
+                    "description": "Project the mask in 2D; default false."
+                  },
+                  {
+                    "name": "fixedRotation",
+                    "type": "number",
+                    "required": false,
+                    "description": "Mask rotation in degrees, -360..360; default 0.",
+                    "minimum": -360,
+                    "maximum": 360
+                  },
+                  {
+                    "name": "falloffType",
+                    "type": "string",
+                    "required": false,
+                    "description": "EVoxelFalloffType; default Smooth.",
+                    "enum": [
+                      "None",
+                      "Linear",
+                      "Smooth",
+                      "Spherical",
+                      "Tip"
+                    ]
+                  },
+                  {
+                    "name": "falloffAmount",
+                    "type": "number",
+                    "required": false,
+                    "description": "Brush falloff 0..1; default 0.5. Pass this or the top-level falloff, not both.",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  {
+                    "name": "hitNormal",
+                    "type": "vec3",
+                    "required": false,
+                    "description": "Surface normal the brush aligns to, non-zero; default up {0,0,1}."
+                  },
+                  {
+                    "name": "strokeDirection",
+                    "type": "vec3",
+                    "required": false,
+                    "description": "Stroke direction, non-zero; default {1,0,0}."
+                  }
+                ]
+              },
+              {
+                "tag": "Pattern",
+                "description": "A texture tiled in world space.",
+                "fields": [
+                  {
+                    "name": "texture",
+                    "type": "string",
+                    "required": true,
+                    "description": "UVoxelTexture asset path sampled as the brush mask."
+                  },
+                  {
+                    "name": "textureChannel",
+                    "type": "string",
+                    "required": false,
+                    "description": "Texture channel sampled; default R.",
+                    "enum": [
+                      "R",
+                      "G",
+                      "B",
+                      "A"
+                    ]
+                  },
+                  {
+                    "name": "centerTextureOnOrigin",
+                    "type": "boolean",
+                    "required": false,
+                    "description": "Center the pattern on origin; default false."
+                  },
+                  {
+                    "name": "textureRotation",
+                    "type": "number",
+                    "required": false,
+                    "description": "Pattern rotation in degrees, -360..360; default 0.",
+                    "minimum": -360,
+                    "maximum": 360
+                  },
+                  {
+                    "name": "repeatSize",
+                    "type": "number",
+                    "required": false,
+                    "description": "World size of one pattern repeat in centimetres, > 0; default 1000.",
+                    "minimum": 0.00009999999747378752,
+                    "maximum": 3.3999999521443642e+38
+                  },
+                  {
+                    "name": "origin",
+                    "type": "object",
+                    "required": false,
+                    "description": "Pattern origin {x,y} in world centimetres; default {0,0}.",
+                    "fields": [
+                      {
+                        "name": "x",
+                        "type": "number",
+                        "required": true,
+                        "description": "World X in centimetres."
+                      },
+                      {
+                        "name": "y",
+                        "type": "number",
+                        "required": true,
+                        "description": "World Y in centimetres."
+                      }
+                    ]
+                  },
+                  {
+                    "name": "falloffType",
+                    "type": "string",
+                    "required": false,
+                    "description": "EVoxelFalloffType; default Smooth.",
+                    "enum": [
+                      "None",
+                      "Linear",
+                      "Smooth",
+                      "Spherical",
+                      "Tip"
+                    ]
+                  },
+                  {
+                    "name": "falloffAmount",
+                    "type": "number",
+                    "required": false,
+                    "description": "Brush falloff 0..1; default 0.5. Pass this or the top-level falloff, not both.",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  {
+                    "name": "hitNormal",
+                    "type": "vec3",
+                    "required": false,
+                    "description": "Surface normal the brush aligns to, non-zero; default up {0,0,1}."
+                  },
+                  {
+                    "name": "strokeDirection",
+                    "type": "vec3",
+                    "required": false,
+                    "description": "Stroke direction, non-zero; default {1,0,0}."
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "wait",
+          "type": "boolean",
+          "required": false,
+          "description": "Wait for the edit to finish; default true. false returns queued: true, and the queued edit is covered by neither undo nor the auto-save."
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the content packages this call dirties before replying; default true. Levels are never saved."
+        }
+      ],
+      "choices": [
+        {
+          "mode": "exactlyOne",
+          "branches": [
+            [
+              "actorPath"
+            ],
+            [
+              "actorLabel"
+            ]
+          ]
+        }
+      ]
+    },
+    "voxel_world_configure": {
+      "params": [
+        {
+          "name": "actorPath",
+          "type": "string",
+          "required": false,
+          "description": "AVoxelWorld actor object path; preferred, since labels can repeat."
+        },
+        {
+          "name": "actorLabel",
+          "type": "string",
+          "required": false,
+          "description": "AVoxelWorld actor label; must match exactly one actor."
+        },
+        {
+          "name": "layerStack",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelLayerStack asset path; \"\" or null clears it.",
+          "nullable": true
+        },
+        {
+          "name": "megaMaterial",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelMegaMaterial asset path; \"\" or null clears it.",
+          "nullable": true
+        },
+        {
+          "name": "voxelSize",
+          "type": "integer",
+          "required": false,
+          "description": "Voxel size in centimetres, an integer >= 1; the default world uses 100.",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        {
+          "name": "lodQuality",
+          "type": "object",
+          "required": false,
+          "description": "FVoxelLODQuality merged onto the current value; each interval needs 0 < min <= max after the merge.",
+          "fields": [
+            {
+              "name": "gameQuality",
+              "type": "object",
+              "required": false,
+              "description": "Quality range at game time.",
+              "fields": [
+                {
+                  "name": "min",
+                  "type": "number",
+                  "required": false,
+                  "description": "Lowest quality, > 0; default keeps the current value."
+                },
+                {
+                  "name": "max",
+                  "type": "number",
+                  "required": false,
+                  "description": "Highest quality, >= min; default keeps the current value."
+                }
+              ]
+            },
+            {
+              "name": "editorQuality",
+              "type": "object",
+              "required": false,
+              "description": "Quality range in the editor.",
+              "fields": [
+                {
+                  "name": "min",
+                  "type": "number",
+                  "required": false,
+                  "description": "Lowest quality, > 0; default keeps the current value."
+                },
+                {
+                  "name": "max",
+                  "type": "number",
+                  "required": false,
+                  "description": "Highest quality, >= min; default keeps the current value."
+                }
+              ]
+            },
+            {
+              "name": "alwaysUseGameQuality",
+              "type": "boolean",
+              "required": false,
+              "description": "Use gameQuality in the editor too."
+            }
+          ]
+        },
+        {
+          "name": "qualityExponent",
+          "type": "number",
+          "required": false,
+          "description": "LOD selection bias; higher gives far chunks more resolution. The details panel offers 0.5 to 1.5; default 1."
+        },
+        {
+          "name": "enableNanite",
+          "type": "boolean",
+          "required": false,
+          "description": "Render the voxel mesh with Nanite; default true."
+        },
+        {
+          "name": "enableTessellation",
+          "type": "boolean",
+          "required": false,
+          "description": "Nanite tessellation (displacement); default true."
+        },
+        {
+          "name": "enableLumen",
+          "type": "boolean",
+          "required": false,
+          "description": "Include the voxel mesh in Lumen; default false."
+        },
+        {
+          "name": "enableRaytracing",
+          "type": "boolean",
+          "required": false,
+          "description": "Visible in ray-traced effects; default false."
+        },
+        {
+          "name": "generateMeshDistanceFields",
+          "type": "boolean",
+          "required": false,
+          "description": "Generate mesh distance fields; default false."
+        },
+        {
+          "name": "blockinessMetadata",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelFloatMetadata asset path selecting how blocky each voxel renders; \"\" or null clears it.",
+          "nullable": true
+        },
+        {
+          "name": "renderChunkSize",
+          "type": "string",
+          "required": false,
+          "description": "EVoxelRenderChunkSize render chunk size in voxels; default Size32.",
+          "enum": [
+            "Size32",
+            "Size64",
+            "Size128",
+            "Size256"
+          ]
+        },
+        {
+          "name": "useCameraAsInvoker",
+          "type": "boolean",
+          "required": false,
+          "description": "Use the camera as an LOD invoker; default true."
+        },
+        {
+          "name": "createRuntimeOnBeginPlay",
+          "type": "boolean",
+          "required": false,
+          "description": "Create the runtime on BeginPlay; false needs a manual CreateRuntime. Default true."
+        },
+        {
+          "name": "waitOnBeginPlay",
+          "type": "boolean",
+          "required": false,
+          "description": "Block BeginPlay until the world is generated; default true."
+        },
+        {
+          "name": "limitMaxLOD",
+          "type": "boolean",
+          "required": false,
+          "description": "Enable the maxLOD render cap; default false."
+        },
+        {
+          "name": "maxLOD",
+          "type": "integer",
+          "required": false,
+          "description": "With limitMaxLOD, chunks with a LOD strictly above this are not rendered; an int32, default 30.",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        {
+          "name": "maxBackgroundTasks",
+          "type": "integer",
+          "required": false,
+          "description": "Background task cap, an integer >= 1; default 256.",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        {
+          "name": "doubleSidedCollision",
+          "type": "boolean",
+          "required": false,
+          "description": "Double-sided collision; default false."
+        },
+        {
+          "name": "generateOverlapEvents",
+          "type": "boolean",
+          "required": false,
+          "description": "Collision generates overlap events; default false."
+        },
+        {
+          "name": "collisionChunkSize",
+          "type": "integer",
+          "required": false,
+          "description": "Invoker collision chunk size in voxels, an integer >= 1; default 32.",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        {
+          "name": "overrideCollisionVoxelSize",
+          "type": "boolean",
+          "required": false,
+          "description": "Use collisionVoxelSize instead of voxelSize for collision; default false."
+        },
+        {
+          "name": "collisionVoxelSize",
+          "type": "integer",
+          "required": false,
+          "description": "Collision voxel size in centimetres, an integer >= 1; default 100.",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        {
+          "name": "enableNavigation",
+          "type": "boolean",
+          "required": false,
+          "description": "Generate navigation on voxel chunks; default true."
+        },
+        {
+          "name": "navigationChunkSize",
+          "type": "integer",
+          "required": false,
+          "description": "Navigation chunk size in voxels, an integer >= 1; default 32.",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        {
+          "name": "generateNavigationInsideNavMeshBounds",
+          "type": "boolean",
+          "required": false,
+          "description": "Generate navigation on every chunk inside NavMeshBoundsVolumes, expensive for large bounds; default false."
+        },
+        {
+          "name": "onlyGenerateNavigationInEditor",
+          "type": "boolean",
+          "required": false,
+          "description": "Only generate navigation in the editor, for baking; default false."
+        },
+        {
+          "name": "overrideNavigationVoxelSize",
+          "type": "boolean",
+          "required": false,
+          "description": "Use navigationVoxelSize instead of voxelSize for navigation; default false."
+        },
+        {
+          "name": "navigationVoxelSize",
+          "type": "integer",
+          "required": false,
+          "description": "Navigation voxel size in centimetres, an integer >= 1; default 100.",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        {
+          "name": "renderScatterActors",
+          "type": "boolean",
+          "required": false,
+          "description": "Render scatter actors; default true."
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the content packages this call dirties before replying; default true. Levels are never saved."
+        }
+      ],
+      "choices": [
+        {
+          "mode": "exactlyOne",
+          "branches": [
+            [
+              "actorPath"
+            ],
+            [
+              "actorLabel"
+            ]
+          ]
+        },
+        {
+          "mode": "atLeastOne",
+          "branches": [
+            [
+              "layerStack"
+            ],
+            [
+              "megaMaterial"
+            ],
+            [
+              "voxelSize"
+            ],
+            [
+              "lodQuality"
+            ],
+            [
+              "qualityExponent"
+            ],
+            [
+              "enableNanite"
+            ],
+            [
+              "enableTessellation"
+            ],
+            [
+              "enableLumen"
+            ],
+            [
+              "enableRaytracing"
+            ],
+            [
+              "generateMeshDistanceFields"
+            ],
+            [
+              "blockinessMetadata"
+            ],
+            [
+              "renderChunkSize"
+            ],
+            [
+              "useCameraAsInvoker"
+            ],
+            [
+              "createRuntimeOnBeginPlay"
+            ],
+            [
+              "waitOnBeginPlay"
+            ],
+            [
+              "limitMaxLOD"
+            ],
+            [
+              "maxLOD"
+            ],
+            [
+              "maxBackgroundTasks"
+            ],
+            [
+              "doubleSidedCollision"
+            ],
+            [
+              "generateOverlapEvents"
+            ],
+            [
+              "collisionChunkSize"
+            ],
+            [
+              "overrideCollisionVoxelSize"
+            ],
+            [
+              "collisionVoxelSize"
+            ],
+            [
+              "enableNavigation"
+            ],
+            [
+              "navigationChunkSize"
+            ],
+            [
+              "generateNavigationInsideNavMeshBounds"
+            ],
+            [
+              "onlyGenerateNavigationInEditor"
+            ],
+            [
+              "overrideNavigationVoxelSize"
+            ],
+            [
+              "navigationVoxelSize"
+            ],
+            [
+              "renderScatterActors"
+            ]
+          ]
+        }
+      ]
+    },
+    "voxel_world_runtime": {
+      "params": [
+        {
+          "name": "actorPath",
+          "type": "string",
+          "required": false,
+          "description": "AVoxelWorld actor object path; preferred, since labels can repeat."
+        },
+        {
+          "name": "actorLabel",
+          "type": "string",
+          "required": false,
+          "description": "AVoxelWorld actor label; must match exactly one actor."
+        },
+        {
+          "name": "op",
+          "type": "string",
+          "required": true,
+          "description": "create builds the world's runtime, destroy releases it; transient and not undoable.",
+          "enum": [
+            "create",
+            "destroy"
+          ]
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the content packages this call dirties before replying; default true. Levels are never saved."
+        }
+      ],
+      "choices": [
+        {
+          "mode": "exactlyOne",
+          "branches": [
+            [
+              "actorPath"
+            ],
+            [
+              "actorLabel"
+            ]
+          ]
+        }
+      ]
+    },
+    "voxel_world_spawn": {
+      "params": [
+        {
+          "name": "label",
+          "type": "string",
+          "required": false,
+          "description": "Actor label; default the engine's generated label."
+        },
+        {
+          "name": "location",
+          "type": "vec3",
+          "required": false,
+          "description": "World location in centimetres; default the origin."
+        },
+        {
+          "name": "rotation",
+          "type": "rotator",
+          "required": false,
+          "description": "World rotation in degrees; default zero."
+        },
+        {
+          "name": "layerStack",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelLayerStack asset path; \"\" or null clears it.",
+          "nullable": true
+        },
+        {
+          "name": "megaMaterial",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelMegaMaterial asset path; \"\" or null clears it.",
+          "nullable": true
+        },
+        {
+          "name": "voxelSize",
+          "type": "integer",
+          "required": false,
+          "description": "Voxel size in centimetres, an integer >= 1; the default world uses 100.",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the content packages this call dirties before replying; default true. Levels are never saved."
+        }
+      ],
+      "contractExempt": "Every parameter is optional, so the contract values spawn a voxel world before anything can fail"
+    },
+    "voxel_world_status": {
+      "params": [
+        {
+          "name": "actorPath",
+          "type": "string",
+          "required": false,
+          "description": "AVoxelWorld actor object path; preferred, since labels can repeat."
+        },
+        {
+          "name": "actorLabel",
+          "type": "string",
+          "required": false,
+          "description": "AVoxelWorld actor label; must match exactly one actor."
+        }
+      ],
+      "choices": [
+        {
+          "mode": "exactlyOne",
+          "branches": [
+            [
+              "actorPath"
+            ],
+            [
+              "actorLabel"
+            ]
+          ]
+        }
+      ]
+    }
+  }
+}

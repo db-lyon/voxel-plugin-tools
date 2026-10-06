@@ -5,6 +5,8 @@
 #include "VoxelGraphTracker.h"
 #include "VoxelToolsCommon.h"
 
+DEFINE_LOG_CATEGORY_STATIC(LogVoxelPluginTools, Log, All);
+
 namespace
 {
 	// Read-only handlers skip the save bookkeeping. Must match `effect: read` in ue-mcp.plugin.yml (scripts/check.mjs).
@@ -34,8 +36,11 @@ namespace
 	// Content packages a call marked dirty, directly or through Voxel side effects (graph migration, sculpting
 	// into a linked asset), are saved before replying unless save:false. Levels never are: GetDirtyContentPackages
 	// excludes map and external-actor packages, and saving the level stays the user's decision.
-	TSharedPtr<FJsonValue> RunHandler(const FString& Name, const UEMCP::FExternalHandlerFn& Fn, const TSharedPtr<FJsonObject>& InParams)
+	// The bridge has already held the call to the handler's contract (UEMCP::ContractViolation) before this runs.
+	TSharedPtr<FJsonValue> RunHandler(const VoxelPluginTools::FHandlerEntry& Entry, const TSharedPtr<FJsonObject>& InParams)
 	{
+		const FString& Name = Entry.Name;
+		const UEMCP::FExternalHandlerFn& Fn = Entry.Fn;
 		const TSharedPtr<FJsonObject> Params = InParams.IsValid() ? InParams : MakeShared<FJsonObject>();
 		if (ReadHandlers.Contains(Name))
 		{
@@ -107,20 +112,39 @@ class FVoxelPluginToolsModule : public IModuleInterface
 public:
 	virtual void StartupModule() override
 	{
-		for (const VoxelPluginTools::FHandlerEntry& Entry : VoxelPluginTools::GetHandlers())
+		const TArray<VoxelPluginTools::FHandlerEntry>& Handlers = VoxelPluginTools::GetHandlers();
+		TSet<FString> Names;
+		for (const VoxelPluginTools::FHandlerEntry& Entry : Handlers)
 		{
-			UEMCP::FExternalHandlerFn Wrapped = [Name = Entry.Name, Fn = Entry.Fn](const TSharedPtr<FJsonObject>& Params)
+			Names.Add(Entry.Name);
+			// GetHandlers() is a function-local static, so the entry outlives every registration.
+			UEMCP::FExternalHandlerFn Wrapped = [&Entry](const TSharedPtr<FJsonObject>& Params)
 			{
-				return RunHandler(Name, Fn, Params);
+				return RunHandler(Entry, Params);
 			};
-			if (const float* Timeout = LongHandlers.Find(Entry.Name))
+			const float* Timeout = LongHandlers.Find(Entry.Name);
+			if (!UEMCP::RegisterExternalHandler(Entry.Name, MoveTemp(Wrapped), Entry.Params, Entry.Rules, Timeout ? *Timeout : 0.f))
 			{
-				UEMCP::RegisterExternalHandlerWithTimeout(Entry.Name, MoveTemp(Wrapped), *Timeout);
+				UE_LOG(LogVoxelPluginTools, Error, TEXT("%s: the bridge refused its parameter contract (LogMCPBridge says why); the handler is registered without one and ue-mcp will not surface it"), *Entry.Name);
 			}
-			else
+		}
+
+		// The contract is what ue-mcp surfaces and validates; a handler without one is unreachable from the server.
+		for (const VoxelPluginTools::FHandlerEntry& Entry : Handlers)
+		{
+			FMCPHandlerSpec Spec;
+			if (!UEMCP::LookupExternalHandlerSpec(Entry.Name, Spec))
 			{
-				UEMCP::RegisterExternalHandler(Entry.Name, MoveTemp(Wrapped));
+				UE_LOG(LogVoxelPluginTools, Error, TEXT("%s has no registered parameter contract"), *Entry.Name);
 			}
+		}
+		for (const FString& Name : ReadHandlers)
+		{
+			if (!Names.Contains(Name)) UE_LOG(LogVoxelPluginTools, Error, TEXT("ReadHandlers names %s, which is not a registered handler"), *Name);
+		}
+		for (const TPair<FString, float>& Pair : LongHandlers)
+		{
+			if (!Names.Contains(Pair.Key)) UE_LOG(LogVoxelPluginTools, Error, TEXT("LongHandlers names %s, which is not a registered handler"), *Pair.Key);
 		}
 	}
 

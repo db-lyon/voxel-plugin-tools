@@ -3,6 +3,7 @@
 #include "Editor.h"
 #include "EngineUtils.h"
 #include "GameFramework/Actor.h"
+#include "Misc/PackageName.h"
 
 #include "VoxelPinType.h"
 #include "VoxelPinValue.h"
@@ -35,9 +36,9 @@ namespace VoxelPluginTools
 		case EJson::Object:
 		{
 			TSharedRef<FJsonObject> Object = MakeShared<FJsonObject>();
-			for (const TPair<FString, TSharedPtr<FJsonValue>>& Pair : Value->AsObject()->Values)
+			for (const auto& Pair : Value->AsObject()->Values)
 			{
-				Object->SetField(Pair.Key, SanitizeJson(Pair.Value));
+				Object->SetField(FString(*Pair.Key), SanitizeJson(Pair.Value));
 			}
 			return MakeShared<FJsonValueObject>(Object);
 		}
@@ -95,33 +96,68 @@ namespace VoxelPluginTools
 		return Params.IsValid() && Params->HasField(Field);
 	}
 
+	bool OnlyKeys(const FParams& Params, TConstArrayView<const TCHAR*> Allowed, const FString& Context, FString& OutError)
+	{
+		if (!Params.IsValid())
+		{
+			return true;
+		}
+		for (const auto& Pair : Params->Values)
+		{
+			if (!Allowed.ContainsByPredicate([&](const TCHAR* Name) { return FString(*Pair.Key).Equals(Name, ESearchCase::CaseSensitive); }))
+			{
+				TArray<FString> Names;
+				for (const TCHAR* Name : Allowed) Names.Add(Name);
+				OutError = FString::Printf(TEXT("%s does not apply to %s, which takes: %s"), *Pair.Key, *Context, *FString::Join(Names, TEXT(", ")));
+				return false;
+			}
+		}
+		return true;
+	}
+
+	namespace
+	{
+		// The named JSON numbers of an object, all required: no coercion from strings or booleans, no default.
+		bool Numbers(const FParams& Params, const TCHAR* Field, std::initializer_list<const TCHAR*> Names, TArray<double>& Out)
+		{
+			const TSharedPtr<FJsonValue> Value = Params.IsValid() ? Params->TryGetField(Field) : nullptr;
+			if (!Value.IsValid() || Value->Type != EJson::Object)
+			{
+				return false;
+			}
+			const TSharedPtr<FJsonObject> Object = Value->AsObject();
+			for (const TCHAR* Name : Names)
+			{
+				const TSharedPtr<FJsonValue> Number = Object->TryGetField(Name);
+				if (!Number.IsValid() || Number->Type != EJson::Number || !FMath::IsFinite(Number->AsNumber()))
+				{
+					return false;
+				}
+				Out.Add(Number->AsNumber());
+			}
+			return Object->Values.Num() == static_cast<int32>(Names.size());
+		}
+	}
+
 	bool Vec(const FParams& Params, const TCHAR* Field, FVector& Out)
 	{
-		const TSharedPtr<FJsonObject>* Object = nullptr;
-		if (!Params.IsValid() || !Params->TryGetObjectField(Field, Object))
+		TArray<double> V;
+		if (!Numbers(Params, Field, { TEXT("x"), TEXT("y"), TEXT("z") }, V))
 		{
 			return false;
 		}
-		double X = 0, Y = 0, Z = 0;
-		const bool bAll = (*Object)->TryGetNumberField(TEXT("x"), X) &
-			(*Object)->TryGetNumberField(TEXT("y"), Y) &
-			(*Object)->TryGetNumberField(TEXT("z"), Z);
-		Out = FVector(X, Y, Z);
-		return bAll;
+		Out = FVector(V[0], V[1], V[2]);
+		return true;
 	}
 
 	bool Rot(const FParams& Params, const TCHAR* Field, FRotator& Out)
 	{
-		const TSharedPtr<FJsonObject>* Object = nullptr;
-		if (!Params.IsValid() || !Params->TryGetObjectField(Field, Object))
+		TArray<double> V;
+		if (!Numbers(Params, Field, { TEXT("pitch"), TEXT("yaw"), TEXT("roll") }, V))
 		{
 			return false;
 		}
-		double Pitch = 0, Yaw = 0, Roll = 0;
-		(*Object)->TryGetNumberField(TEXT("pitch"), Pitch);
-		(*Object)->TryGetNumberField(TEXT("yaw"), Yaw);
-		(*Object)->TryGetNumberField(TEXT("roll"), Roll);
-		Out = FRotator(Pitch, Yaw, Roll);
+		Out = FRotator(V[0], V[1], V[2]);
 		return true;
 	}
 
@@ -211,11 +247,35 @@ namespace VoxelPluginTools
 
 	bool ParseValue(FVoxelPinValue& Value, const FString& In)
 	{
-		const FString Text = In.TrimStartAndEnd();
+		FString Text = In.TrimStartAndEnd();
 		const FVoxelPinType& Type = Value.GetType();
+		if (Value.IsObject())
+		{
+			if (Text.IsEmpty() || Text == TEXT("None"))
+			{
+				return Value.ImportFromString(TEXT("None"));
+			}
+			// Accept a bare package path: /Game/Foo/Bar means /Game/Foo/Bar.Bar.
+			if (!Text.Contains(TEXT(".")) && Text.StartsWith(TEXT("/")))
+			{
+				Text += TEXT(".") + FPackageName::GetShortName(Text);
+			}
+			// An object that does not resolve imports as null and Voxel's fixup then drops the override silently.
+			return Value.ImportFromString(Text) && Value.GetObject() != nullptr;
+		}
+		if (Text.IsEmpty())
+		{
+			// ImportFromString leaves a struct, name or vector at its default for empty text.
+			return false;
+		}
 		if (Type.Is<float>() || Type.Is<double>() || Type.Is<int32>() || Type.Is<int64>())
 		{
 			if (!Text.IsNumeric())
+			{
+				return false;
+			}
+			// ImportFromString truncates 5.5 into an integer.
+			if ((Type.Is<int32>() || Type.Is<int64>()) && Text.Contains(TEXT(".")))
 			{
 				return false;
 			}
@@ -231,24 +291,21 @@ namespace VoxelPluginTools
 		return Value.ImportFromString(Text);
 	}
 
-	FString ValueText(const TSharedPtr<FJsonValue>& Value)
+	bool ScalarText(const TSharedPtr<FJsonValue>& Value, FString& Out)
 	{
-		FString Text;
-		if (!Value.IsValid() || Value->TryGetString(Text))
+		Out.Reset();
+		if (!Value.IsValid() || Value->Type == EJson::Null)
 		{
-			return Text;
+			return true;
 		}
-		double Number = 0;
-		bool bBool = false;
-		if (Value->TryGetNumber(Number))
-		{
-			return FString::SanitizeFloat(Number);
-		}
-		if (Value->TryGetBool(bBool))
-		{
-			return bBool ? TEXT("true") : TEXT("false");
-		}
-		return Text;
+		// A number reads as SanitizeFloat(v, 0) ("5", "5.5") and a boolean as "true" / "false".
+		return (Value->Type == EJson::String || Value->Type == EJson::Number || Value->Type == EJson::Boolean) && Value->TryGetString(Out);
+	}
+
+	bool ScalarField(const FParams& Params, const TCHAR* Field, FString& Out)
+	{
+		const TSharedPtr<FJsonValue> Value = Params.IsValid() ? Params->TryGetField(Field) : nullptr;
+		return Value.IsValid() && Value->Type != EJson::Null && ScalarText(Value, Out);
 	}
 
 	bool ParsePinType(const FString& In, FVoxelPinType& Out, FString& OutError)
@@ -297,6 +354,14 @@ namespace VoxelPluginTools
 	{
 		const FString StackPath = Str(Params, StackField);
 		const FString LayerPath = Str(Params, LayerField);
+		for (const TCHAR* Field : { StackField, LayerField })
+		{
+			if (Has(Params, Field) && Str(Params, Field).IsEmpty())
+			{
+				OutError = FString::Printf(TEXT("%s must not be empty; omit it for the project default"), Field);
+				return false;
+			}
+		}
 
 		Out.Stack = StackPath.IsEmpty() ? UVoxelLayerStack::Default() : Load<UVoxelLayerStack>(StackPath, OutError);
 		if (!Out.Stack)
@@ -322,6 +387,61 @@ namespace VoxelPluginTools
 		Out->SetStringField(TEXT("class"), Actor.GetClass()->GetName());
 		Out->SetObjectField(TEXT("location"), VecJson(Actor.GetActorLocation()));
 		return Out;
+	}
+
+	namespace Spec
+	{
+		FMCPParamSpec ActorPath(const TCHAR* Description)
+		{
+			return MCPParam::Optional(TEXT("actorPath"), EMCPParamType::String, Description);
+		}
+
+		FMCPParamSpec ActorLabel(const TCHAR* Description)
+		{
+			return MCPParam::Optional(TEXT("actorLabel"), EMCPParamType::String, Description);
+		}
+
+		FMCPSpecRules OneActor()
+		{
+			return MCPSpec::ExactlyOne({ { TEXT("actorPath") }, { TEXT("actorLabel") } });
+		}
+
+		FMCPParamSpec ComponentName(const TCHAR* Description)
+		{
+			return MCPParam::Optional(TEXT("componentName"), EMCPParamType::String, Description);
+		}
+
+		FMCPParamSpec SaveDirty()
+		{
+			return Save(TEXT("Save the content packages this call dirties before replying; default true. Levels are never saved."));
+		}
+
+		FMCPParamSpec Save(const TCHAR* Description)
+		{
+			return MCPParam::Optional(TEXT("save"), EMCPParamType::Boolean, Description);
+		}
+
+		FMCPParamSpec Vec3(const TCHAR* Name, const TCHAR* Description)
+		{
+			return MCPParam::Optional(Name, EMCPParamType::Vec3, Description);
+		}
+
+		FMCPParamSpec ValueMap(const TCHAR* Name, bool bRequired, const TCHAR* Description)
+		{
+			FMCPParamSpec Param = MCPParam::Optional(Name, EMCPParamType::Any, Description).OneOfForms({ EMCPValueForm::ScalarMap });
+			Param.bRequired = bRequired;
+			return Param;
+		}
+
+		TArray<TArray<FString>> Branches(const TArray<FMCPParamSpec>& Params)
+		{
+			TArray<TArray<FString>> Out;
+			for (const FMCPParamSpec& Param : Params)
+			{
+				Out.Add({ Param.Name });
+			}
+			return Out;
+		}
 	}
 
 	const TArray<FHandlerEntry>& GetHandlers()
