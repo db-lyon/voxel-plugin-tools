@@ -175,6 +175,28 @@ await step("asset_create skip existing", "voxel_asset_create", { type: "surface_
 await step("graph has output node", "voxel_graph_read", { assetPath: `${P}/HG_Smoke`, includePins: false }, (r) =>
   r.nodes.some((n) => /Output Height/.test(n.title)) || "factory did not duplicate the template");
 
+// Graph instances: inherit the base's nodes, override its parameters, leave the base untouched.
+await step("instance base parameter", "voxel_graph_add_parameter", { assetPath: `${P}/HG_Smoke`, name: "Amp", type: "float", default: 1 });
+await step("asset_create instanceOf", "voxel_asset_create", { type: "height_graph", name: "HG_SmokeInstance", packagePath: P, instanceOf: `${P}/HG_Smoke` },
+  (r) => (r.created === true && r.instanceOf === `${P}/HG_Smoke.HG_Smoke`) || `instanceOf ${r.instanceOf}`);
+await step("instance reads its base's nodes", "voxel_graph_read", { assetPath: `${P}/HG_SmokeInstance`, includePins: false },
+  (r) => (!r.terminalGraphs.some((g) => g.isMain) && r.baseGraph === `${P}/HG_Smoke.HG_Smoke` && r.nodesFrom === r.baseGraph
+    && r.nodes.some((n) => /Output Height/.test(n.title))) || JSON.stringify({ t: r.terminalGraphs, b: r.baseGraph, f: r.nodesFrom }));
+await step("instance refuses a node edit", "voxel_graph_add_node", { assetPath: `${P}/HG_SmokeInstance`, nodeType: "Add" },
+  undefined, { expectError: /inherits this terminal graph/ });
+await step("instance refuses a new parameter", "voxel_graph_add_parameter", { assetPath: `${P}/HG_SmokeInstance`, name: "Extra", type: "float" },
+  undefined, { expectError: /inherits this terminal graph/ });
+await step("instance overrides a parameter", "voxel_graph_set_parameter_default", { assetPath: `${P}/HG_SmokeInstance`, name: "Amp", value: 5 },
+  (r) => r.parameters.find((p) => p.name === "Amp")?.default === "5.000000" || JSON.stringify(r.parameters));
+await step("base keeps its default", "voxel_graph_read", { assetPath: `${P}/HG_Smoke`, includePins: false },
+  (r) => r.parameters.find((p) => p.name === "Amp")?.default === "1.000000" || JSON.stringify(r.parameters));
+await step("instanceOf refuses a non-graph type", "voxel_asset_create", { type: "surface_type", name: "ST_NotInstance", packagePath: P, instanceOf: `${P}/HG_Smoke` },
+  undefined, { expectError: /instanceOf applies to graph types only/ });
+await step("instanceOf refuses a base of another graph type", "voxel_asset_create", { type: "volume_graph", name: "VG_NotInstance", packagePath: P, instanceOf: `${P}/HG_Smoke` },
+  undefined, { expectError: /needs a/ });
+await step("instanceOf refuses an existing non-instance", "voxel_asset_create", { type: "height_graph", name: "HG_Smoke", packagePath: P, instanceOf: `${P}/HG_SmokeInstance` },
+  undefined, { expectError: /is not an instance of/ });
+
 await step("surface_type_set", "voxel_surface_type_set", { assetPath: `${P}/ST_Grass`, material: "/Engine/BasicShapes/BasicShapeMaterial" });
 await step("mega_material_set_surfaces", "voxel_mega_material_set_surfaces", { assetPath: `${P}/MM_Smoke`, surfaceTypes: [`${P}/ST_Grass`, `${P}/ST_Dirt`] });
 await step("layer_stack_set", "voxel_layer_stack_set", { assetPath: `${P}/LS_Smoke`, heightLayers: [`${P}/HL_Smoke`] });

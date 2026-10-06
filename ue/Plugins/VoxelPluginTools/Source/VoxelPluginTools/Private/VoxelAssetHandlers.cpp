@@ -13,6 +13,7 @@
 #include "VoxelMinimal.h"
 #include "VoxelMinimal/VoxelAutoFactoryInterface.h"
 #include "VoxelGraph.h"
+#include "VoxelTerminalGraph.h"
 #include "VoxelParameter.h"
 #include "VoxelPinType.h"
 #include "VoxelPinValue.h"
@@ -631,6 +632,23 @@ namespace
 			return Error(Err);
 		}
 
+		// An instance inherits its base graph's terminal graphs and overrides its parameters.
+		UVoxelGraph* BaseGraph = nullptr;
+		if (Has(Params, TEXT("instanceOf")))
+		{
+			if (!Class->IsChildOf(UVoxelGraph::StaticClass()) || TypeKey == TEXT("function_library"))
+			{
+				return Error(FString::Printf(TEXT("instanceOf applies to graph types only, not %s"), *TypeKey));
+			}
+			BaseGraph = Load<UVoxelGraph>(Str(Params, TEXT("instanceOf")), Err);
+			if (!BaseGraph) return Error(Err);
+			if (!BaseGraph->IsA(Class))
+			{
+				return Error(FString::Printf(TEXT("instanceOf %s is a %s; a %s instance needs a %s base"),
+					*BaseGraph->GetPathName(), *BaseGraph->GetClass()->GetName(), *TypeKey, *Class->GetName()));
+			}
+		}
+
 		const FString ObjectPath = PackageName + TEXT(".") + Name;
 		UObject* Existing = FindObject<UObject>(nullptr, *ObjectPath);
 		const bool bPackageExists = FindPackage(nullptr, *PackageName) || FPackageName::DoesPackageExist(PackageName);
@@ -653,6 +671,10 @@ namespace
 			{
 				return Error(FString::Printf(TEXT("%s exists as %s, not %s"), *ObjectPath, *Existing->GetClass()->GetName(), *Class->GetName()));
 			}
+			if (BaseGraph && CastChecked<UVoxelGraph>(Existing)->GetBaseGraph_Unsafe() != BaseGraph)
+			{
+				return Error(FString::Printf(TEXT("%s exists but is not an instance of %s"), *ObjectPath, *BaseGraph->GetPathName()));
+			}
 			TSharedRef<FJsonObject> Out = AssetJson(*Existing);
 			Out->SetBoolField(TEXT("created"), false);
 			Out->SetBoolField(TEXT("existed"), true);
@@ -666,8 +688,23 @@ namespace
 		{
 			return Error(FString::Printf(TEXT("CreateAsset failed for %s (%s)"), *ObjectPath, *Class->GetName()));
 		}
+		if (BaseGraph)
+		{
+			// What Voxel's own "Create Instance" does: point at the base, then drop the factory's own main
+			// terminal graph so the base's is the one compiled.
+			UVoxelGraph* Instance = CastChecked<UVoxelGraph>(Asset);
+			Instance->SetBaseGraph(BaseGraph);
+			UVoxelTerminalGraph& OwnMain = Instance->GetMainTerminalGraph();
+			OwnMain.Modify();
+			Instance->RemoveTerminalGraph(GVoxelMainTerminalGraphGuid);
+			OwnMain.MarkAsGarbage();
+		}
 
 		TSharedRef<FJsonObject> Out = AssetJson(*Asset);
+		if (BaseGraph)
+		{
+			Out->SetStringField(TEXT("instanceOf"), BaseGraph->GetPathName());
+		}
 		Out->SetBoolField(TEXT("created"), true);
 		Out->SetBoolField(TEXT("existed"), false);
 		Out->SetBoolField(TEXT("changed"), true);
@@ -1243,6 +1280,8 @@ void AddAssetHandlers(TArray<FHandlerEntry>& Out)
 		MCPParam::Optional(TEXT("onConflict"), EMCPParamType::String,
 			TEXT("When the asset exists: skip returns it with existed: true (an error if it is another class), error refuses. An existing asset is never overwritten. Default skip."))
 			.Enum({ TEXT("error"), TEXT("skip") }),
+		MCPParam::Optional(TEXT("instanceOf"), EMCPParamType::String,
+			TEXT("Graph types only: base graph of the same type; the new asset is an instance that inherits its nodes, and its parameters are overridden with voxel_graph_set_parameter_default.")),
 		SavePackage(),
 	}, MCPSpec::ContractExempt(TEXT("Creates and saves an asset named by the contract values before anything can fail")) });
 
