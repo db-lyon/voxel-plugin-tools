@@ -2,7 +2,7 @@
 # this to neither Python nor reflection). Actors are addressed by actorPath (stable) or
 # actorLabel; rotations are {pitch,yaw,roll}.
 actionPrefix: voxel
-minServerVersion: 1.3.10-beta.12
+minServerVersion: 1.3.10-beta.13
 uePluginDependency: Voxel
 nativeModule:
   uePluginName: VoxelPluginTools
