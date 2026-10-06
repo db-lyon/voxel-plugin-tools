@@ -13,6 +13,7 @@ Conventions:
 - Sculpt brushes name their `type` (`Circular`, `Alpha`, `Pattern`), which decides the fields they take; set the brush falloff with `falloff` or `brush.falloffAmount`, not both.
 - Existing assets are never overwritten: `voxel_asset_create` returns them with `existed: true`.
 - Graph assets come from their factory, so a new height graph already has Advanced Noise 2D wired to Output Height.
+- `instanceOf` on `voxel_asset_create` makes a graph instance: it inherits the base graph's nodes and overrides its parameters with `voxel_graph_set_parameter_default`. Node and parameter edits on an instance are refused; edit the base.
 
 Terrain in five calls:
 1. `voxel(action="voxel_asset_create", type="height_graph", name="HG_Terrain", packagePath="/Game/Terrain")`

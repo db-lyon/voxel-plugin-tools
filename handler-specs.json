@@ -96,6 +96,12 @@
           ]
         },
         {
+          "name": "instanceOf",
+          "type": "string",
+          "required": false,
+          "description": "Graph types only: base graph of the same type; the new asset is an instance that inherits its nodes, and its parameters are overridden with voxel_graph_set_parameter_default."
+        },
+        {
           "name": "save",
           "type": "boolean",
           "required": false,

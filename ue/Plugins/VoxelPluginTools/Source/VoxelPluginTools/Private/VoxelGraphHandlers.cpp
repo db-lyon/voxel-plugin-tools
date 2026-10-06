@@ -45,7 +45,10 @@ namespace
 		UEdGraph* EdGraph = nullptr;
 	};
 
-	FString ResolveGraph(const FParams& Params, FGraphTarget& Out)
+	// Edit refuses a terminal graph an instance inherits: the edit would land in, and save, its base graph.
+	enum class EGraphAccess { Read, Edit };
+
+	FString ResolveGraph(const FParams& Params, FGraphTarget& Out, EGraphAccess Access)
 	{
 		FString Err;
 		// Load accepts a bare package path (/Game/A/B), as every other handler's asset path does.
@@ -62,11 +65,11 @@ namespace
 		}
 		if (TerminalGuid.IsEmpty())
 		{
-			if (!Out.Graph->HasMainTerminalGraph())
+			Out.Terminal = Out.Graph->IsFunctionLibrary() ? nullptr : Out.Graph->GetMainTerminalGraph_CheckBaseGraphs();
+			if (!Out.Terminal)
 			{
 				return TEXT("Graph has no main terminal graph; pass terminalGraph");
 			}
-			Out.Terminal = &Out.Graph->GetMainTerminalGraph();
 		}
 		else
 		{
@@ -75,11 +78,16 @@ namespace
 			{
 				return FString::Printf(TEXT("terminalGraph '%s' is not a GUID"), *TerminalGuid);
 			}
-			Out.Terminal = Out.Graph->FindTerminalGraph_NoInheritance(Guid);
+			Out.Terminal = Out.Graph->FindTerminalGraph(Guid);
 			if (!Out.Terminal)
 			{
 				return FString::Printf(TEXT("No terminal graph %s in this graph"), *TerminalGuid);
 			}
+		}
+		if (Access == EGraphAccess::Edit && &Out.Terminal->GetGraph() != Out.Graph)
+		{
+			return FString::Printf(TEXT("%s is an instance of %s and inherits this terminal graph; edit %s, or override parameters with voxel_graph_set_parameter_default"),
+				*Out.Graph->GetPathName(), *Out.Terminal->GetGraph().GetPathName(), *Out.Terminal->GetGraph().GetPathName());
 		}
 		Out.EdGraph = &Out.Terminal->GetEdGraph();
 		return FString();
@@ -436,10 +444,16 @@ namespace
 	FResult GraphRead(const FParams& Params)
 	{
 		FGraphTarget Target;
-		if (const FString Err = ResolveGraph(Params, Target); !Err.IsEmpty()) return Error(Err);
+		if (const FString Err = ResolveGraph(Params, Target, EGraphAccess::Read); !Err.IsEmpty()) return Error(Err);
 
 		TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
 		Out->SetStringField(TEXT("graphClass"), Target.Graph->GetClass()->GetName());
+		if (const UVoxelGraph* Base = Target.Graph->GetBaseGraph_Unsafe())
+		{
+			Out->SetStringField(TEXT("baseGraph"), Base->GetPathName());
+		}
+		// The terminal graph nodes is read from; another graph's when it is inherited.
+		Out->SetStringField(TEXT("nodesFrom"), Target.Terminal->GetGraph().GetPathName());
 
 		TArray<TSharedPtr<FJsonValue>> Terminals;
 		Target.Graph->ForeachTerminalGraph_NoInheritance([&](const UVoxelTerminalGraph& Terminal)
@@ -470,7 +484,7 @@ namespace
 	FResult ListNodeTypes(const FParams& Params)
 	{
 		FGraphTarget Target;
-		if (const FString Err = ResolveGraph(Params, Target); !Err.IsEmpty()) return Error(Err);
+		if (const FString Err = ResolveGraph(Params, Target, EGraphAccess::Read); !Err.IsEmpty()) return Error(Err);
 
 		const FString Query = Str(Params, TEXT("query"));
 		const int32 Limit = static_cast<int32>(Num(Params, TEXT("limit"), 100));
@@ -510,7 +524,7 @@ namespace
 	FResult AddNode(const FParams& Params)
 	{
 		FGraphTarget Target;
-		if (const FString Err = ResolveGraph(Params, Target); !Err.IsEmpty()) return Error(Err);
+		if (const FString Err = ResolveGraph(Params, Target, EGraphAccess::Edit); !Err.IsEmpty()) return Error(Err);
 
 		const FString Wanted = Str(Params, TEXT("nodeType"));
 		if (Wanted.IsEmpty()) return Error(TEXT("nodeType is required (a key from voxel_graph_list_node_types)"));
@@ -554,7 +568,7 @@ namespace
 	FResult Connect(const FParams& Params, bool bConnect)
 	{
 		FGraphTarget Target;
-		if (const FString Err = ResolveGraph(Params, Target); !Err.IsEmpty()) return Error(Err);
+		if (const FString Err = ResolveGraph(Params, Target, EGraphAccess::Edit); !Err.IsEmpty()) return Error(Err);
 
 		FString Err;
 		UEdGraphNode* From = FindNode(*Target.EdGraph, Str(Params, TEXT("fromNode")), Err);
@@ -607,7 +621,7 @@ namespace
 	FResult SetPinDefault(const FParams& Params)
 	{
 		FGraphTarget Target;
-		if (const FString Err = ResolveGraph(Params, Target); !Err.IsEmpty()) return Error(Err);
+		if (const FString Err = ResolveGraph(Params, Target, EGraphAccess::Edit); !Err.IsEmpty()) return Error(Err);
 
 		FString Err;
 		UEdGraphNode* Node = FindNode(*Target.EdGraph, Str(Params, TEXT("node")), Err);
@@ -647,7 +661,7 @@ namespace
 	FResult DeleteNode(const FParams& Params)
 	{
 		FGraphTarget Target;
-		if (const FString Err = ResolveGraph(Params, Target); !Err.IsEmpty()) return Error(Err);
+		if (const FString Err = ResolveGraph(Params, Target, EGraphAccess::Edit); !Err.IsEmpty()) return Error(Err);
 
 		FString Err;
 		UEdGraphNode* Node = FindNode(*Target.EdGraph, Str(Params, TEXT("node")), Err);
@@ -668,7 +682,7 @@ namespace
 	FResult ExportT3D(const FParams& Params)
 	{
 		FGraphTarget Target;
-		if (const FString Err = ResolveGraph(Params, Target); !Err.IsEmpty()) return Error(Err);
+		if (const FString Err = ResolveGraph(Params, Target, EGraphAccess::Read); !Err.IsEmpty()) return Error(Err);
 
 		TSet<UObject*> Nodes;
 		const TArray<TSharedPtr<FJsonValue>>* Ids = nullptr;
@@ -713,7 +727,7 @@ namespace
 	FResult ImportT3D(const FParams& Params)
 	{
 		FGraphTarget Target;
-		if (const FString Err = ResolveGraph(Params, Target); !Err.IsEmpty()) return Error(Err);
+		if (const FString Err = ResolveGraph(Params, Target, EGraphAccess::Edit); !Err.IsEmpty()) return Error(Err);
 
 		const FString Text = Str(Params, TEXT("t3d"));
 		if (Text.IsEmpty()) return Error(TEXT("t3d is required"));
@@ -806,7 +820,7 @@ namespace
 	FResult AddParameter(const FParams& Params)
 	{
 		FGraphTarget Target;
-		if (const FString Err = ResolveGraph(Params, Target); !Err.IsEmpty()) return Error(Err);
+		if (const FString Err = ResolveGraph(Params, Target, EGraphAccess::Edit); !Err.IsEmpty()) return Error(Err);
 
 		const FString Name = Str(Params, TEXT("name"));
 		if (Name.IsEmpty()) return Error(TEXT("name is required"));
@@ -863,7 +877,7 @@ namespace
 	FResult RemoveParameter(const FParams& Params)
 	{
 		FGraphTarget Target;
-		if (const FString Err = ResolveGraph(Params, Target); !Err.IsEmpty()) return Error(Err);
+		if (const FString Err = ResolveGraph(Params, Target, EGraphAccess::Edit); !Err.IsEmpty()) return Error(Err);
 
 		const FString Name = Str(Params, TEXT("name"));
 		FGuid Guid;
@@ -907,7 +921,7 @@ namespace
 	FResult SetParameterDefault(const FParams& Params)
 	{
 		FGraphTarget Target;
-		if (const FString Err = ResolveGraph(Params, Target); !Err.IsEmpty()) return Error(Err);
+		if (const FString Err = ResolveGraph(Params, Target, EGraphAccess::Read); !Err.IsEmpty()) return Error(Err);
 
 		const FString Name = Str(Params, TEXT("name"));
 		FGuid Guid;

@@ -25,6 +25,8 @@ Create through `voxel_asset_create` so graph types come from their factory (a ne
 
 Existing assets are returned, never overwritten (`existed: true`).
 
+A variant of a graph that differs only in parameter values is an instance, not a copy: `voxel_asset_create` with `instanceOf` set to the base graph, then `voxel_graph_set_parameter_default` on the instance. Instances refuse node edits; change the base and every instance follows.
+
 ## 2. Shape the graph
 
 1. `voxel_graph_read` to see nodes and pins.
