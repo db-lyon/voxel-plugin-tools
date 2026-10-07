@@ -24,7 +24,9 @@ Terrain in six calls:
 5. `voxel(action="voxel_stamp_set", actorPath=..., kind="height_graph", asset="/Game/Terrain/HG_Terrain")`
 6. `voxel(action="voxel_query_layer", points=[{x:0,y:0}])` to read heights back
 
-Graph editing: `voxel_graph_list_node_types` (query words) gives `nodeType` keys; `voxel_graph_add_parameter`, then place its getter with `voxel_graph_add_node` `nodeType="Parameters|<name>"`; stamps override parameters by name (`voxel_stamp_set` `parameters`, `voxel_stamp_set_parameters`).
+Graph editing: `voxel_graph_list_node_types` (query words) gives `nodeType` keys; `voxel_graph_add_parameter`, then place its getter with `voxel_graph_add_node` `nodeType="Parameters|<name>"`; stamps override parameters by name (`voxel_stamp_set` `parameters`, `voxel_stamp_set_parameters`). Functions: `voxel_graph_add_function` declares one with its inputs and outputs and returns its `terminalGraph` GUID; a function library's exposed functions are node types in every graph.
+
+Spline stamps: `voxel_spline_set_points` sets the curve and per-point spline parameter values (core `set_spline_points` refuses Voxel's spline); `voxel_spline_read` reads them back.
 
 Surfaces: `voxel_surface_type_set` (material), `voxel_mega_material_set_surfaces` (list on the mega material), and the height graph's output `SurfaceType` pin decides where each one lands.
 

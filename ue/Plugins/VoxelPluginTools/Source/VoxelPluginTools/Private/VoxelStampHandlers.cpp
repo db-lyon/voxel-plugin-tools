@@ -26,6 +26,8 @@
 #include "Spline/VoxelVolumeSplineGraph.h"
 #include "Spline/VoxelHeightSplineStamp.h"
 #include "Spline/VoxelVolumeSplineStamp.h"
+#include "Spline/VoxelSplineComponent.h"
+#include "Spline/VoxelSplineMetadata.h"
 #include "Surface/VoxelSurfaceTypeInterface.h"
 
 #define LOCTEXT_NAMESPACE "VoxelPluginTools"
@@ -884,6 +886,322 @@ namespace
 
 		return Error(TEXT("op is required: add, clear, update, count or remove"));
 	}
+
+	// --------------------------------------------------------------------------------
+	// Spline stamps: the curve and per-point metadata of the UVoxelSplineComponent a spline stamp reads.
+
+	const TCHAR* const PointTypeNames[] = { TEXT("Linear"), TEXT("Curve"), TEXT("Constant"), TEXT("CurveClamped"), TEXT("CurveCustomTangent") };
+
+	struct FSplineTarget
+	{
+		UVoxelSplineComponent* Spline = nullptr;
+		// The stamp's spline graph, whose spline parameters are the metadata; null while the stamp has none.
+		const UVoxelGraph* Graph = nullptr;
+	};
+
+	FString ResolveSpline(const FParams& Params, FSplineTarget& Out)
+	{
+		FString Err;
+		AActor* Actor = FindActor(Params, Err);
+		if (!Actor) return Err;
+		Out.Spline = FindComponent<UVoxelSplineComponent>(*Actor, Params, Err);
+		if (!Out.Spline) return Err;
+		if (!Out.Spline->Metadata) return FString::Printf(TEXT("%s has no spline metadata object"), *Out.Spline->GetName());
+
+		// UVoxelStampComponent attaches the spline component it creates for a spline stamp to itself.
+		const UVoxelStampComponent* StampComponent = Cast<UVoxelStampComponent>(Out.Spline->GetAttachParent());
+		if (!StampComponent)
+		{
+			return FString::Printf(TEXT("%s is not attached to a UVoxelStampComponent, so no stamp reads it"), *Out.Spline->GetName());
+		}
+		const FVoxelStampRef Ref = StampComponent->GetStamp();
+		if (const FVoxelHeightSplineStamp* Height = Ref.As<FVoxelHeightSplineStamp>())
+		{
+			Out.Graph = Height->Graph.Get();
+		}
+		else if (const FVoxelVolumeSplineStamp* Volume = Ref.As<FVoxelVolumeSplineStamp>())
+		{
+			Out.Graph = Volume->Graph.Get();
+		}
+		else
+		{
+			return FString::Printf(TEXT("%s holds a %s stamp, not height_spline or volume_spline"), *StampComponent->GetName(), KindOf(*Ref));
+		}
+		return FString();
+	}
+
+	// Metadata values are float, FVector2D or FVector (FVoxelSplineMetadata::GetRuntime).
+	TSharedPtr<FJsonValue> MetadataValueJson(const FVoxelPinValue& Value)
+	{
+		if (Value.Is<float>()) return MakeShared<FJsonValueNumber>(Value.Get<float>());
+		if (Value.Is<FVector2D>())
+		{
+			TSharedRef<FJsonObject> J = MakeShared<FJsonObject>();
+			J->SetNumberField(TEXT("x"), Value.Get<FVector2D>().X);
+			J->SetNumberField(TEXT("y"), Value.Get<FVector2D>().Y);
+			return MakeShared<FJsonValueObject>(J);
+		}
+		if (Value.Is<FVector>()) return MakeShared<FJsonValueObject>(VecJson(Value.Get<FVector>()));
+		return MakeShared<FJsonValueNull>();
+	}
+
+	bool ParseMetadataValue(const FVoxelPinType& Type, const TSharedPtr<FJsonValue>& Json, FVoxelPinValue& Out)
+	{
+		double Number = 0;
+		if (Type.Is<float>())
+		{
+			if (!Json.IsValid() || Json->Type != EJson::Number || !Json->TryGetNumber(Number) || !FMath::IsFinite(static_cast<float>(Number))) return false;
+			Out = FVoxelPinValue::Make(static_cast<float>(Number));
+			return true;
+		}
+		const TSharedPtr<FJsonObject>* Object = nullptr;
+		if (!Json.IsValid() || !Json->TryGetObject(Object)) return false;
+		const bool b2D = Type.Is<FVector2D>();
+		if (!b2D && !Type.Is<FVector>()) return false;
+		TArray<const TCHAR*> Axes = { TEXT("x"), TEXT("y"), TEXT("z") };
+		if (b2D)
+		{
+			Axes.Pop();
+		}
+		FString Unused;
+		if (!OnlyKeys(*Object, Axes, FString(), Unused)) return false;
+		double Numbers[3] = {};
+		for (int32 Axis = 0; Axis < Axes.Num(); Axis++)
+		{
+			const TSharedPtr<FJsonValue> Field = (*Object)->TryGetField(Axes[Axis]);
+			if (!Field.IsValid() || Field->Type != EJson::Number || !Field->TryGetNumber(Numbers[Axis]) || !FMath::IsFinite(Numbers[Axis])) return false;
+		}
+		Out = b2D ? FVoxelPinValue::Make(FVector2D(Numbers[0], Numbers[1])) : FVoxelPinValue::Make(FVector(Numbers[0], Numbers[1], Numbers[2]));
+		return true;
+	}
+
+	TSharedRef<FJsonObject> SplineJson(const UVoxelSplineComponent& Spline)
+	{
+		TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
+		Out->SetStringField(TEXT("componentName"), Spline.GetName());
+		Out->SetBoolField(TEXT("closedLoop"), Spline.IsClosedLoop());
+		Out->SetNumberField(TEXT("length"), Spline.GetSplineLength());
+
+		const FSplineCurves Curves = Spline.GetSplineCurves();
+		TArray<TSharedPtr<FJsonValue>> Points;
+		for (int32 Index = 0; Index < Spline.GetNumberOfSplinePoints(); Index++)
+		{
+			TSharedRef<FJsonObject> P = MakeShared<FJsonObject>();
+			P->SetObjectField(TEXT("location"), VecJson(Spline.GetLocationAtSplinePoint(Index, ESplineCoordinateSpace::Local)));
+			P->SetObjectField(TEXT("worldLocation"), VecJson(Spline.GetLocationAtSplinePoint(Index, ESplineCoordinateSpace::World)));
+			const int32 Type = Spline.GetSplinePointType(Index);
+			P->SetStringField(TEXT("type"), Type >= 0 && Type < UE_ARRAY_COUNT(PointTypeNames) ? PointTypeNames[Type] : TEXT("Unknown"));
+			P->SetObjectField(TEXT("arriveTangent"), VecJson(Spline.GetArriveTangentAtSplinePoint(Index, ESplineCoordinateSpace::Local)));
+			P->SetObjectField(TEXT("leaveTangent"), VecJson(Spline.GetLeaveTangentAtSplinePoint(Index, ESplineCoordinateSpace::Local)));
+			// The stored point rotation, not GetRotationAtSplinePoint's, which also turns along the tangent.
+			const FRotator Rotation = Curves.Rotation.Points.IsValidIndex(Index) ? Curves.Rotation.Points[Index].OutVal.Rotator() : FRotator::ZeroRotator;
+			TSharedRef<FJsonObject> R = MakeShared<FJsonObject>();
+			R->SetNumberField(TEXT("pitch"), Rotation.Pitch);
+			R->SetNumberField(TEXT("yaw"), Rotation.Yaw);
+			R->SetNumberField(TEXT("roll"), Rotation.Roll);
+			P->SetObjectField(TEXT("rotation"), R);
+			P->SetObjectField(TEXT("scale"), VecJson(Spline.GetScaleAtSplinePoint(Index)));
+			Points.Add(MakeShared<FJsonValueObject>(P));
+		}
+		Out->SetArrayField(TEXT("points"), Points);
+
+		TSharedRef<FJsonObject> Metadata = MakeShared<FJsonObject>();
+		for (const auto& It : Spline.Metadata->GuidToValues)
+		{
+			TSharedRef<FJsonObject> M = MakeShared<FJsonObject>();
+			M->SetStringField(TEXT("type"), It.Value.Parameter.Type.ToString());
+			M->SetField(TEXT("default"), MetadataValueJson(It.Value.DefaultValue));
+			TArray<TSharedPtr<FJsonValue>> Values;
+			for (const TVoxelInstancedStruct<FVoxelPinValue>& Value : It.Value.Values)
+			{
+				Values.Add(Value.IsValid() ? MetadataValueJson(*Value) : MakeShared<FJsonValueNull>());
+			}
+			M->SetArrayField(TEXT("values"), Values);
+			Metadata->SetObjectField(It.Value.Parameter.Name.ToString(), M);
+		}
+		Out->SetObjectField(TEXT("metadata"), Metadata);
+		return Out;
+	}
+
+	FResult SplineRead(const FParams& Params)
+	{
+		FSplineTarget Target;
+		if (const FString Err = ResolveSpline(Params, Target); !Err.IsEmpty()) return Error(Err);
+		TSharedRef<FJsonObject> Out = SplineJson(*Target.Spline);
+		Out->SetStringField(TEXT("graph"), Target.Graph ? Target.Graph->GetPathName() : FString());
+		return Ok(Out);
+	}
+
+	FResult SplineSetPoints(const FParams& Params)
+	{
+		FSplineTarget Target;
+		if (const FString Err = ResolveSpline(Params, Target); !Err.IsEmpty()) return Error(Err);
+		UVoxelSplineComponent& Spline = *Target.Spline;
+		UVoxelSplineMetadata& Metadata = *Spline.Metadata;
+
+		// Validate every point before anything changes.
+		const TArray<TSharedPtr<FJsonValue>>* Items = nullptr;
+		if (!Params->TryGetArrayField(TEXT("points"), Items) || Items->Num() < 2)
+		{
+			return Error(TEXT("points must hold at least 2 points; a spline stamp with fewer generates nothing"));
+		}
+		TArray<FSplinePoint> Points;
+		for (int32 Index = 0; Index < Items->Num(); Index++)
+		{
+			const FString Where = FString::Printf(TEXT("points[%d]"), Index);
+			const TSharedPtr<FJsonObject>* Item = nullptr;
+			if (!(*Items)[Index].IsValid() || !(*Items)[Index]->TryGetObject(Item)) return Error(Where + TEXT(" must be an object"));
+			FString Err;
+			if (!OnlyKeys(*Item, { TEXT("location"), TEXT("type"), TEXT("arriveTangent"), TEXT("leaveTangent"), TEXT("rotation"), TEXT("scale") }, Where, Err)) return Error(Err);
+
+			FSplinePoint Point(static_cast<float>(Index), FVector::ZeroVector);
+			if (!Vec(*Item, TEXT("location"), Point.Position)) return Error(Where + TEXT(".location needs x, y and z numbers"));
+
+			Point.Type = ESplinePointType::Curve;
+			if (Has(*Item, TEXT("type")))
+			{
+				const FString TypeName = Str(*Item, TEXT("type"));
+				int32 Found = INDEX_NONE;
+				for (int32 Type = 0; Type < UE_ARRAY_COUNT(PointTypeNames); Type++)
+				{
+					Found = TypeName == PointTypeNames[Type] ? Type : Found;
+				}
+				if (Found == INDEX_NONE) return Error(Where + TEXT(".type must be one of Linear, Curve, Constant, CurveClamped, CurveCustomTangent"));
+				Point.Type = static_cast<ESplinePointType::Type>(Found);
+			}
+
+			const bool bCustom = Point.Type == ESplinePointType::CurveCustomTangent;
+			const bool bArrive = Has(*Item, TEXT("arriveTangent"));
+			const bool bLeave = Has(*Item, TEXT("leaveTangent"));
+			if (!bCustom && (bArrive || bLeave))
+			{
+				return Error(Where + TEXT(": tangents only apply to type CurveCustomTangent; the other types compute their own"));
+			}
+			if (bCustom && (!Vec(*Item, TEXT("arriveTangent"), Point.ArriveTangent) || !Vec(*Item, TEXT("leaveTangent"), Point.LeaveTangent)))
+			{
+				return Error(Where + TEXT(": type CurveCustomTangent needs arriveTangent and leaveTangent, each with x, y and z numbers"));
+			}
+			if (Has(*Item, TEXT("rotation")) && !Rot(*Item, TEXT("rotation"), Point.Rotation))
+			{
+				return Error(Where + TEXT(".rotation needs pitch, yaw and roll numbers"));
+			}
+			if (Has(*Item, TEXT("scale")) && !Vec(*Item, TEXT("scale"), Point.Scale))
+			{
+				return Error(Where + TEXT(".scale needs x, y and z numbers"));
+			}
+			Points.Add(Point);
+		}
+
+		const TSharedPtr<FJsonObject>* MetadataJson = nullptr;
+		if (Has(Params, TEXT("metadata")))
+		{
+			if (!Params->TryGetObjectField(TEXT("metadata"), MetadataJson)) return Error(TEXT("metadata must be an object: { parameterName: [one value per point] }"));
+			if (!Target.Graph) return Error(TEXT("The stamp has no graph, so the spline has no metadata parameters"));
+		}
+
+		const FScopedTransaction Transaction(LOCTEXT("SplineSetPoints", "Set Voxel Spline Points"));
+		Spline.Modify();
+		Metadata.Modify();
+		// What the stamp's own fixup does on every update: one metadata entry per spline parameter of the graph.
+		if (Target.Graph)
+		{
+			Metadata.Fixup(*Target.Graph);
+		}
+
+		// Requested values per metadata guid, validated against the parameter types before the curve changes.
+		TMap<FGuid, TArray<FVoxelPinValue>> Requested;
+		if (MetadataJson)
+		{
+			for (const auto& Pair : (*MetadataJson)->Values)
+			{
+				const FString Name(*Pair.Key);
+				const FGuid* Guid = nullptr;
+				TArray<FString> Names;
+				for (const auto& It : Metadata.GuidToValues)
+				{
+					Names.Add(It.Value.Parameter.Name.ToString());
+					if (It.Value.Parameter.Name.ToString().Equals(Name, ESearchCase::IgnoreCase))
+					{
+						Guid = &It.Key;
+					}
+				}
+				if (!Guid)
+				{
+					return Error(FString::Printf(TEXT("metadata.%s: %s has no spline parameter of that name. Spline parameters: %s"),
+						*Name, *Target.Graph->GetName(), Names.Num() ? *FString::Join(Names, TEXT(", ")) : TEXT("none")));
+				}
+				const FVoxelPinType& Type = Metadata.GuidToValues[*Guid].Parameter.Type;
+				const TArray<TSharedPtr<FJsonValue>>* Values = nullptr;
+				if (!Pair.Value.IsValid() || !Pair.Value->TryGetArray(Values) || Values->Num() != Points.Num())
+				{
+					return Error(FString::Printf(TEXT("metadata.%s must be an array of %d values, one per point"), *Name, Points.Num()));
+				}
+				TArray<FVoxelPinValue>& Parsed = Requested.Add(*Guid);
+				for (int32 Index = 0; Index < Values->Num(); Index++)
+				{
+					FVoxelPinValue Value;
+					if (!ParseMetadataValue(Type, (*Values)[Index], Value))
+					{
+						return Error(FString::Printf(TEXT("metadata.%s[%d] must be %s"), *Name, Index,
+							Type.Is<float>() ? TEXT("a number") : Type.Is<FVector2D>() ? TEXT("{x,y} numbers") : TEXT("{x,y,z} numbers")));
+					}
+					Parsed.Add(Value);
+				}
+			}
+		}
+
+		// Clearing the curve resets the metadata; unlisted parameters keep their values when the point count does not change.
+		TMap<FGuid, TArray<TVoxelInstancedStruct<FVoxelPinValue>>> Kept;
+		if (Spline.GetNumberOfSplinePoints() == Points.Num())
+		{
+			for (const auto& It : Metadata.GuidToValues)
+			{
+				Kept.Add(It.Key, It.Value.Values);
+			}
+		}
+
+		Spline.ClearSplinePoints(false);
+		for (const FSplinePoint& Point : Points)
+		{
+			Spline.AddPoint(Point, false);
+		}
+		if (Has(Params, TEXT("closedLoop")))
+		{
+			Spline.SetClosedLoop(Bool(Params, TEXT("closedLoop"), false), false);
+		}
+		// As the spline visualizer marks it, so a construction script rerun keeps the edit.
+		Spline.bSplineHasBeenEdited = true;
+		Spline.UpdateSpline();
+
+		for (auto& It : Metadata.GuidToValues)
+		{
+			FVoxelSplineMetadataValues& Values = It.Value;
+			const TArray<FVoxelPinValue>* Given = Requested.Find(It.Key);
+			const TArray<TVoxelInstancedStruct<FVoxelPinValue>>* Previous = Kept.Find(It.Key);
+			Values.Values.SetNum(Points.Num());
+			for (int32 Index = 0; Index < Points.Num(); Index++)
+			{
+				if (Given)
+				{
+					Values.Values[Index] = (*Given)[Index];
+				}
+				else if (Previous && Previous->IsValidIndex(Index) && (*Previous)[Index].IsValid())
+				{
+					Values.Values[Index] = (*Previous)[Index];
+				}
+				else
+				{
+					Values.Values[Index] = Values.DefaultValue;
+				}
+			}
+		}
+
+		// The stamp component rebuilds its stamp when a component attached to it reports an edit (VoxelStampComponent.cpp).
+		Metadata.PostEditChange();
+		Spline.PostEditChange();
+
+		return Ok(SplineJson(Spline));
+	}
 }
 
 void AddStampHandlers(TArray<FHandlerEntry>& Out)
@@ -961,6 +1279,38 @@ void AddStampHandlers(TArray<FHandlerEntry>& Out)
 		Spec::SaveDirty(),
 	});
 	Out.Add({ TEXT("voxel_instanced_stamps"), &InstancedStamps, InstancedParams, Spec::OneActor() });
+
+	const auto SplineActor = []
+	{
+		return TArray<FMCPParamSpec>{
+			Spec::ActorPath(TEXT("Spline stamp actor object path; preferred, since stamp actors relabel themselves.")),
+			Spec::ActorLabel(TEXT("Spline stamp actor label; must match exactly one actor.")),
+			Spec::ComponentName(TEXT("UVoxelSplineComponent object name; default the actor's first one.")),
+		};
+	};
+
+	Out.Add({ TEXT("voxel_spline_read"), &SplineRead, SplineActor(), Spec::OneActor() });
+
+	TArray<FMCPParamSpec> SplineParams = SplineActor();
+	SplineParams.Append({
+		MCPParam::Required(TEXT("points"), EMCPParamType::Array,
+			TEXT("The whole curve, at least 2 points, relative to the spline component; validated before anything changes. Replaces every existing point."))
+			.Items(EMCPParamType::Object).WithFields({
+				MCPParam::RequiredField(TEXT("location"), EMCPParamType::Vec3, TEXT("Point location in centimetres, relative to the spline component.")),
+				MCPParam::OptionalField(TEXT("type"), EMCPParamType::String, TEXT("ESplinePointType; default Curve."))
+					.Enum({ TEXT("Linear"), TEXT("Curve"), TEXT("Constant"), TEXT("CurveClamped"), TEXT("CurveCustomTangent") }),
+				MCPParam::OptionalField(TEXT("arriveTangent"), EMCPParamType::Vec3, TEXT("CurveCustomTangent only, and required there; relative to the component.")),
+				MCPParam::OptionalField(TEXT("leaveTangent"), EMCPParamType::Vec3, TEXT("CurveCustomTangent only, and required there; relative to the component.")),
+				MCPParam::OptionalField(TEXT("rotation"), EMCPParamType::Rotator, TEXT("Point rotation in degrees, relative to the component; default zero.")),
+				MCPParam::OptionalField(TEXT("scale"), EMCPParamType::Vec3, TEXT("Point scale; default 1.")),
+			}),
+		MCPParam::Optional(TEXT("closedLoop"), EMCPParamType::Boolean, TEXT("Close the spline; default keeps the current setting.")),
+		MCPParam::Optional(TEXT("metadata"), EMCPParamType::Any,
+			TEXT("{ splineParameterName: [one value per point] } for the stamp graph's spline parameters (voxel_spline_read lists them): a number for float, {x,y} for vector2d, {x,y,z} for vector. A parameter not listed keeps its values when the point count is unchanged, else takes its default."))
+			.OneOfForms({ EMCPValueForm::ArgMap }),
+		Spec::SaveDirty(),
+	});
+	Out.Add({ TEXT("voxel_spline_set_points"), &SplineSetPoints, SplineParams, Spec::OneActor() });
 }
 }
 

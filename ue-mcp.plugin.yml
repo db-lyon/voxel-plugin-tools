@@ -67,6 +67,17 @@ nativeModule:
         Add, remove, clear, update (re-evaluate) or count the stamps on an actor's UVoxelInstancedStampComponent (add one with voxel_component_add). add takes the same stamp fields as
         voxel_stamp_set (spline kinds excluded) plus one transform per instance, world space unless relativeToComponent; remove empties a slot, so indices never shift. Returns count,
         validCount and, with includeStamps, every stamp with its index and transform.
+    voxel_spline_read:
+      effect: read
+      description: >-
+        Read the UVoxelSplineComponent a height_spline or volume_spline stamp reads: every point (location relative to the component and in world space, type, tangents, rotation, scale),
+        closedLoop, length, the stamp graph, and each spline parameter's per-point metadata values with its type and default.
+    voxel_spline_set_points:
+      effect: mutate
+      description: >-
+        Replace the curve of a spline stamp's UVoxelSplineComponent (core set_spline_points refuses Voxel's spline, which carries per-point metadata): points relative to the component, optional
+        closedLoop, and per-point values for the stamp graph's spline parameters. Everything is validated before the edit, which is one undoable transaction and rebuilds the stamp. Returns the
+        spline as voxel_spline_read does.
     voxel_height_sculpt:
       effect: mutate
       description: >-
@@ -183,6 +194,22 @@ nativeModule:
       description: >-
         Set a graph parameter's default value from value text parsed as the parameter's type. On a graph instance this sets the instance's own value for an inherited parameter; the base is
         untouched. Returns every parameter with its default.
+      effect: mutate
+    voxel_graph_add_function:
+      description: >-
+        Add a function (a new terminal graph) to a voxel graph or function library, as the members panel does: name, category, description, exposeToLibrary, and its inputs and outputs, each
+        placed as a Function Input or Function Output node in the new graph. Returns the function with its terminal graph GUID (the terminalGraph the other graph actions take) and the nodes.
+      effect: mutate
+    voxel_graph_set_function:
+      description: >-
+        Rename a function or set its category, description or exposeToLibrary (function libraries only). Refused on an override of a base graph's function, whose base owns these fields.
+        Returns previous and current.
+      effect: mutate
+    voxel_graph_remove_function:
+      description: >-
+        Remove a function. Refused while any graph calls it (every voxel graph is loaded first to find callers), listing the call nodes to delete; removing an override reverts its callers to the
+        base graph's function. Closes the asset's editor if it is open.
+      timeoutSeconds: 300
       effect: mutate
     voxel_stamp_set_parameters:
       description: >-

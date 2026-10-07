@@ -1,6 +1,6 @@
 ---
 name: voxel-graphs
-description: "Use when authoring or debugging Voxel Plugin 2 graphs through ue-mcp: height, volume, scatter, spline, sculpt, smart surface and Voxel PCG graphs, and function libraries. Covers reading a graph, finding node types, adding and wiring nodes, pin defaults, graph parameters and their getters, graph instances, copying nodes as T3D, and checking what a graph outputs. Pulls in any time a voxel graph is created, edited or inspected."
+description: "Use when authoring or debugging Voxel Plugin 2 graphs through ue-mcp: height, volume, scatter, spline, sculpt, smart surface and Voxel PCG graphs, and function libraries. Covers reading a graph, finding node types, adding and wiring nodes, pin defaults, graph parameters and their getters, functions and their inputs and outputs, graph instances, copying nodes as T3D, and checking what a graph outputs. Pulls in any time a voxel graph is created, edited or inspected."
 ---
 
 # Voxel graph authoring with ue-mcp
@@ -17,7 +17,7 @@ The read-then-write loop:
 6. `voxel(action="voxel_graph_disconnect")` (same arguments as connect) breaks one link; `voxel(action="voxel_graph_delete_node", node=<id>)` removes a node and its links.
 7. `voxel_graph_read` again to confirm the shape, then check the output (below).
 
-Function libraries have no main graph: pass `terminalGraph` (a GUID from `voxel_graph_read`) to every action on one.
+Function libraries have no main graph: pass `terminalGraph` (a GUID from `voxel_graph_read`) to every action on one. `assetPath` takes the library asset itself.
 
 A height graph ends in Output Height: `Height`, `SurfaceType` (a surface type blend), `Bounds` (the stamp's extent; Voxel's template feeds it from Make Box 2D From Radius, so widen it when the shape grows), `HeightRange`, and metadata pins added in pairs. A volume graph ends in Output Volume with `Distance` (negative inside), `SurfaceType` and `Bounds`. Advanced pins on both outputs override layer, blend mode and alpha per graph. Useful starting keys: `Noise|Advanced Noise 2D`, `Noise|Perlin Noise 2D`, `Math|Misc|Lerp`, `Math|Misc|Smooth Step`, `Math|Mask Generators|Box Falloff 2D` and `Sphere Falloff 2D` (functions from Voxel's stock function library), `Surface Type|Make Surface Type Blend`, `Surface Type|Blend Surface Types`. Confirm a key with `voxel_graph_list_node_types` before adding it.
 
@@ -34,6 +34,18 @@ Stamps override parameters by name (`voxel(action="voxel_stamp_set")` `parameter
 ## Instances
 
 A variant that differs only in parameter values is an instance, not a copy: `voxel(action="voxel_asset_create", type="height_graph", name="HG_Hills", instanceOf="/Game/Terrain/HG_Terrain")`, then `voxel_graph_set_parameter_default` on the instance, which sets the instance's own value and leaves the base alone. An instance has no main graph of its own, so these actions refuse node edits and new parameters on it; edit the base and every instance follows. `voxel_graph_read` on an instance names its `baseGraph` and reads the nodes from it (`nodesFrom`).
+
+## Functions
+
+A function is a terminal graph of its own. A graph calls its own functions; a function library's exposed functions appear in every graph's node types.
+
+1. `voxel(action="voxel_asset_create", type="function_library", name="FL_Masks", packagePath="/Game/Terrain")` creates a library holding one empty function named after the asset.
+2. `voxel(action="voxel_graph_add_function", assetPath="/Game/Terrain/FL_Masks", name="Ridge", category="Masks", inputs=[{"name": "Height", "type": "float buffer"}], outputs=[{"name": "Mask", "type": "float buffer"}])` returns `function.guid` and `nodes`: one Function Input node per input and one Function Output node per output, each with a `Value` pin. Member types are the parameter types, optionally with Voxel's ` buffer` or ` array` suffix; values that vary per point are buffers. An input's `default` is parsed as its type. Inputs and outputs are declared here only: no action adds one to an existing function.
+3. Build the body with the loop above, passing `terminalGraph=<function.guid>`. Inside a function, `voxel_graph_list_node_types` also offers `Function Inputs|Get <name>` and `Function Outputs|Set <name>` for further input and output nodes.
+4. `voxel(action="voxel_graph_set_function", assetPath=..., terminalGraph=..., name="RidgeMask")` renames it; `category`, `description` and `exposeToLibrary` work the same way. In a library, `exposeToLibrary` (default true) decides whether other graphs list the function, as `Category|Name`, for `voxel_graph_add_node`.
+5. `voxel(action="voxel_graph_remove_function", assetPath=..., terminalGraph=...)` is refused while any graph calls the function, and names the call nodes to delete with `voxel_graph_delete_node`. It loads every voxel graph in the project to find them, and closes the asset's editor if it is open.
+
+`voxel_graph_read` lists every function under `terminalGraphs` with its category, description, inputs and outputs, plus `exposeToLibrary` in a library.
 
 ## Copying nodes
 

@@ -20,6 +20,7 @@ namespace
 		TEXT("voxel_graph_read"),
 		TEXT("voxel_graph_list_node_types"),
 		TEXT("voxel_graph_export_t3d"),
+		TEXT("voxel_spline_read"),
 	};
 
 	// Handlers that block in Voxel::ExecuteSynchronously; past the bridge's 30 s default the client would
@@ -31,6 +32,8 @@ namespace
 		{ TEXT("voxel_query_layer"), 300.f },
 		{ TEXT("voxel_export_to_render_target"), 300.f },
 		{ TEXT("voxel_sculpt_asset_set"), 300.f },
+		// Loads every voxel graph in the project to find callers.
+		{ TEXT("voxel_graph_remove_function"), 300.f },
 	};
 
 	// Content packages a call marked dirty, directly or through Voxel side effects (graph migration, sculpting

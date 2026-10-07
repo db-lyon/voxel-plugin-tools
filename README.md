@@ -44,12 +44,12 @@ Each action's parameters are a typed contract declared next to its C++ registrat
 |---|---|
 | World | `voxel_shader_hooks_status`, `voxel_world_spawn`, `voxel_world_configure`, `voxel_world_status`, `voxel_world_runtime` |
 | Actors | `voxel_actor_spawn` (stamp, height/volume sculpt, collision baker, debug), `voxel_component_add`, `voxel_no_clipping_set_layer` |
-| Stamps | `voxel_stamp_set` (height/volume graph, heightmap, mesh, height/volume spline), `voxel_stamp_read`, `voxel_stamp_set_parameters`, `voxel_instanced_stamps` |
+| Stamps | `voxel_stamp_set` (height/volume graph, heightmap, mesh, height/volume spline), `voxel_stamp_read`, `voxel_stamp_set_parameters`, `voxel_instanced_stamps`, `voxel_spline_read`, `voxel_spline_set_points` |
 | Sculpting | `voxel_height_sculpt`, `voxel_volume_sculpt`, `voxel_sculpt_asset_get`, `voxel_sculpt_asset_set` |
 | Queries | `voxel_query_layer`, `voxel_export_to_render_target` |
 | Assets | `voxel_asset_create`, `voxel_asset_set_property`, `voxel_mega_material_set_surfaces`, `voxel_surface_type_set`, `voxel_smart_surface_set`, `voxel_layer_stack_set` |
 | PCG | `voxel_pcg_add_node`, `voxel_pcg_configure_sampler` |
-| Graphs | `voxel_graph_read`, `voxel_graph_list_node_types`, `voxel_graph_add_node`, `voxel_graph_connect`, `voxel_graph_disconnect`, `voxel_graph_set_pin_default`, `voxel_graph_delete_node`, `voxel_graph_export_t3d`, `voxel_graph_import_t3d`, `voxel_graph_add_parameter`, `voxel_graph_remove_parameter`, `voxel_graph_set_parameter_default` |
+| Graphs | `voxel_graph_read`, `voxel_graph_list_node_types`, `voxel_graph_add_node`, `voxel_graph_connect`, `voxel_graph_disconnect`, `voxel_graph_set_pin_default`, `voxel_graph_delete_node`, `voxel_graph_export_t3d`, `voxel_graph_import_t3d`, `voxel_graph_add_parameter`, `voxel_graph_remove_parameter`, `voxel_graph_set_parameter_default`, `voxel_graph_add_function`, `voxel_graph_set_function`, `voxel_graph_remove_function` |
 
 ## Conventions
 
