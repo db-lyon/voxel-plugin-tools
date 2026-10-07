@@ -49,4 +49,4 @@ node scripts/bridge-call.mjs <method> '<json>'   # one call by hand
 
 ## Release
 
-Bump `version` in `package.json` and `VersionName` in the `.uplugin`, merge to `main`; CI tags, publishes to npm with provenance, and creates the GitHub release.
+[docs/RELEASING.md](docs/RELEASING.md) is the procedure: preconditions, version bump (`package.json`, `package-lock.json`, the `.uplugin` `VersionName`), the static and live gates, the PR, the human merge to `main`, confirming what CI tagged, published and released, installing in a consumer, and rollback. A merge to `main` that changes `version` is a release; CI tags it, publishes to npm with provenance and creates the GitHub release.
