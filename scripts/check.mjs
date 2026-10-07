@@ -151,6 +151,23 @@ for (const n of manifestRead) if (!moduleRead.has(n)) errors.push(`C6: ${n} is e
 for (const n of moduleRead) if (!manifestRead.has(n)) errors.push(`C6: ${n} is in ReadHandlers but not effect: read`);
 ok(`C6 ${moduleRead.size} read-only handlers agree`);
 
+// C7: every action the docs name exists. `ue-mcp plugin check-skills` reads only SKILL.md and only the
+// category(action="x") form; this covers the knowledge file, the README and every skill file, and bare names too.
+const docFiles = ["README.md", ...readdirSync(resolve(root, "knowledge")).map((f) => `knowledge/${f}`)];
+const walk = (dir) => readdirSync(resolve(root, dir), { withFileTypes: true }).flatMap((e) =>
+  e.isDirectory() ? walk(`${dir}/${e.name}`) : e.name.endsWith(".md") ? [`${dir}/${e.name}`] : []);
+if (existsSync(resolve(root, "skills"))) docFiles.push(...walk("skills"));
+let named = 0;
+for (const file of docFiles) {
+  const text = readFileSync(resolve(root, file), "utf8");
+  for (const m of text.matchAll(/\bvoxel\s*\(\s*action\s*[=:]\s*["']([A-Za-z0-9_]+)["']|\b(voxel_[a-z0-9_]+)\b/g)) {
+    const name = m[1] ?? m[2];
+    named++;
+    if (!handlers[name]) errors.push(`C7: ${file} names ${name}, which is not a voxel action`);
+  }
+}
+ok(`C7 ${named} action names in ${docFiles.length} doc files checked`);
+
 if (errors.length) {
   for (const e of errors) console.error(`  ERR ${e}`);
   console.error(`errors: ${errors.length}`);
