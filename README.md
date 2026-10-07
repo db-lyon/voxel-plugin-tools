@@ -1,6 +1,6 @@
 # voxel-plugin-tools
 
-[Voxel Plugin 2](https://voxelplugin.com) for [ue-mcp](https://github.com/db-lyon/ue-mcp): 38 native actions in a `voxel` category covering worlds, stamps, sculpting, layer queries, voxel assets, voxel PCG nodes and graph authoring.
+[Voxel Plugin 2](https://voxelplugin.com) for [ue-mcp](https://github.com/db-lyon/ue-mcp): 43 native actions in a `voxel` category covering worlds, stamps, sculpting, layer queries, voxel assets, voxel PCG nodes and graph authoring.
 
 ## Install
 
@@ -34,8 +34,8 @@ Each action's parameters are a typed contract declared next to its C++ registrat
 
 | Skill (installed name) | Covers |
 |---|---|
-| `voxel-plugin-tools-voxel-terrain` | Shader-hook preflight, layer stacks, the voxel world, height and volume stamps, surfaces and the mega material, sculpting, verifying with layer queries |
-| `voxel-plugin-tools-voxel-graphs` | Authoring voxel graphs: node types, wiring, parameters, graph instances, T3D copy, debugging graph output |
+| `voxel-plugin-tools-voxel-terrain` | Shader-hook preflight, layer stacks, the voxel world, height and volume stamps (spline points included), surfaces and the mega material, sculpting, verifying with layer queries |
+| `voxel-plugin-tools-voxel-graphs` | Authoring voxel graphs: node types, wiring, parameters, functions and function libraries, graph instances, T3D copy, debugging graph output |
 | `voxel-plugin-tools-voxel-pcg` | PCG on voxel terrain: the Voxel Sampler, surface-type scatter, partitioned and runtime-generated components, regeneration, stamps spawned from PCG |
 
 ## Actions
