@@ -9,8 +9,11 @@
 #include "FileHelpers.h"
 #include "ScopedTransaction.h"
 #include "Editor.h"
+#include "Misc/PackageName.h"
 #include "Misc/ScopeExit.h"
 #include "Subsystems/AssetEditorSubsystem.h"
+#include "UObject/UObjectIterator.h"
+#include <type_traits>
 
 #include "VoxelGraph.h"
 #include "VoxelTerminalGraph.h"
@@ -48,11 +51,35 @@ namespace
 	// Edit refuses a terminal graph an instance inherits: the edit would land in, and save, its base graph.
 	enum class EGraphAccess { Read, Edit };
 
+	// A graph asset, or the graph a function library asset holds. Accepts a bare package path (/Game/A/B), as every
+	// other handler's asset path does.
+	UVoxelGraph* LoadGraph(const FParams& Params, FString& OutError)
+	{
+		const FString Path = Str(Params, TEXT("assetPath"));
+		// Name the object: a bare package path loaded as UObject could resolve to the package itself.
+		const FString ObjectPath = Path.StartsWith(TEXT("/")) && !Path.Contains(TEXT("."))
+			? Path + TEXT(".") + FPackageName::GetShortName(Path)
+			: Path;
+		UObject* Asset = Load<UObject>(ObjectPath, OutError);
+		if (UVoxelFunctionLibraryAsset* Library = Cast<UVoxelFunctionLibraryAsset>(Asset))
+		{
+			return &Library->GetGraph();
+		}
+		if (UVoxelGraph* Graph = Cast<UVoxelGraph>(Asset))
+		{
+			return Graph;
+		}
+		if (Asset)
+		{
+			OutError = FString::Printf(TEXT("'%s' is a %s, not a UVoxelGraph or UVoxelFunctionLibraryAsset"), *Path, *Asset->GetClass()->GetName());
+		}
+		return nullptr;
+	}
+
 	FString ResolveGraph(const FParams& Params, FGraphTarget& Out, EGraphAccess Access)
 	{
 		FString Err;
-		// Load accepts a bare package path (/Game/A/B), as every other handler's asset path does.
-		Out.Graph = Load<UVoxelGraph>(Str(Params, TEXT("assetPath")), Err);
+		Out.Graph = LoadGraph(Params, Err);
 		if (!Out.Graph)
 		{
 			return Err;
@@ -94,10 +121,14 @@ namespace
 	}
 
 	// Recompile and persist after an edit.
+	// EdGraph is null when the edit removed the terminal graph that held it.
 	void Finish(const FGraphTarget& Target, const FParams& Params, const TSharedRef<FJsonObject>& Out)
 	{
-		Target.EdGraph->NotifyGraphChanged();
-		GVoxelGraphTracker->NotifyEdGraphChanged(*Target.EdGraph);
+		if (Target.EdGraph)
+		{
+			Target.EdGraph->NotifyGraphChanged();
+			GVoxelGraphTracker->NotifyEdGraphChanged(*Target.EdGraph);
+		}
 		// Voxel rebuilds the saved compiled graph on its next tick; flush now or the save below stores the pre-edit one.
 		GVoxelGraphTracker->Flush();
 		Target.Graph->MarkPackageDirty();
@@ -256,7 +287,12 @@ namespace
 		TSharedPtr<const FVoxelNode> Node;
 		FGuid Guid;
 		UVoxelFunctionLibraryAsset* FunctionLibrary = nullptr;
+		// The node class a Guid names when it is not a parameter getter: a function input or output node.
+		const TCHAR* GuidNodeClass = nullptr;
 	};
+
+	const TCHAR* FunctionInputNodeClass = TEXT("/Script/VoxelGraphEditor.VoxelGraphNode_FunctionInput");
+	const TCHAR* FunctionOutputNodeClass = TEXT("/Script/VoxelGraphEditor.VoxelGraphNode_FunctionOutput");
 
 	// Released in ReleaseCatalog() at module shutdown: FVoxelNode instances must not outlive Voxel's leak check.
 	TArray<FNodeType> Catalog;
@@ -349,12 +385,28 @@ namespace
 		{
 			Out.Add({ TEXT("Parameters|") + Parameter.Name.ToString(), Parameter.Description, nullptr, Guid });
 		});
+
+		// A function's own inputs and outputs, named as Voxel's context menu names them.
+		if (Terminal.IsFunction())
+		{
+			for (const FGuid& Guid : Terminal.GetFunctionInputs())
+			{
+				const FVoxelGraphFunctionInput& Input = Terminal.FindInputChecked(Guid);
+				Out.Add({ TEXT("Function Inputs|Get ") + Input.Name.ToString(), Input.Description, nullptr, Guid, nullptr, FunctionInputNodeClass });
+			}
+			for (const FGuid& Guid : Terminal.GetFunctionOutputs())
+			{
+				const FVoxelGraphFunctionOutput& Output = Terminal.FindOutputChecked(Guid);
+				Out.Add({ TEXT("Function Outputs|Set ") + Output.Name.ToString(), Output.Description, nullptr, Guid, nullptr, FunctionOutputNodeClass });
+			}
+		}
 		return Out;
 	}
 
 	UEdGraphNode* SpawnNode(UEdGraph& Graph, const FNodeType& Type, const FVector2D& Location, FString& OutError)
 	{
 		const TCHAR* ClassPath =
+			Type.GuidNodeClass ? Type.GuidNodeClass :
 			Type.FunctionLibrary ? TEXT("/Script/VoxelGraphEditor.VoxelGraphNode_CallExternalFunction") :
 			Type.Guid.IsValid() ? TEXT("/Script/VoxelGraphEditor.VoxelGraphNode_Parameter") :
 			TEXT("/Script/VoxelGraphEditor.VoxelGraphNode_Struct");
@@ -439,6 +491,62 @@ namespace
 		return Out;
 	}
 
+	// A function's own members: the terminal graph is neither the main graph nor the editor graph.
+	bool IsFunctionMember(const UVoxelTerminalGraph& Terminal)
+	{
+		return !Terminal.IsMainTerminalGraph() && !Terminal.IsEditorTerminalGraph();
+	}
+
+	TSharedRef<FJsonObject> TerminalJson(const UVoxelTerminalGraph& Terminal)
+	{
+		TSharedRef<FJsonObject> T = MakeShared<FJsonObject>();
+		T->SetStringField(TEXT("guid"), Terminal.GetGuid().ToString());
+		T->SetStringField(TEXT("name"), Terminal.GetDisplayName());
+		T->SetBoolField(TEXT("isMain"), Terminal.IsMainTerminalGraph());
+		if (!IsFunctionMember(Terminal))
+		{
+			return T;
+		}
+		const FVoxelGraphMetadata Metadata = Terminal.GetMetadata();
+		T->SetStringField(TEXT("category"), Metadata.Category);
+		T->SetStringField(TEXT("description"), Metadata.Description);
+		// Inherited: an override of a base graph's function, whose name and category the base owns.
+		T->SetBoolField(TEXT("inherited"), !Terminal.IsTopmostTerminalGraph());
+		if (Terminal.GetGraph().IsFunctionLibrary())
+		{
+			T->SetBoolField(TEXT("exposeToLibrary"), Terminal.bExposeToLibrary);
+		}
+
+		TArray<TSharedPtr<FJsonValue>> Inputs;
+		for (const FGuid& Guid : Terminal.GetFunctionInputs())
+		{
+			const FVoxelGraphFunctionInput& Input = Terminal.FindInputChecked(Guid);
+			TSharedRef<FJsonObject> I = MakeShared<FJsonObject>();
+			I->SetStringField(TEXT("guid"), Guid.ToString());
+			I->SetStringField(TEXT("name"), Input.Name.ToString());
+			I->SetStringField(TEXT("type"), Input.Type.ToString());
+			if (!Input.bNoDefault && Input.DefaultPinValue.IsValid())
+			{
+				I->SetStringField(TEXT("default"), Input.DefaultPinValue.ExportToString());
+			}
+			Inputs.Add(MakeShared<FJsonValueObject>(I));
+		}
+		T->SetArrayField(TEXT("inputs"), Inputs);
+
+		TArray<TSharedPtr<FJsonValue>> Outputs;
+		for (const FGuid& Guid : Terminal.GetFunctionOutputs())
+		{
+			const FVoxelGraphFunctionOutput& Output = Terminal.FindOutputChecked(Guid);
+			TSharedRef<FJsonObject> O = MakeShared<FJsonObject>();
+			O->SetStringField(TEXT("guid"), Guid.ToString());
+			O->SetStringField(TEXT("name"), Output.Name.ToString());
+			O->SetStringField(TEXT("type"), Output.Type.ToString());
+			Outputs.Add(MakeShared<FJsonValueObject>(O));
+		}
+		T->SetArrayField(TEXT("outputs"), Outputs);
+		return T;
+	}
+
 	// --------------------------------------------------------------------------------
 
 	FResult GraphRead(const FParams& Params)
@@ -458,10 +566,7 @@ namespace
 		TArray<TSharedPtr<FJsonValue>> Terminals;
 		Target.Graph->ForeachTerminalGraph_NoInheritance([&](const UVoxelTerminalGraph& Terminal)
 		{
-			TSharedRef<FJsonObject> T = MakeShared<FJsonObject>();
-			T->SetStringField(TEXT("guid"), Target.Graph->FindTerminalGraphGuid_NoInheritance(&Terminal).ToString());
-			T->SetStringField(TEXT("name"), Terminal.GetDisplayName());
-			T->SetBoolField(TEXT("isMain"), Terminal.IsMainTerminalGraph());
+			TSharedRef<FJsonObject> T = TerminalJson(Terminal);
 			T->SetBoolField(TEXT("isTarget"), &Terminal == Target.Terminal);
 			Terminals.Add(MakeShared<FJsonValueObject>(T));
 		});
@@ -947,6 +1052,359 @@ namespace
 	}
 
 	// --------------------------------------------------------------------------------
+	// Functions: terminal graphs other than the main and editor graphs, as Voxel's members panel creates them.
+
+	// ParsePinType's spellings, plus Voxel's own ' buffer' and ' array' suffixes (FVoxelPinType::ToString).
+	bool ParseMemberType(const FString& In, FVoxelPinType& Out, FString& OutError)
+	{
+		FString Base = In.TrimStartAndEnd();
+		const bool bBuffer = Base.EndsWith(TEXT(" buffer"), ESearchCase::IgnoreCase);
+		const bool bArray = Base.EndsWith(TEXT(" array"), ESearchCase::IgnoreCase);
+		Base.LeftChopInline(bBuffer ? 7 : bArray ? 6 : 0);
+		if (!ParsePinType(Base, Out, OutError))
+		{
+			return false;
+		}
+		if (bBuffer || bArray)
+		{
+			Out = Out.GetBufferType().WithBufferArray(bArray);
+		}
+		if (!Out.IsValid())
+		{
+			OutError = FString::Printf(TEXT("'%s' is not a valid voxel pin type"), *In);
+			return false;
+		}
+		return true;
+	}
+
+	// The function named Name in Graph (its own or inherited), other than Except; case-insensitive.
+	const UVoxelTerminalGraph* FindFunctionByName(const UVoxelGraph& Graph, const FString& Name, const UVoxelTerminalGraph* Except)
+	{
+		for (const FGuid& Guid : Graph.GetTerminalGraphs())
+		{
+			const UVoxelTerminalGraph* Terminal = Graph.FindTerminalGraph(Guid);
+			if (Terminal && IsFunctionMember(*Terminal) && Terminal->GetGuid() != (Except ? Except->GetGuid() : FGuid()) &&
+				Terminal->GetDisplayName().Equals(Name, ESearchCase::IgnoreCase))
+			{
+				return Terminal;
+			}
+		}
+		return nullptr;
+	}
+
+	// The function terminalGraph names, defined or overridden in this graph (not only inherited).
+	UVoxelTerminalGraph* ResolveFunction(UVoxelGraph& Graph, const FParams& Params, FString& OutError)
+	{
+		FGuid Guid;
+		const FString Text = Str(Params, TEXT("terminalGraph"));
+		if (!FGuid::Parse(Text, Guid))
+		{
+			OutError = FString::Printf(TEXT("terminalGraph '%s' is not a GUID"), *Text);
+			return nullptr;
+		}
+		UVoxelTerminalGraph* Terminal = Graph.FindTerminalGraph_NoInheritance(Guid);
+		if (!Terminal)
+		{
+			OutError = Graph.FindTerminalGraph(Guid)
+				? FString::Printf(TEXT("%s inherits function %s from its base graph; edit the base"), *Graph.GetPathName(), *Text)
+				: FString::Printf(TEXT("No terminal graph %s in this graph"), *Text);
+			return nullptr;
+		}
+		if (!IsFunctionMember(*Terminal))
+		{
+			OutError = FString::Printf(TEXT("%s is the %s graph, not a function"), *Text, Terminal->IsMainTerminalGraph() ? TEXT("main") : TEXT("editor"));
+			return nullptr;
+		}
+		return Terminal;
+	}
+
+	// Validates the metadata fields add and set share, before anything changes.
+	FString CheckFunctionFields(const UVoxelGraph& Graph, const FParams& Params, const UVoxelTerminalGraph* Self)
+	{
+		if (Has(Params, TEXT("name")))
+		{
+			const FString Name = Str(Params, TEXT("name")).TrimStartAndEnd();
+			if (Name.IsEmpty())
+			{
+				return TEXT("name must not be empty");
+			}
+			if (const UVoxelTerminalGraph* Existing = FindFunctionByName(Graph, Name, Self))
+			{
+				return FString::Printf(TEXT("%s already has a function named '%s' (%s)"), *Graph.GetPathName(), *Existing->GetDisplayName(), *Existing->GetGuid().ToString());
+			}
+		}
+		if (Has(Params, TEXT("exposeToLibrary")) && !Graph.IsFunctionLibrary())
+		{
+			return TEXT("exposeToLibrary only applies to a function library's functions");
+		}
+		return FString();
+	}
+
+	void ApplyFunctionFields(UVoxelTerminalGraph& Terminal, const FParams& Params)
+	{
+		Terminal.UpdateMetadata([&](FVoxelGraphMetadata& Metadata)
+		{
+			if (Has(Params, TEXT("name"))) Metadata.DisplayName = Str(Params, TEXT("name")).TrimStartAndEnd();
+			if (Has(Params, TEXT("category"))) Metadata.Category = Str(Params, TEXT("category"));
+			if (Has(Params, TEXT("description"))) Metadata.Description = Str(Params, TEXT("description"));
+		});
+		if (Has(Params, TEXT("exposeToLibrary")))
+		{
+			Terminal.bExposeToLibrary = Bool(Params, TEXT("exposeToLibrary"), true);
+		}
+	}
+
+	// inputs or outputs: [{ name, type, category?, description?, default? (inputs only) }], names unique in the list.
+	template<typename MemberType>
+	FString ParseMembers(const FParams& Params, const TCHAR* Field, TArray<TPair<FGuid, MemberType>>& Out)
+	{
+		constexpr bool bInput = std::is_same_v<MemberType, FVoxelGraphFunctionInput>;
+		const TArray<TSharedPtr<FJsonValue>>* Items = nullptr;
+		if (!Has(Params, Field))
+		{
+			return FString();
+		}
+		if (!Params->TryGetArrayField(Field, Items))
+		{
+			return FString::Printf(TEXT("%s must be an array"), Field);
+		}
+		for (int32 Index = 0; Index < Items->Num(); Index++)
+		{
+			const FString Where = FString::Printf(TEXT("%s[%d]"), Field, Index);
+			const TSharedPtr<FJsonObject>* Item = nullptr;
+			if (!(*Items)[Index].IsValid() || !(*Items)[Index]->TryGetObject(Item))
+			{
+				return Where + TEXT(" must be an object");
+			}
+			FString Err;
+			TArray<const TCHAR*> Keys = { TEXT("name"), TEXT("type"), TEXT("category"), TEXT("description") };
+			if (bInput)
+			{
+				Keys.Add(TEXT("default"));
+			}
+			if (!OnlyKeys(*Item, Keys, Where, Err))
+			{
+				return Err;
+			}
+
+			MemberType Member;
+			const FString Name = Str(*Item, TEXT("name")).TrimStartAndEnd();
+			if (Name.IsEmpty())
+			{
+				return Where + TEXT(".name must not be empty");
+			}
+			for (const TPair<FGuid, MemberType>& Other : Out)
+			{
+				if (Other.Value.Name.ToString().Equals(Name, ESearchCase::IgnoreCase))
+				{
+					return FString::Printf(TEXT("%s.name '%s' is listed twice"), *Where, *Name);
+				}
+			}
+			Member.Name = FName(*Name);
+			if (!ParseMemberType(Str(*Item, TEXT("type")), Member.Type, Err))
+			{
+				return Where + TEXT(".type: ") + Err;
+			}
+			Member.Category = Str(*Item, TEXT("category"));
+			Member.Description = Str(*Item, TEXT("description"));
+
+			if constexpr (bInput)
+			{
+				Member.Fixup();
+				if (Has(*Item, TEXT("default")))
+				{
+					FString Text;
+					if (!ScalarField(*Item, TEXT("default"), Text) || Text.IsEmpty())
+					{
+						return Where + TEXT(".default must be a non-empty string, a number or a boolean; omit it for the type's default");
+					}
+					if (!Member.Type.HasPinDefaultValue())
+					{
+						return FString::Printf(TEXT("%s.default: %s takes no default value"), *Where, *Member.Type.ToString());
+					}
+					FVoxelPinValue Value(Member.Type.GetExposedType());
+					if (!ParseValue(Value, Text))
+					{
+						return FString::Printf(TEXT("%s.default '%s' does not parse as %s"), *Where, *Text, *Member.Type.ToString());
+					}
+					Member.DefaultPinValue = Value;
+				}
+			}
+			Out.Add({ FGuid::NewGuid(), Member });
+		}
+		return FString();
+	}
+
+	FResult AddFunction(const FParams& Params)
+	{
+		FString Err;
+		UVoxelGraph* Graph = LoadGraph(Params, Err);
+		if (!Graph) return Error(Err);
+		if (const FString FieldError = CheckFunctionFields(*Graph, Params, nullptr); !FieldError.IsEmpty()) return Error(FieldError);
+
+		TArray<TPair<FGuid, FVoxelGraphFunctionInput>> Inputs;
+		TArray<TPair<FGuid, FVoxelGraphFunctionOutput>> Outputs;
+		if (const FString InputError = ParseMembers(Params, TEXT("inputs"), Inputs); !InputError.IsEmpty()) return Error(InputError);
+		if (const FString OutputError = ParseMembers(Params, TEXT("outputs"), Outputs); !OutputError.IsEmpty()) return Error(OutputError);
+
+		const FScopedTransaction Transaction(LOCTEXT("AddFunction", "Add Voxel Graph Function"));
+		Graph->Modify();
+		UVoxelTerminalGraph& Terminal = Graph->AddTerminalGraph(FGuid::NewGuid());
+		ApplyFunctionFields(Terminal, Params);
+
+		// Declare each member, then place its node, as dragging a new input or output off a pin does.
+		UEdGraph& EdGraph = Terminal.GetEdGraph();
+		TArray<TSharedPtr<FJsonValue>> Nodes;
+		const auto Place = [&](const FGuid& Guid, const TCHAR* NodeClass, int32 X, int32 Y) -> bool
+		{
+			UEdGraphNode* Node = SpawnNode(EdGraph, { FString(), FString(), nullptr, Guid, nullptr, NodeClass }, FVector2D(X, Y), Err);
+			if (Node)
+			{
+				Nodes.Add(MakeShared<FJsonValueObject>(NodeJson(*Node, false)));
+			}
+			return Node != nullptr;
+		};
+		for (int32 Index = 0; Index < Inputs.Num(); Index++)
+		{
+			Terminal.AddFunctionInput(Inputs[Index].Key, Inputs[Index].Value);
+			if (!Place(Inputs[Index].Key, FunctionInputNodeClass, -400, Index * 150)) return Error(Err);
+		}
+		for (int32 Index = 0; Index < Outputs.Num(); Index++)
+		{
+			Terminal.AddFunctionOutput(Outputs[Index].Key, Outputs[Index].Value);
+			if (!Place(Outputs[Index].Key, FunctionOutputNodeClass, 400, Index * 150)) return Error(Err);
+		}
+
+		TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
+		Out->SetObjectField(TEXT("function"), TerminalJson(Terminal));
+		Out->SetArrayField(TEXT("nodes"), Nodes);
+		Finish({ Graph, &Terminal, &EdGraph }, Params, Out);
+		return Ok(Out);
+	}
+
+	FResult SetFunction(const FParams& Params)
+	{
+		FString Err;
+		UVoxelGraph* Graph = LoadGraph(Params, Err);
+		if (!Graph) return Error(Err);
+		UVoxelTerminalGraph* Terminal = ResolveFunction(*Graph, Params, Err);
+		if (!Terminal) return Error(Err);
+		if (!Terminal->IsTopmostTerminalGraph())
+		{
+			return Error(FString::Printf(TEXT("%s overrides a base graph's function, which owns its name, category, description and exposure; edit the base"), *Terminal->GetDisplayName()));
+		}
+		if (const FString FieldError = CheckFunctionFields(*Graph, Params, Terminal); !FieldError.IsEmpty()) return Error(FieldError);
+
+		const TSharedRef<FJsonObject> Previous = TerminalJson(*Terminal);
+		const FScopedTransaction Transaction(LOCTEXT("SetFunction", "Edit Voxel Graph Function"));
+		Graph->Modify();
+		Terminal->Modify();
+		ApplyFunctionFields(*Terminal, Params);
+
+		TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
+		Out->SetObjectField(TEXT("previous"), Previous);
+		Out->SetObjectField(TEXT("function"), TerminalJson(*Terminal));
+		Finish({ Graph, Terminal, &Terminal->GetEdGraph() }, Params, Out);
+		return Ok(Out);
+	}
+
+	// Call nodes, in every loaded graph, that a function's removal would leave pointing at nothing.
+	bool FindCallers(const UVoxelTerminalGraph& Function, TArray<UEdGraphNode*>& Out, FString& OutError)
+	{
+		UClass* MemberCall = FindObject<UClass>(nullptr, TEXT("/Script/VoxelGraphEditor.VoxelGraphNode_CallMemberFunction"));
+		UClass* ExternalCall = FindObject<UClass>(nullptr, TEXT("/Script/VoxelGraphEditor.VoxelGraphNode_CallExternalFunction"));
+		const auto GuidOf = [](UClass* Class) { return Class ? CastField<FStructProperty>(Class->FindPropertyByName(TEXT("Guid"))) : nullptr; };
+		FStructProperty* MemberGuid = GuidOf(MemberCall);
+		FStructProperty* ExternalGuid = GuidOf(ExternalCall);
+		FObjectPropertyBase* LibraryProperty = ExternalCall ? CastField<FObjectPropertyBase>(ExternalCall->FindPropertyByName(TEXT("FunctionLibrary"))) : nullptr;
+		if (!MemberGuid || !ExternalGuid || !LibraryProperty)
+		{
+			OutError = TEXT("Voxel's call-function node classes no longer have the properties this tool reads (Guid/FunctionLibrary); the Voxel version is unsupported");
+			return false;
+		}
+
+		// As the members panel does before deleting a function: callers in unloaded graphs are found too.
+		UVoxelGraph::LoadAllGraphs();
+		const UVoxelGraph& Owner = Function.GetGraph();
+		const UObject* Library = Owner.IsFunctionLibrary() ? Owner.GetOuter() : nullptr;
+		const FGuid Guid = Function.GetGuid();
+		for (TObjectIterator<UEdGraphNode> It; It; ++It)
+		{
+			UEdGraphNode* Node = *It;
+			const UEdGraph* NodeGraph = Node && IsValid(Node) ? Node->GetGraph() : nullptr;
+			// Deleted nodes stay alive for undo but leave their graph.
+			if (!NodeGraph || !NodeGraph->Nodes.Contains(Node))
+			{
+				continue;
+			}
+			if (Node->IsA(MemberCall) && *MemberGuid->ContainerPtrToValuePtr<FGuid>(Node) == Guid)
+			{
+				const UVoxelGraph* Caller = Node->GetTypedOuter<UVoxelGraph>();
+				if (Caller && Caller->GetBaseGraphs().Contains(&Owner))
+				{
+					Out.Add(Node);
+				}
+			}
+			else if (Library && Node->IsA(ExternalCall) && *ExternalGuid->ContainerPtrToValuePtr<FGuid>(Node) == Guid &&
+				LibraryProperty->GetObjectPropertyValue_InContainer(Node) == Library)
+			{
+				Out.Add(Node);
+			}
+		}
+		return true;
+	}
+
+	FResult RemoveFunction(const FParams& Params)
+	{
+		FString Err;
+		UVoxelGraph* Graph = LoadGraph(Params, Err);
+		if (!Graph) return Error(Err);
+		UVoxelTerminalGraph* Terminal = ResolveFunction(*Graph, Params, Err);
+		if (!Terminal) return Error(Err);
+
+		// Removing an override reverts callers to the base graph's function; removing the function itself orphans them.
+		const bool bOverride = !Terminal->IsTopmostTerminalGraph();
+		if (!bOverride)
+		{
+			TArray<UEdGraphNode*> Callers;
+			if (!FindCallers(*Terminal, Callers, Err)) return Error(Err);
+			if (Callers.Num() > 0)
+			{
+				TArray<FString> Names;
+				for (const UEdGraphNode* Caller : Callers)
+				{
+					const UVoxelGraph* CallerGraph = Caller->GetTypedOuter<UVoxelGraph>();
+					Names.Add(FString::Printf(TEXT("%s node %s"), CallerGraph ? *CallerGraph->GetPathName() : TEXT("?"), *Caller->NodeGuid.ToString()));
+				}
+				return Error(FString::Printf(TEXT("%s is called by %d node(s); delete them first (voxel_graph_delete_node): %s"),
+					*Terminal->GetDisplayName(), Callers.Num(), *FString::Join(Names, TEXT("; "))));
+			}
+		}
+
+		// The graph editor holds a tab on the function's EdGraph; close it as the members panel does.
+		UAssetEditorSubsystem* AssetEditors = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>();
+		UObject* Asset = Graph->IsFunctionLibrary() ? Graph->GetOuter() : Graph;
+		const bool bClosedEditor = AssetEditors->FindEditorForAsset(Asset, false) != nullptr;
+		if (bClosedEditor)
+		{
+			AssetEditors->CloseAllEditorsForAsset(Asset);
+		}
+
+		const TSharedRef<FJsonObject> Removed = TerminalJson(*Terminal);
+		const FScopedTransaction Transaction(LOCTEXT("RemoveFunction", "Remove Voxel Graph Function"));
+		Graph->Modify();
+		Terminal->Modify();
+		Graph->RemoveTerminalGraph(Terminal->GetGuid());
+
+		TSharedRef<FJsonObject> Out = MakeShared<FJsonObject>();
+		Out->SetObjectField(TEXT("removed"), Removed);
+		Out->SetBoolField(TEXT("override"), bOverride);
+		Out->SetBoolField(TEXT("closedEditor"), bClosedEditor);
+		Finish({ Graph, nullptr, nullptr }, Params, Out);
+		return Ok(Out);
+	}
+
+	// --------------------------------------------------------------------------------
 
 	UVoxelStampComponent* FindStampComponent(const FParams& Params, FString& OutError)
 	{
@@ -1035,11 +1493,16 @@ namespace
 
 void AddGraphHandlers(TArray<FHandlerEntry>& Out)
 {
+	const auto AssetPath = []
+	{
+		return MCPParam::Required(TEXT("assetPath"), EMCPParamType::String,
+			TEXT("UVoxelGraph or UVoxelFunctionLibraryAsset asset path; a bare package path (/Game/A/B) also resolves."));
+	};
 	// ResolveGraph's inputs, which every graph handler reads, followed by the handler's own.
-	const auto Graph = [](TArray<FMCPParamSpec> Rest, bool bMutates)
+	const auto Graph = [&](TArray<FMCPParamSpec> Rest, bool bMutates)
 	{
 		Rest.Insert({
-			MCPParam::Required(TEXT("assetPath"), EMCPParamType::String, TEXT("UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves.")),
+			AssetPath(),
 			MCPParam::Optional(TEXT("terminalGraph"), EMCPParamType::String,
 				TEXT("Terminal graph GUID from voxel_graph_read; default the main graph. Required for graphs without one, such as function libraries.")),
 		}, 0);
@@ -1122,6 +1585,59 @@ void AddGraphHandlers(TArray<FHandlerEntry>& Out)
 		ParameterName(),
 		ScalarValue(TEXT("value"), true, TEXT("Value text, e.g. 5000, true or (X=1,Y=2), or an asset path for object parameters; numbers and booleans are written as text.")),
 	}, true) });
+
+	const auto FunctionFields = [](bool bNameRequired)
+	{
+		FMCPParamSpec Name = MCPParam::Optional(TEXT("name"), EMCPParamType::String, TEXT("Function display name, unique among the graph's functions (case-insensitive)."));
+		Name.bRequired = bNameRequired;
+		return TArray<FMCPParamSpec>{
+			Name,
+			MCPParam::Optional(TEXT("category"), EMCPParamType::String, TEXT("Category the function is listed under in node menus; \"\" for none.")),
+			MCPParam::Optional(TEXT("description"), EMCPParamType::String, TEXT("Function tooltip.")),
+			MCPParam::Optional(TEXT("exposeToLibrary"), EMCPParamType::Boolean,
+				TEXT("Function libraries only: list the function in other graphs' node menus (bExposeToLibrary); a new function defaults to true.")),
+		};
+	};
+	const auto Member = [](bool bInput)
+	{
+		TArray<FMCPParamField> Fields = {
+			MCPParam::RequiredField(TEXT("name"), EMCPParamType::String, TEXT("Member name, unique in the list (case-insensitive).")),
+			MCPParam::RequiredField(TEXT("type"), EMCPParamType::String,
+				TEXT("A voxel_graph_add_parameter type, optionally followed by ' buffer' or ' array' (e.g. 'float buffer'), case-insensitive.")),
+			MCPParam::OptionalField(TEXT("category"), EMCPParamType::String, TEXT("Category in the members panel.")),
+			MCPParam::OptionalField(TEXT("description"), EMCPParamType::String, TEXT("Pin tooltip.")),
+		};
+		if (bInput)
+		{
+			Fields.Add(MCPParam::OptionalField(TEXT("default"), EMCPParamType::Any,
+				TEXT("Default value text (string, number or boolean) parsed as the type; default the type's own default.")));
+		}
+		return MCPParam::Optional(bInput ? TEXT("inputs") : TEXT("outputs"), EMCPParamType::Array,
+			bInput
+				? TEXT("Function inputs, in pin order; each gets a Function Input node at x -400.")
+				: TEXT("Function outputs, in pin order; each gets a Function Output node at x 400 to connect the result into."))
+			.Items(EMCPParamType::Object).WithFields(Fields);
+	};
+	const auto FunctionGuid = []
+	{
+		return MCPParam::Required(TEXT("terminalGraph"), EMCPParamType::String, TEXT("The function's terminal graph GUID, from voxel_graph_read terminalGraphs."));
+	};
+	const auto GraphSave = [] { return Spec::Save(TEXT("Save the graph after the edit; default true.")); };
+
+	{
+		TArray<FMCPParamSpec> Params = { AssetPath() };
+		Params.Append(FunctionFields(true));
+		Params.Append({ Member(true), Member(false), GraphSave() });
+		Out.Add({ TEXT("voxel_graph_add_function"), &AddFunction, Params });
+	}
+	{
+		TArray<FMCPParamSpec> Fields = FunctionFields(false);
+		TArray<FMCPParamSpec> Params = { AssetPath(), FunctionGuid() };
+		Params.Append(Fields);
+		Params.Add(GraphSave());
+		Out.Add({ TEXT("voxel_graph_set_function"), &SetFunction, Params, FMCPSpecRules().AtLeastOne(Spec::Branches(Fields)) });
+	}
+	Out.Add({ TEXT("voxel_graph_remove_function"), &RemoveFunction, { AssetPath(), FunctionGuid(), GraphSave() } });
 
 	Out.Add({ TEXT("voxel_stamp_set_parameters"), &StampSetParameters, {
 		Spec::ActorPath(TEXT("Stamp actor object path; preferred, since stamp actors relabel themselves.")),

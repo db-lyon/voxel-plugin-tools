@@ -14,10 +14,13 @@ flowchart LR
 - `Private/VoxelToolsCommon.*`: shared parsing, actor lookup, errors, handler registry, shared contract pieces (`Spec::`).
 - Contracts are enforced by the bridge itself (`UEMCP::ContractViolation`, bridge ABI 2) on every call, whoever sent it; handlers do not re-check what a contract states.
 - `Private/Voxel*Handlers.cpp`: one file per area (world, stamps, sculpt and queries, assets and PCG, graphs). Each keeps its helpers in an anonymous namespace; the module builds without unity for that reason.
-- `Private/VoxelPluginToolsModule.cpp`: registers each handler with its contract (bridge ABI 2) and its timeout, logs an error for any contract the bridge refuses; checks the contract, saves content packages a call dirtied and turns non-finite numbers into `null` before replying.
+- `Private/VoxelPluginToolsModule.cpp`: registers each handler with its contract (bridge ABI 2) and its timeout, logs an error for any contract the bridge refuses; saves the content packages a call dirtied (after flushing Voxel's graph compilation) and turns non-finite numbers into `null` before replying.
 - Each `Add*Handlers` registers `Out.Add({ name, fn, { params }, rules })`: every key the handler reads, with its exact type, required flag, enum (the spelling the code accepts), range, nested fields, variants and choices, and `save` on every mutating handler. One sentence per description, stating defaults and units.
 - `ue-mcp.plugin.yml`: one entry per handler with `effect`, a description without a `Params:` clause (the server generates it from the contract), and `timeoutSeconds` for long handlers.
 - `handler-specs.json`: the contracts recorded from a live editor (`ue-mcp plugin record-specs --project <uproject>`), which the server builds the surface from. Re-record after any contract change; `--check` fails when it is stale.
+- `skills/<name>/SKILL.md`: one skill per workflow, installed as `voxel-plugin-tools-<name>`. Follow ue-mcp's skill guidelines (`docs/plugins-authoring.md`, Skills) and its own skills' style. Every behaviour a skill states is read from the handler code or the Voxel source, never from memory; write call examples as `voxel(action="...")`.
+- `knowledge/voxel.md`: the short delta ue-mcp attaches to the `voxel` category's docs.
+- `npm run check` (C7) holds the skills, the knowledge file and README.md to the surface: every `voxel_*` name is a manifest handler, every `voxel(action=...)` call passes only keys its recorded contract declares, and every core `category(action=...)` call names a ue-mcp action. `ue-mcp plugin check-skills` reads only SKILL.md and does not resolve a native module's category (db-lyon/ue-mcp#1316).
 
 ## Rules
 
@@ -35,7 +38,7 @@ flowchart LR
 
 ```bash
 npm install
-npm run check                       # manifest vs host schema vs C++ registrations, plus skills
+npm run check                       # manifest vs host schema vs C++ registrations, action names in docs, skills
 # close the test editor (Live Coding blocks builds), then:
 "<UE_5.8>/Engine/Build/BatchFiles/Build.bat" voxel_plugin_toolsEditor Win64 Development -Project=<abs path>/tests/voxel_plugin_tools/voxel_plugin_tools.uproject -WaitMutex
 # start the editor, open an empty map, then:
@@ -46,4 +49,4 @@ node scripts/bridge-call.mjs <method> '<json>'   # one call by hand
 
 ## Release
 
-Bump `version` in `package.json` and `VersionName` in the `.uplugin`, merge to `main`; CI tags, publishes to npm with provenance, and creates the GitHub release.
+[docs/RELEASING.md](docs/RELEASING.md) is the procedure: preconditions, version bump (`package.json`, `package-lock.json`, the `.uplugin` `VersionName`), the static and live gates, the PR, the human merge to `main`, confirming what CI tagged, published and released, installing in a consumer, and rollback. A merge to `main` that changes `version` is a release; CI tags it, publishes to npm with provenance and creates the GitHub release.

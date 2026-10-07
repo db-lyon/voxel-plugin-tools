@@ -1144,7 +1144,7 @@ namespace
 		static const TArray<FSamplerField> Fields =
 		{
 			{ GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerSettings, bUnbounded), GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerV2Settings, bUnbounded),
-				Flag(TEXT("unbounded"), TEXT("Sample the whole surface instead of the actor or bounding-shape bounds; default false.")) },
+				Flag(TEXT("unbounded"), TEXT("With no Bounding Shape connected, sample the whole surface instead of the actor bounds; a connected shape is still intersected with them. Default false.")) },
 			{ GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerSettings, Looseness), GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerV2Settings, Looseness),
 				MCPParam::Optional(TEXT("looseness"), EMCPParamType::Number, TEXT("Point jitter, >= 0 (ClampMin); default 1.")).Min(0) },
 			{ GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerSettings, LOD), GET_MEMBER_NAME_CHECKED(UPCGVoxelSamplerV2Settings, LOD),

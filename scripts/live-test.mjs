@@ -210,6 +210,48 @@ await step("graph_connect", "voxel_graph_connect", () => ({
   assetPath: `${P}/HG_Smoke`, fromNode: getter.node?.id, fromPin: "Value", toNode: "Advanced Noise 2D", toPin: "Amplitude",
 }));
 
+// Functions: a library function built, wired, renamed, called from a graph, and removed once nothing calls it.
+const FL = `${P}/FL_Smoke`;
+await step("asset_create function_library", "voxel_asset_create", { type: "function_library", name: "FL_Smoke", packagePath: P }, (r) => !!r.assetPath || "no assetPath");
+const fn = await step("graph_add_function", "voxel_graph_add_function", {
+  assetPath: FL, name: "Double", category: "Smoke", description: "Doubles In",
+  inputs: [{ name: "In", type: "float buffer", default: 1 }], outputs: [{ name: "Out", type: "float buffer" }],
+}, (r) => (r.function?.inputs?.[0]?.type === "Float Buffer" && r.function.outputs?.[0]?.name === "Out" && r.function.exposeToLibrary === true && r.nodes?.length === 2)
+  || JSON.stringify(r));
+ctx.fn = fn.function?.guid;
+await step("function nodes connect", "voxel_graph_connect", () => ({
+  assetPath: FL, terminalGraph: ctx.fn, fromNode: fn.nodes?.[0]?.id, fromPin: "Value", toNode: fn.nodes?.[1]?.id, toPin: "Value",
+}));
+await step("function lists its members as node types", "voxel_graph_list_node_types", () => ({ assetPath: FL, terminalGraph: ctx.fn, query: "Function" }),
+  (r) => (r.actions.some((a) => a.nodeType === "Function Inputs|Get In") && r.actions.some((a) => a.nodeType === "Function Outputs|Set Out")) || JSON.stringify(r.actions));
+await step("graph_set_function", "voxel_graph_set_function", () => ({ assetPath: FL, terminalGraph: ctx.fn, name: "Twice" }),
+  (r) => (r.previous?.name === "Double" && r.function?.name === "Twice") || JSON.stringify(r));
+await step("library function offered to a graph", "voxel_graph_list_node_types", { assetPath: `${P}/HG_Smoke`, query: "Twice" },
+  (r) => r.actions.some((a) => a.nodeType === "Smoke|Twice") || JSON.stringify(r.actions));
+const call = await step("graph_add_node library function", "voxel_graph_add_node", { assetPath: `${P}/HG_Smoke`, nodeType: "Smoke|Twice", x: -600, y: 600 });
+await step("remove_function refused while called", "voxel_graph_remove_function", () => ({ assetPath: FL, terminalGraph: ctx.fn }),
+  undefined, { expectError: /is called by 1 node/ });
+await step("delete the call", "voxel_graph_delete_node", () => ({ assetPath: `${P}/HG_Smoke`, node: call.node?.id }));
+await step("graph_remove_function", "voxel_graph_remove_function", () => ({ assetPath: FL, terminalGraph: ctx.fn }), (r) => r.removed?.name === "Twice" || JSON.stringify(r));
+await step("removed function is gone", "voxel_graph_remove_function", () => ({ assetPath: FL, terminalGraph: ctx.fn }),
+  undefined, { expectError: /No terminal graph/ });
+
+// Spline stamp: the curve and per-point metadata core's set_spline_points refuses.
+await step("asset_create height_spline_graph", "voxel_asset_create", { type: "height_spline_graph", name: "HSG_Smoke", packagePath: P });
+await step("spline graph parameter", "voxel_graph_add_parameter", { assetPath: `${P}/HSG_Smoke`, name: "SmokeWidth", type: "struct:/Script/Voxel.VoxelFloatSplineParameter" });
+const splineActor = await step("actor_spawn spline stamp", "voxel_actor_spawn", { kind: "stamp", label: "SmokeSpline", location: { x: -40000, y: 0, z: 0 } });
+ctx.spline = splineActor.actorPath;
+await step("stamp_set height_spline", "voxel_stamp_set", () => ({ actorPath: ctx.spline, kind: "height_spline", asset: `${P}/HSG_Smoke` }));
+const splinePoints = [{ location: { x: 0, y: 0, z: 0 } }, { location: { x: 2000, y: 0, z: 0 }, type: "Linear" },
+  { location: { x: 4000, y: 1000, z: 0 }, type: "CurveCustomTangent", arriveTangent: { x: 1000, y: 0, z: 0 }, leaveTangent: { x: 1000, y: 0, z: 0 } }];
+await step("spline_set_points", "voxel_spline_set_points", () => ({ actorPath: ctx.spline, points: splinePoints, metadata: { SmokeWidth: [100, 200, 300] } }),
+  (r) => (r.points?.length === 3 && r.points[1].type === "Linear" && r.points[2].location.x === 4000 && r.metadata?.SmokeWidth?.values?.join() === "100,200,300")
+    || JSON.stringify(r));
+await step("spline_read", "voxel_spline_read", () => ({ actorPath: ctx.spline }),
+  (r) => (r.points?.length === 3 && /HSG_Smoke/.test(r.graph) && r.metadata?.SmokeWidth?.values?.[2] === 300) || JSON.stringify(r));
+await step("spline_set_points keeps unlisted metadata", "voxel_spline_set_points", () => ({ actorPath: ctx.spline, points: splinePoints, closedLoop: false }),
+  (r) => r.metadata?.SmokeWidth?.values?.join() === "100,200,300" || JSON.stringify(r.metadata));
+
 // World and stamp
 const world = await step("world_spawn", "voxel_world_spawn", { label: "SmokeWorld", megaMaterial: `${P}/MM_Smoke`, voxelSize: 100 }, (r) => !!r.actorPath || "no actorPath");
 ctx.world = world.actorPath;
@@ -345,6 +387,25 @@ await refuse("graph_set_pin_default refuses a null value", "voxel_graph_set_pin_
   { assetPath: `${P}/HG_Smoke`, node: "Advanced Noise 2D", pin: "Amplitude", value: null }, /value must not be null/);
 await refuse("stamp_set_parameters refuses an array value", "voxel_stamp_set_parameters",
   () => ({ actorPath: ctx.stamp, values: { Amplitude: [1] } }), /values\.Amplitude must be a string, number, boolean or null/);
+await refuse("graph_add_function refuses exposeToLibrary outside a library", "voxel_graph_add_function",
+  { assetPath: `${P}/HG_Smoke`, name: "Local", exposeToLibrary: true }, /exposeToLibrary only applies to a function library/);
+await refuse("graph_add_function refuses a duplicate name", "voxel_graph_add_function", { assetPath: FL, name: "FL_Smoke" }, /already has a function named/);
+await refuse("graph_add_function refuses an unknown member type", "voxel_graph_add_function",
+  { assetPath: FL, name: "BadType", inputs: [{ name: "A", type: "float bucket" }] }, /inputs\[0\]\.type/);
+await refuse("graph_add_function refuses a repeated member", "voxel_graph_add_function",
+  { assetPath: FL, name: "Repeated", outputs: [{ name: "A", type: "float" }, { name: "a", type: "float" }] }, /listed twice/);
+const mainGraph = await step("read main terminal graph", "voxel_graph_read", { assetPath: `${P}/HG_Smoke`, includePins: false });
+await refuse("graph_set_function refuses the main graph", "voxel_graph_set_function",
+  () => ({ assetPath: `${P}/HG_Smoke`, terminalGraph: mainGraph.terminalGraphs?.find((g) => g.isMain)?.guid, name: "Renamed" }), /is the main graph, not a function/);
+await refuse("spline_set_points refuses one point", "voxel_spline_set_points", () => ({ actorPath: ctx.spline, points: [{ location: center }] }), /at least 2 points/);
+await refuse("spline_set_points refuses tangents on a Curve point", "voxel_spline_set_points", () => ({
+  actorPath: ctx.spline, points: [{ location: center, arriveTangent: center, leaveTangent: center }, { location: { x: 100, y: 0, z: 0 } }],
+}), /tangents only apply to type CurveCustomTangent/);
+await refuse("spline_set_points refuses a short metadata array", "voxel_spline_set_points",
+  () => ({ actorPath: ctx.spline, points: splinePoints, metadata: { SmokeWidth: [1] } }), /must be an array of 3 values/);
+await refuse("spline_set_points refuses an unknown metadata name", "voxel_spline_set_points",
+  () => ({ actorPath: ctx.spline, points: splinePoints, metadata: { Nope: [1, 2, 3] } }), /no spline parameter of that name/);
+await refuse("spline_read refuses a stamp without a spline", "voxel_spline_read", () => ({ actorPath: ctx.stamp }), /has no VoxelSplineComponent/);
 await refuse("pcg_add_node refuses a fractional position", "voxel_pcg_add_node", { graphPath: `${P}/PG_Engine`, nodeType: "query", x: 10.5 }, /x must be an integer/);
 await refuse("pcg_configure_sampler refuses a fractional lod", "voxel_pcg_configure_sampler", () => ({ graphPath: `${P}/PG_Engine`, node: node.name, lod: 2.5 }), /lod must be an integer/);
 

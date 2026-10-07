@@ -93,7 +93,7 @@ namespace VoxelPluginTools
 	bool ScalarField(const FParams& Params, const TCHAR* Field, FString& Out);
 	bool ParsePinType(const FString& In, FVoxelPinType& Out, FString& OutError);
 
-	// Stack and layer asset paths; each one omitted defaults to the project default. Present but empty is an error.
+	// Stack and layer asset paths; each one omitted defaults to Voxel's built-in default (/Voxel/Default). Present but empty is an error.
 	bool ParseStackLayer(const FParams& Params, const TCHAR* StackField, const TCHAR* LayerField, bool bHeight, FVoxelStackLayer& Out, FString& OutError);
 
 	// Standard actor identity block for results.

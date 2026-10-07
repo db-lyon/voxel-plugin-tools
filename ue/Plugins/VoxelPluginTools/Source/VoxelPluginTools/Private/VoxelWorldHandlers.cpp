@@ -922,7 +922,7 @@ void AddWorldHandlers(TArray<FHandlerEntry>& Out)
 		Spec::ActorPath(TEXT("Actor object path; preferred, since labels can repeat.")),
 		Spec::ActorLabel(TEXT("Actor label; must match exactly one actor.")),
 		Spec::ComponentName(TEXT("UVoxelNoClippingComponent object name; default the actor's first one.")),
-		MCPParam::Optional(TEXT("stack"), EMCPParamType::String, TEXT("UVoxelLayerStack asset path; with only layer given, the project default stack.")),
+		MCPParam::Optional(TEXT("stack"), EMCPParamType::String, TEXT("UVoxelLayerStack asset path; with only layer given, Voxel's built-in default stack.")),
 		MCPParam::Optional(TEXT("layer"), EMCPParamType::String, TEXT("UVoxelVolumeLayer asset path, since the component samples a volume layer; with only stack given, the default volume layer.")),
 		MCPParam::Optional(TEXT("autoAdjustPlayer"), EMCPParamType::Boolean, TEXT("Teleport the owner back to its last valid location when it clips into the volume.")),
 		Spec::SaveDirty(),

@@ -16,12 +16,14 @@ nativeModule:
   handlers:
     voxel_shader_hooks_status:
       effect: read
-      description: Report whether Voxel's engine shader hooks are applied. Voxel materials render only with them; without them terrain shows the grid fallback with no error. Run before any material work.
+      description: >-
+        Report whether Voxel's engine shader hooks are applied: allActive, each hook group's state, and the pending hooks. Voxel materials render only with them; without them terrain
+        shows the grid fallback with no error, and the result carries the fix. Run before any material work.
     voxel_world_spawn:
       effect: mutate
       description: >-
-        Spawn an AVoxelWorld in the editor's current level (undoable, selected like a drag-in) and apply optional config through the details-panel edit path. Returns the actor, each applied field with
-        previous/value/changed, and runtimeCreated.
+        Spawn an AVoxelWorld in the editor's current level (undoable, selected like a drag-in), optionally setting layerStack, megaMaterial and voxelSize through the details-panel edit path;
+        every other world setting goes through voxel_world_configure. Refused during PIE. Returns the actor, each applied field with previous/value/changed, and runtimeCreated.
     voxel_world_configure:
       effect: mutate
       description: >-
@@ -37,7 +39,9 @@ nativeModule:
         runtimeCreated and changed.
     voxel_actor_spawn:
       effect: mutate
-      description: Spawn a Voxel actor in the editor's current level (undoable). Stamp actors treat the label as a prefix and append their stamp description, so key later calls on the returned actorPath.
+      description: >-
+        Spawn a stamp, height or volume sculpt, collision baker or debug actor in the editor's current level (undoable; refused during PIE). Stamp actors treat the label as a prefix and
+        append their stamp description, so key later calls on the returned actorPath.
     voxel_component_add:
       effect: mutate
       description: >-
@@ -47,20 +51,33 @@ nativeModule:
       effect: mutate
       description: >-
         Set a UVoxelNoClippingComponent's volume layer and/or bAutoAdjustPlayer through the details-panel edit path, undoable. The component samples a volume layer, so layer must be a
-        UVoxelVolumeLayer; an omitted stack or layer defaults to the project default. Returns previous/value/changed per field.
+        UVoxelVolumeLayer; an omitted stack or layer defaults to Voxel's built-in default. Returns previous/value/changed per field.
     voxel_stamp_set:
       effect: mutate
       description: >-
         Set the stamp on a stamp actor's UVoxelStampComponent, building the stamp struct for the given kind; unspecified fields keep their values when the component already holds a stamp of that kind,
-        and the component transform places the stamp. Returns the stamp read-back.
+        another kind is replaced (replacedKind), and the component transform places the stamp. Pointing a graph kind at another graph clears its parameter overrides (overridesReset). Returns the
+        stamp read-back.
     voxel_stamp_read:
       effect: read
       description: 'Read a stamp actor''s UVoxelStampComponent stamp: kind, struct, asset, layer, blend mode, priority, smoothness, behavior, kind-specific fields and enabled graph parameter overrides.'
     voxel_instanced_stamps:
       effect: mutate
       description: >-
-        Add, remove, clear, refresh or count the stamps on an actor's UVoxelInstancedStampComponent; add takes the same stamp fields as voxel_stamp_set (spline kinds excluded) plus one transform per
-        instance. Returns count, validCount and optionally every stamp.
+        Add, remove, clear, update (re-evaluate) or count the stamps on an actor's UVoxelInstancedStampComponent (add one with voxel_component_add). add takes the same stamp fields as
+        voxel_stamp_set (spline kinds excluded) plus one transform per instance, world space unless relativeToComponent; remove empties a slot, so indices never shift. Returns count,
+        validCount and, with includeStamps, every stamp with its index and transform.
+    voxel_spline_read:
+      effect: read
+      description: >-
+        Read the UVoxelSplineComponent a height_spline or volume_spline stamp reads: every point (location relative to the component and in world space, type, tangents, rotation, scale),
+        closedLoop, length, the stamp graph, and each spline parameter's per-point metadata values with its type and default.
+    voxel_spline_set_points:
+      effect: mutate
+      description: >-
+        Replace the curve of a spline stamp's UVoxelSplineComponent (core set_spline_points refuses Voxel's spline, which carries per-point metadata): points relative to the component, optional
+        closedLoop, and per-point values for the stamp graph's spline parameters. Everything is validated before the edit, which is one undoable transaction and rebuilds the stamp. Returns the
+        spline as voxel_spline_read does.
     voxel_height_sculpt:
       effect: mutate
       description: >-
@@ -85,8 +102,9 @@ nativeModule:
     voxel_query_layer:
       effect: read
       description: >-
-        Sample a voxel layer in the editor world at up to 4096 points: height (height layers) or signed distance (volume layers), normal, optional resolved surface type with blend weights, and
-        optional metadata values. Needs no AVoxelWorld; reads the stamps registered in the editor world.
+        Sample a voxel layer in the editor world at up to 4096 points: height (height layers) or signed distance (volume layers, negative inside), normal, optional resolved surface type with
+        blend weights, and optional metadata values. Needs no AVoxelWorld; reads the stamps registered in the editor world. Defaults to Voxel's built-in default stack and layer (/Voxel/Default), so pass the
+        stack and layer your stamps write to. A point no stamp covers reads null.
       timeoutSeconds: 300
     voxel_export_to_render_target:
       effect: mutate
@@ -98,7 +116,8 @@ nativeModule:
       effect: mutate
       description: >-
         Create a Voxel asset through its own factory (graph types are duplicated from the graph class template, so they start with their output node; function libraries start with a terminal graph).
-        Returns assetPath, class, created, existed.
+        An existing asset is never overwritten: by default it is returned with existed: true. instanceOf makes a graph instance of a base graph of the same type. Returns assetPath, class, created,
+        existed.
     voxel_asset_set_property:
       effect: mutate
       description: >-
@@ -107,8 +126,8 @@ nativeModule:
     voxel_mega_material_set_surfaces:
       effect: mutate
       description: >-
-        Set a UVoxelMegaMaterial's surface type list and settings with details-panel edit semantics, so the generated material rebuilds. Returns per-property previous/value, changed, and the resulting
-        surfaceTypes.
+        Set a UVoxelMegaMaterial's surface type list (replace, or append the entries not already in it) and its settings with details-panel edit semantics, so the generated material rebuilds.
+        Returns per-property previous/value, changed, and the resulting surfaceTypes.
     voxel_surface_type_set:
       effect: mutate
       description: Set fields of a UVoxelSurfaceTypeAsset with details-panel edit semantics in one undoable transaction; all values are validated first. Returns per-property previous/value and changed.
@@ -124,12 +143,14 @@ nativeModule:
         maxDistance.
     voxel_pcg_add_node:
       effect: mutate
-      description: Add a Voxel PCG node to a UPCGGraph via UPCGGraph::AddNodeOfType. Returns the node name, title, settingsClass and position. An open PCG graph editor shows the node after it is reopened.
+      description: >-
+        Add one of Voxel's PCG nodes (sampler, wait-for-world, query, projection, stamp and spline spawners, voxel graph calls, isolines) to a UPCGGraph via UPCGGraph::AddNodeOfType; engine
+        nodes come from pcg add_node. Returns the node name (the nodeName pcg actions take), title, settingsClass and position. An open PCG graph editor shows the node after it is reopened.
     voxel_pcg_configure_sampler:
       effect: mutate
       description: >-
         Configure a Voxel Sampler (sampler) or Voxel Sampler Experimental (sampler_v2) PCG node. Each property is edited through Pre/PostEditChange so the graph regenerates; a field the node's class
-        lacks is an error. Returns the node and per-property previous/value.
+        lacks is an error. A new sampler reads Voxel's built-in default volume layer, so set layer to sample height terrain. Returns the node and per-property previous/value.
     voxel_graph_read:
       description: 'Read a voxel graph: terminal graphs, parameters (name, guid, type, default) and every node with pins, defaults and links.'
       effect: read
@@ -162,16 +183,38 @@ nativeModule:
         graph type refused.
       effect: mutate
     voxel_graph_add_parameter:
-      description: 'Add a graph parameter. type: float, double, int32, int64, bool, name, vector2d, vector, color, seed, or struct:/object:/class:/enum:<path>. Then add its getter via voxel_graph_list_node_types.'
+      description: >-
+        Add a graph parameter with a type and an optional default, validated before the graph changes. Stamps and instances override it by name. Nothing reads it until its getter is placed:
+        voxel_graph_add_node with nodeType 'Parameters|<name>'. Refused on a graph instance.
       effect: mutate
     voxel_graph_remove_parameter:
       description: Remove a graph parameter, its getter nodes in every terminal graph, and its stored default.
       effect: mutate
     voxel_graph_set_parameter_default:
-      description: Set a graph parameter's default value (pin value text).
+      description: >-
+        Set a graph parameter's default value from value text parsed as the parameter's type. On a graph instance this sets the instance's own value for an inherited parameter; the base is
+        untouched. Returns every parameter with its default.
+      effect: mutate
+    voxel_graph_add_function:
+      description: >-
+        Add a function (a new terminal graph) to a voxel graph or function library, as the members panel does: name, category, description, exposeToLibrary, and its inputs and outputs, each
+        placed as a Function Input or Function Output node in the new graph. Returns the function with its terminal graph GUID (the terminalGraph the other graph actions take) and the nodes.
+      effect: mutate
+    voxel_graph_set_function:
+      description: >-
+        Rename a function or set its category, description or exposeToLibrary (function libraries only). Refused on an override of a base graph's function, whose base owns these fields.
+        Returns previous and current.
+      effect: mutate
+    voxel_graph_remove_function:
+      description: >-
+        Remove a function. Refused while any graph calls it (every voxel graph is loaded first to find callers), listing the call nodes to delete; removing an override reverts its callers to the
+        base graph's function. Closes the asset's editor if it is open.
+      timeoutSeconds: 300
       effect: mutate
     voxel_stamp_set_parameters:
-      description: Override graph parameters on a height or volume graph stamp actor, by parameter name. Stamp actors relabel themselves from their stamp, so prefer actorPath.
+      description: >-
+        Override graph parameters on a height_graph or volume_graph stamp by parameter name, merged onto the overrides it already has; every other stamp field is kept. Spline stamps take
+        overrides through voxel_stamp_set parameters. Returns every enabled override as the component stored it. Stamp actors relabel themselves from their stamp, so prefer actorPath.
       effect: mutate
 knowledge:
   voxel: knowledge/voxel.md

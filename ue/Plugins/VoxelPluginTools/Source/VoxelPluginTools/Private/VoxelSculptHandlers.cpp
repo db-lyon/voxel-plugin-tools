@@ -1569,13 +1569,13 @@ void AddSculptHandlers(TArray<FHandlerEntry>& Out)
 			TEXT("UVoxelSculptHeightAsset (height actor) or UVoxelSculptVolumeAsset (volume actor) path; \"\" or null detaches and keeps the data in the level.")).Nullable(),
 		MCPParam::Optional(TEXT("load"), EMCPParamType::Boolean,
 			TEXT("When binding: true adopts the asset's data (an empty asset receives the actor's), false overwrites the asset with the actor's data; default true.")),
-		Spec::Save(TEXT("Save the asset after load: false writes into it, and the content packages the call dirties; default true. Levels are never saved.")),
+		Spec::Save(TEXT("Save the asset that load: false writes the actor's data into, and the content packages the call dirties; default true. Levels are never saved.")),
 	}, Spec::OneActor() });
 
 	const auto StackLayer = [](const TCHAR* LayerDescription)
 	{
 		return TArray<FMCPParamSpec>{
-			MCPParam::Optional(TEXT("stack"), EMCPParamType::String, TEXT("UVoxelLayerStack asset path; default the project default stack.")),
+			MCPParam::Optional(TEXT("stack"), EMCPParamType::String, TEXT("UVoxelLayerStack asset path; default Voxel's built-in default stack.")),
 			MCPParam::Optional(TEXT("layer"), EMCPParamType::String, LayerDescription),
 		};
 	};
