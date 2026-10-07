@@ -51,7 +51,7 @@ nativeModule:
       effect: mutate
       description: >-
         Set a UVoxelNoClippingComponent's volume layer and/or bAutoAdjustPlayer through the details-panel edit path, undoable. The component samples a volume layer, so layer must be a
-        UVoxelVolumeLayer; an omitted stack or layer defaults to the project default. Returns previous/value/changed per field.
+        UVoxelVolumeLayer; an omitted stack or layer defaults to Voxel's built-in default. Returns previous/value/changed per field.
     voxel_stamp_set:
       effect: mutate
       description: >-
@@ -92,7 +92,7 @@ nativeModule:
       effect: read
       description: >-
         Sample a voxel layer in the editor world at up to 4096 points: height (height layers) or signed distance (volume layers, negative inside), normal, optional resolved surface type with
-        blend weights, and optional metadata values. Needs no AVoxelWorld; reads the stamps registered in the editor world. Defaults to the project's default stack and layer, so pass the
+        blend weights, and optional metadata values. Needs no AVoxelWorld; reads the stamps registered in the editor world. Defaults to Voxel's built-in default stack and layer (/Voxel/Default), so pass the
         stack and layer your stamps write to. A point no stamp covers reads null.
       timeoutSeconds: 300
     voxel_export_to_render_target:
@@ -139,7 +139,7 @@ nativeModule:
       effect: mutate
       description: >-
         Configure a Voxel Sampler (sampler) or Voxel Sampler Experimental (sampler_v2) PCG node. Each property is edited through Pre/PostEditChange so the graph regenerates; a field the node's class
-        lacks is an error. A new sampler reads the project's default volume layer, so set layer to sample height terrain. Returns the node and per-property previous/value.
+        lacks is an error. A new sampler reads Voxel's built-in default volume layer, so set layer to sample height terrain. Returns the node and per-property previous/value.
     voxel_graph_read:
       description: 'Read a voxel graph: terminal graphs, parameters (name, guid, type, default) and every node with pins, defaults and links.'
       effect: read

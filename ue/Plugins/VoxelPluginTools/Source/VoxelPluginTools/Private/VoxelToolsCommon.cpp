@@ -358,7 +358,7 @@ namespace VoxelPluginTools
 		{
 			if (Has(Params, Field) && Str(Params, Field).IsEmpty())
 			{
-				OutError = FString::Printf(TEXT("%s must not be empty; omit it for the project default"), Field);
+				OutError = FString::Printf(TEXT("%s must not be empty; omit it for Voxel's built-in default"), Field);
 				return false;
 			}
 		}

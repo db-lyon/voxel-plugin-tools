@@ -923,7 +923,7 @@ void AddStampHandlers(TArray<FHandlerEntry>& Out)
 	};
 	SetParams.Append(StampFields(
 		TEXT("UVoxelHeightGraph, UVoxelVolumeGraph, UVoxelHeightmap, UVoxelStaticMesh, UVoxelHeightSplineGraph or UVoxelVolumeSplineGraph path matching kind; required unless the current stamp of this kind has one. Changing a graph clears its overrides."),
-		TEXT("UVoxelHeightLayer (height kinds) or UVoxelVolumeLayer (volume kinds) path; default keeps the current layer, else the project default layer.")));
+		TEXT("UVoxelHeightLayer (height kinds) or UVoxelVolumeLayer (volume kinds) path; default keeps the current layer, else Voxel's built-in default layer.")));
 	SetParams.Add(Spec::SaveDirty());
 	Out.Add({ TEXT("voxel_stamp_set"), &StampSet, SetParams, Spec::OneActor() });
 
@@ -952,7 +952,7 @@ void AddStampHandlers(TArray<FHandlerEntry>& Out)
 	};
 	InstancedParams.Append(StampFields(
 		TEXT("add, required: UVoxelHeightGraph, UVoxelVolumeGraph, UVoxelHeightmap or UVoxelStaticMesh path matching kind."),
-		TEXT("add: UVoxelHeightLayer (height kinds) or UVoxelVolumeLayer (volume kinds) path; default the project default layer.")));
+		TEXT("add: UVoxelHeightLayer (height kinds) or UVoxelVolumeLayer (volume kinds) path; default Voxel's built-in default layer.")));
 	InstancedParams.Append({
 		MCPParam::Optional(TEXT("index"), EMCPParamType::Integer, TEXT("remove, required: the stamp slot to empty, in [0, count).")).Range(0, MAX_int32),
 		MCPParam::Optional(TEXT("indices"), EMCPParamType::Array, TEXT("update: non-empty stamp slots to re-evaluate, each in [0, count); default every slot."))

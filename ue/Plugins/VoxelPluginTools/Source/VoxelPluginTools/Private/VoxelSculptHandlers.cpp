@@ -1575,7 +1575,7 @@ void AddSculptHandlers(TArray<FHandlerEntry>& Out)
 	const auto StackLayer = [](const TCHAR* LayerDescription)
 	{
 		return TArray<FMCPParamSpec>{
-			MCPParam::Optional(TEXT("stack"), EMCPParamType::String, TEXT("UVoxelLayerStack asset path; default the project default stack.")),
+			MCPParam::Optional(TEXT("stack"), EMCPParamType::String, TEXT("UVoxelLayerStack asset path; default Voxel's built-in default stack.")),
 			MCPParam::Optional(TEXT("layer"), EMCPParamType::String, LayerDescription),
 		};
 	};

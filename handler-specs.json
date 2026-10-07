@@ -201,7 +201,7 @@
           "name": "stack",
           "type": "string",
           "required": false,
-          "description": "UVoxelLayerStack asset path; default the project default stack."
+          "description": "UVoxelLayerStack asset path; default Voxel's built-in default stack."
         },
         {
           "name": "layer",
@@ -1316,7 +1316,7 @@
           "name": "layer",
           "type": "string",
           "required": false,
-          "description": "add: UVoxelHeightLayer (height kinds) or UVoxelVolumeLayer (volume kinds) path; default the project default layer."
+          "description": "add: UVoxelHeightLayer (height kinds) or UVoxelVolumeLayer (volume kinds) path; default Voxel's built-in default layer."
         },
         {
           "name": "blendMode",
@@ -1736,7 +1736,7 @@
           "name": "stack",
           "type": "string",
           "required": false,
-          "description": "UVoxelLayerStack asset path; with only layer given, the project default stack."
+          "description": "UVoxelLayerStack asset path; with only layer given, Voxel's built-in default stack."
         },
         {
           "name": "layer",
@@ -2008,7 +2008,7 @@
           "name": "stack",
           "type": "string",
           "required": false,
-          "description": "UVoxelLayerStack asset path; default the project default stack."
+          "description": "UVoxelLayerStack asset path; default Voxel's built-in default stack."
         },
         {
           "name": "layer",
@@ -2288,7 +2288,7 @@
           "name": "layer",
           "type": "string",
           "required": false,
-          "description": "UVoxelHeightLayer (height kinds) or UVoxelVolumeLayer (volume kinds) path; default keeps the current layer, else the project default layer."
+          "description": "UVoxelHeightLayer (height kinds) or UVoxelVolumeLayer (volume kinds) path; default keeps the current layer, else Voxel's built-in default layer."
         },
         {
           "name": "blendMode",
