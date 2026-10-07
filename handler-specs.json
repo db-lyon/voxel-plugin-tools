@@ -1,5 +1,5 @@
 {
-  "handlerCount": 38,
+  "handlerCount": 43,
   "handlers": {
     "voxel_actor_spawn": {
       "params": [
@@ -388,13 +388,125 @@
         }
       ]
     },
+    "voxel_graph_add_function": {
+      "params": [
+        {
+          "name": "assetPath",
+          "type": "string",
+          "required": true,
+          "description": "UVoxelGraph or UVoxelFunctionLibraryAsset asset path; a bare package path (/Game/A/B) also resolves."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true,
+          "description": "Function display name, unique among the graph's functions (case-insensitive)."
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "required": false,
+          "description": "Category the function is listed under in node menus; \"\" for none."
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "required": false,
+          "description": "Function tooltip."
+        },
+        {
+          "name": "exposeToLibrary",
+          "type": "boolean",
+          "required": false,
+          "description": "Function libraries only: list the function in other graphs' node menus (bExposeToLibrary); a new function defaults to true."
+        },
+        {
+          "name": "inputs",
+          "type": "array",
+          "required": false,
+          "description": "Function inputs, in pin order; each gets a Function Input node at x -400.",
+          "items": "object",
+          "fields": [
+            {
+              "name": "name",
+              "type": "string",
+              "required": true,
+              "description": "Member name, unique in the list (case-insensitive)."
+            },
+            {
+              "name": "type",
+              "type": "string",
+              "required": true,
+              "description": "A voxel_graph_add_parameter type, optionally followed by ' buffer' or ' array' (e.g. 'float buffer'), case-insensitive."
+            },
+            {
+              "name": "category",
+              "type": "string",
+              "required": false,
+              "description": "Category in the members panel."
+            },
+            {
+              "name": "description",
+              "type": "string",
+              "required": false,
+              "description": "Pin tooltip."
+            },
+            {
+              "name": "default",
+              "type": "any",
+              "required": false,
+              "description": "Default value text (string, number or boolean) parsed as the type; default the type's own default."
+            }
+          ]
+        },
+        {
+          "name": "outputs",
+          "type": "array",
+          "required": false,
+          "description": "Function outputs, in pin order; each gets a Function Output node at x 400 to connect the result into.",
+          "items": "object",
+          "fields": [
+            {
+              "name": "name",
+              "type": "string",
+              "required": true,
+              "description": "Member name, unique in the list (case-insensitive)."
+            },
+            {
+              "name": "type",
+              "type": "string",
+              "required": true,
+              "description": "A voxel_graph_add_parameter type, optionally followed by ' buffer' or ' array' (e.g. 'float buffer'), case-insensitive."
+            },
+            {
+              "name": "category",
+              "type": "string",
+              "required": false,
+              "description": "Category in the members panel."
+            },
+            {
+              "name": "description",
+              "type": "string",
+              "required": false,
+              "description": "Pin tooltip."
+            }
+          ]
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the graph after the edit; default true."
+        }
+      ]
+    },
     "voxel_graph_add_node": {
       "params": [
         {
           "name": "assetPath",
           "type": "string",
           "required": true,
-          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+          "description": "UVoxelGraph or UVoxelFunctionLibraryAsset asset path; a bare package path (/Game/A/B) also resolves."
         },
         {
           "name": "terminalGraph",
@@ -438,7 +550,7 @@
           "name": "assetPath",
           "type": "string",
           "required": true,
-          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+          "description": "UVoxelGraph or UVoxelFunctionLibraryAsset asset path; a bare package path (/Game/A/B) also resolves."
         },
         {
           "name": "terminalGraph",
@@ -494,7 +606,7 @@
           "name": "assetPath",
           "type": "string",
           "required": true,
-          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+          "description": "UVoxelGraph or UVoxelFunctionLibraryAsset asset path; a bare package path (/Game/A/B) also resolves."
         },
         {
           "name": "terminalGraph",
@@ -540,7 +652,7 @@
           "name": "assetPath",
           "type": "string",
           "required": true,
-          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+          "description": "UVoxelGraph or UVoxelFunctionLibraryAsset asset path; a bare package path (/Game/A/B) also resolves."
         },
         {
           "name": "terminalGraph",
@@ -568,7 +680,7 @@
           "name": "assetPath",
           "type": "string",
           "required": true,
-          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+          "description": "UVoxelGraph or UVoxelFunctionLibraryAsset asset path; a bare package path (/Game/A/B) also resolves."
         },
         {
           "name": "terminalGraph",
@@ -614,7 +726,7 @@
           "name": "assetPath",
           "type": "string",
           "required": true,
-          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+          "description": "UVoxelGraph or UVoxelFunctionLibraryAsset asset path; a bare package path (/Game/A/B) also resolves."
         },
         {
           "name": "terminalGraph",
@@ -637,7 +749,7 @@
           "name": "assetPath",
           "type": "string",
           "required": true,
-          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+          "description": "UVoxelGraph or UVoxelFunctionLibraryAsset asset path; a bare package path (/Game/A/B) also resolves."
         },
         {
           "name": "terminalGraph",
@@ -681,7 +793,7 @@
           "name": "assetPath",
           "type": "string",
           "required": true,
-          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+          "description": "UVoxelGraph or UVoxelFunctionLibraryAsset asset path; a bare package path (/Game/A/B) also resolves."
         },
         {
           "name": "terminalGraph",
@@ -711,7 +823,7 @@
           "name": "assetPath",
           "type": "string",
           "required": true,
-          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+          "description": "UVoxelGraph or UVoxelFunctionLibraryAsset asset path; a bare package path (/Game/A/B) also resolves."
         },
         {
           "name": "terminalGraph",
@@ -727,13 +839,35 @@
         }
       ]
     },
+    "voxel_graph_remove_function": {
+      "params": [
+        {
+          "name": "assetPath",
+          "type": "string",
+          "required": true,
+          "description": "UVoxelGraph or UVoxelFunctionLibraryAsset asset path; a bare package path (/Game/A/B) also resolves."
+        },
+        {
+          "name": "terminalGraph",
+          "type": "string",
+          "required": true,
+          "description": "The function's terminal graph GUID, from voxel_graph_read terminalGraphs."
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the graph after the edit; default true."
+        }
+      ]
+    },
     "voxel_graph_remove_parameter": {
       "params": [
         {
           "name": "assetPath",
           "type": "string",
           "required": true,
-          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+          "description": "UVoxelGraph or UVoxelFunctionLibraryAsset asset path; a bare package path (/Game/A/B) also resolves."
         },
         {
           "name": "terminalGraph",
@@ -755,13 +889,78 @@
         }
       ]
     },
+    "voxel_graph_set_function": {
+      "params": [
+        {
+          "name": "assetPath",
+          "type": "string",
+          "required": true,
+          "description": "UVoxelGraph or UVoxelFunctionLibraryAsset asset path; a bare package path (/Game/A/B) also resolves."
+        },
+        {
+          "name": "terminalGraph",
+          "type": "string",
+          "required": true,
+          "description": "The function's terminal graph GUID, from voxel_graph_read terminalGraphs."
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": false,
+          "description": "Function display name, unique among the graph's functions (case-insensitive)."
+        },
+        {
+          "name": "category",
+          "type": "string",
+          "required": false,
+          "description": "Category the function is listed under in node menus; \"\" for none."
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "required": false,
+          "description": "Function tooltip."
+        },
+        {
+          "name": "exposeToLibrary",
+          "type": "boolean",
+          "required": false,
+          "description": "Function libraries only: list the function in other graphs' node menus (bExposeToLibrary); a new function defaults to true."
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the graph after the edit; default true."
+        }
+      ],
+      "choices": [
+        {
+          "mode": "atLeastOne",
+          "branches": [
+            [
+              "name"
+            ],
+            [
+              "category"
+            ],
+            [
+              "description"
+            ],
+            [
+              "exposeToLibrary"
+            ]
+          ]
+        }
+      ]
+    },
     "voxel_graph_set_parameter_default": {
       "params": [
         {
           "name": "assetPath",
           "type": "string",
           "required": true,
-          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+          "description": "UVoxelGraph or UVoxelFunctionLibraryAsset asset path; a bare package path (/Game/A/B) also resolves."
         },
         {
           "name": "terminalGraph",
@@ -799,7 +998,7 @@
           "name": "assetPath",
           "type": "string",
           "required": true,
-          "description": "UVoxelGraph asset path; a bare package path (/Game/A/B) also resolves."
+          "description": "UVoxelGraph or UVoxelFunctionLibraryAsset asset path; a bare package path (/Game/A/B) also resolves."
         },
         {
           "name": "terminalGraph",
@@ -2204,6 +2403,149 @@
             ],
             [
               "parameters"
+            ]
+          ]
+        }
+      ]
+    },
+    "voxel_spline_read": {
+      "params": [
+        {
+          "name": "actorPath",
+          "type": "string",
+          "required": false,
+          "description": "Spline stamp actor object path; preferred, since stamp actors relabel themselves."
+        },
+        {
+          "name": "actorLabel",
+          "type": "string",
+          "required": false,
+          "description": "Spline stamp actor label; must match exactly one actor."
+        },
+        {
+          "name": "componentName",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelSplineComponent object name; default the actor's first one."
+        }
+      ],
+      "choices": [
+        {
+          "mode": "exactlyOne",
+          "branches": [
+            [
+              "actorPath"
+            ],
+            [
+              "actorLabel"
+            ]
+          ]
+        }
+      ]
+    },
+    "voxel_spline_set_points": {
+      "params": [
+        {
+          "name": "actorPath",
+          "type": "string",
+          "required": false,
+          "description": "Spline stamp actor object path; preferred, since stamp actors relabel themselves."
+        },
+        {
+          "name": "actorLabel",
+          "type": "string",
+          "required": false,
+          "description": "Spline stamp actor label; must match exactly one actor."
+        },
+        {
+          "name": "componentName",
+          "type": "string",
+          "required": false,
+          "description": "UVoxelSplineComponent object name; default the actor's first one."
+        },
+        {
+          "name": "points",
+          "type": "array",
+          "required": true,
+          "description": "The whole curve, at least 2 points, relative to the spline component; validated before anything changes. Replaces every existing point.",
+          "items": "object",
+          "fields": [
+            {
+              "name": "location",
+              "type": "vec3",
+              "required": true,
+              "description": "Point location in centimetres, relative to the spline component."
+            },
+            {
+              "name": "type",
+              "type": "string",
+              "required": false,
+              "description": "ESplinePointType; default Curve.",
+              "enum": [
+                "Linear",
+                "Curve",
+                "Constant",
+                "CurveClamped",
+                "CurveCustomTangent"
+              ]
+            },
+            {
+              "name": "arriveTangent",
+              "type": "vec3",
+              "required": false,
+              "description": "CurveCustomTangent only, and required there; relative to the component."
+            },
+            {
+              "name": "leaveTangent",
+              "type": "vec3",
+              "required": false,
+              "description": "CurveCustomTangent only, and required there; relative to the component."
+            },
+            {
+              "name": "rotation",
+              "type": "rotator",
+              "required": false,
+              "description": "Point rotation in degrees, relative to the component; default zero."
+            },
+            {
+              "name": "scale",
+              "type": "vec3",
+              "required": false,
+              "description": "Point scale; default 1."
+            }
+          ]
+        },
+        {
+          "name": "closedLoop",
+          "type": "boolean",
+          "required": false,
+          "description": "Close the spline; default keeps the current setting."
+        },
+        {
+          "name": "metadata",
+          "type": "any",
+          "required": false,
+          "description": "{ splineParameterName: [one value per point] } for the stamp graph's spline parameters (voxel_spline_read lists them): a number for float, {x,y} for vector2d, {x,y,z} for vector. A parameter not listed keeps its values when the point count is unchanged, else takes its default.",
+          "forms": [
+            "argMap"
+          ]
+        },
+        {
+          "name": "save",
+          "type": "boolean",
+          "required": false,
+          "description": "Save the content packages this call dirties before replying; default true. Levels are never saved."
+        }
+      ],
+      "choices": [
+        {
+          "mode": "exactlyOne",
+          "branches": [
+            [
+              "actorPath"
+            ],
+            [
+              "actorLabel"
             ]
           ]
         }

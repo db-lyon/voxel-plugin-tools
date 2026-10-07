@@ -233,8 +233,8 @@ await step("remove_function refused while called", "voxel_graph_remove_function"
   undefined, { expectError: /is called by 1 node/ });
 await step("delete the call", "voxel_graph_delete_node", () => ({ assetPath: `${P}/HG_Smoke`, node: call.node?.id }));
 await step("graph_remove_function", "voxel_graph_remove_function", () => ({ assetPath: FL, terminalGraph: ctx.fn }), (r) => r.removed?.name === "Twice" || JSON.stringify(r));
-await step("removed function is gone", "voxel_graph_read", { assetPath: FL, includePins: false },
-  (r) => !r.terminalGraphs.some((g) => g.guid === ctx.fn) || JSON.stringify(r.terminalGraphs));
+await step("removed function is gone", "voxel_graph_remove_function", () => ({ assetPath: FL, terminalGraph: ctx.fn }),
+  undefined, { expectError: /No terminal graph/ });
 
 // Spline stamp: the curve and per-point metadata core's set_spline_points refuses.
 await step("asset_create height_spline_graph", "voxel_asset_create", { type: "height_spline_graph", name: "HSG_Smoke", packagePath: P });
