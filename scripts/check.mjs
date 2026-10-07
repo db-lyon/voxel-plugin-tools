@@ -151,13 +151,42 @@ for (const n of manifestRead) if (!moduleRead.has(n)) errors.push(`C6: ${n} is e
 for (const n of moduleRead) if (!manifestRead.has(n)) errors.push(`C6: ${n} is in ReadHandlers but not effect: read`);
 ok(`C6 ${moduleRead.size} read-only handlers agree`);
 
-// C7: every action the docs name exists. `ue-mcp plugin check-skills` reads only SKILL.md and only the
-// category(action="x") form; this covers the knowledge file, the README and every skill file, and bare names too.
+// C7: what the docs teach exists. `ue-mcp plugin check-skills` reads only SKILL.md and cannot resolve this plugin's
+// native category at all, so this covers the README, the knowledge file and every skill file: each voxel action name
+// (bare or in a call) is a manifest handler, each voxel call passes only keys its contract declares, and each core
+// category(action="x") call names a core action.
 const docFiles = ["README.md", ...readdirSync(resolve(root, "knowledge")).map((f) => `knowledge/${f}`)];
 const walk = (dir) => readdirSync(resolve(root, dir), { withFileTypes: true }).flatMap((e) =>
   e.isDirectory() ? walk(`${dir}/${e.name}`) : e.name.endsWith(".md") ? [`${dir}/${e.name}`] : []);
 if (existsSync(resolve(root, "skills"))) docFiles.push(...walk("skills"));
+const specs = native.specs ? JSON.parse(readFileSync(resolve(root, native.specs), "utf8")).handlers ?? {} : {};
+const hostTools = resolve(root, "node_modules/ue-mcp/dist/tools.js");
+const core = new Map();
+if (existsSync(hostTools)) {
+  for (const tool of (await import(pathToFileURL(hostTools).href)).ALL_TOOLS) core.set(tool.name, new Set(Object.keys(tool.actions)));
+}
+
+// Top-level `key=` names inside a call's parentheses, skipping strings and nested {}, [] and ().
+function callKeys(text, open) {
+  const keys = [];
+  let depth = 0;
+  let quote = null;
+  for (let i = open + 1; i < text.length; i++) {
+    const c = text[i];
+    if (quote) { if (c === quote) quote = null; continue; }
+    if (c === '"' || c === "'" || c === "`") { quote = c; continue; }
+    if ("({[".includes(c)) depth++;
+    else if (")}]".includes(c)) { if (depth === 0) return keys; depth--; }
+    else if (depth === 0 && /[A-Za-z_]/.test(c) && !/[A-Za-z0-9_]/.test(text[i - 1])) {
+      const k = /^([A-Za-z_][A-Za-z0-9_]*)\s*=(?!=)/.exec(text.slice(i));
+      if (k) keys.push(k[1]);
+    }
+  }
+  return keys;
+}
+
 let named = 0;
+let calls = 0;
 for (const file of docFiles) {
   const text = readFileSync(resolve(root, file), "utf8");
   for (const m of text.matchAll(/\bvoxel\s*\(\s*action\s*[=:]\s*["']([A-Za-z0-9_]+)["']|\b(voxel_[a-z0-9_]+)\b/g)) {
@@ -165,8 +194,20 @@ for (const file of docFiles) {
     named++;
     if (!handlers[name]) errors.push(`C7: ${file} names ${name}, which is not a voxel action`);
   }
+  for (const m of text.matchAll(/\b([a-z][a-z0-9_]*)\s*\(\s*action\s*=\s*"([A-Za-z0-9_]+)"/g)) {
+    const [category, action] = [m[1], m[2]];
+    calls++;
+    if (category === "voxel") {
+      const declared = new Set(["action", ...(specs[action]?.params ?? []).map((p) => p.name)]);
+      for (const key of callKeys(text, m.index + m[0].indexOf("("))) {
+        if (specs[action] && !declared.has(key)) errors.push(`C7: ${file}: voxel ${action} has no parameter ${key}`);
+      }
+    } else if (core.has(category) && !core.get(category).has(action)) {
+      errors.push(`C7: ${file} teaches ${category}.${action}, which is not a ue-mcp action`);
+    }
+  }
 }
-ok(`C7 ${named} action names in ${docFiles.length} doc files checked`);
+ok(`C7 ${named} voxel action names and ${calls} calls in ${docFiles.length} doc files checked`);
 
 if (errors.length) {
   for (const e of errors) console.error(`  ERR ${e}`);
