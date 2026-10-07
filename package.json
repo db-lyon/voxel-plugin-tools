@@ -1,6 +1,6 @@
 {
   "name": "voxel-plugin-tools",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "Voxel Plugin 2 actions for ue-mcp: native C++ handlers for voxel worlds, stamps, sculpting, queries, assets, PCG and graph authoring.",
   "files": [
     "ue/Plugins/VoxelPluginTools/Source",

@@ -1,7 +1,7 @@
 {
   "FileVersion": 3,
   "Version": 1,
-  "VersionName": "0.7.2",
+  "VersionName": "0.7.3",
   "FriendlyName": "Voxel Plugin Tools",
   "Description": "Native ue-mcp handlers for Voxel Plugin 2: worlds, stamps, sculpting, queries, assets, PCG and graph authoring",
   "Category": "Editor",

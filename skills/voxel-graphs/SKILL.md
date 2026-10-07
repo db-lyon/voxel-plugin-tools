@@ -25,7 +25,7 @@ A height graph ends in Output Height: `Height`, `SurfaceType` (a surface type bl
 
 Parameters are what stamps, instances and PCG override per use, so every value a designer should tune is a parameter, not a pin default.
 
-1. `voxel(action="voxel_graph_add_parameter", assetPath=..., name="Amplitude", type="float", default=3000)`. Types: `float`, `double`, `int32`, `int64`, `bool`, `name`, `vector2d`, `vector`, `color`, `seed`, or `struct:`, `object:`, `class:`, `enum:` with a path (a surface type parameter is `struct:/Script/Voxel.VoxelSurfaceType`). The default is parsed against the type before the graph changes.
+1. `voxel(action="voxel_graph_add_parameter", assetPath=..., name="Amplitude", type="float", default=3000)`. Types: `float`, `double`, `int32`, `int64`, `bool`, `name`, `vector2d`, `vector`, `color`, `seed`, or `struct:`, `object:`, `class:`, `enum:` with a path (a surface type parameter is `struct:/Script/Voxel.VoxelSurfaceType`), or a type name exactly as `voxel_graph_read` reports it (`Surface Type`, `Boolean`, `Float Array`), so a parameter read from one graph can be added to another as is. The default is parsed against the type before the graph changes.
 2. `voxel(action="voxel_graph_add_node", assetPath=..., nodeType="Parameters|Amplitude")` places its getter; wire the getter's output where the value is used. A parameter with no getter does nothing.
 3. `voxel(action="voxel_graph_set_parameter_default")` changes the default; `voxel(action="voxel_graph_remove_parameter")` removes the parameter, its getters in every terminal graph and its stored value.
 

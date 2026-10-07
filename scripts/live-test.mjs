@@ -267,6 +267,17 @@ await step("stamp_read", "voxel_stamp_read", () => ({ actorPath: ctx.stamp }), (
 await step("stamp_set_parameters", "voxel_stamp_set_parameters", () => ({ actorPath: ctx.stamp, values: { Amplitude: "4000" } }));
 // Object parameters: a bare package path must resolve, an unresolved one must be refused, never dropped silently
 await step("graph_add_parameter surface", "voxel_graph_add_parameter", { assetPath: `${P}/HG_Smoke`, name: "Surface", type: "struct:/Script/Voxel.VoxelSurfaceType" });
+// Every type name voxel_graph_read reports is accepted back by voxel_graph_add_parameter (#17).
+await step("asset_create round-trip graph", "voxel_asset_create", { type: "height_graph", name: "HG_Types", packagePath: P });
+const typed = await step("graph_add_parameter Float Array", "voxel_graph_add_parameter", { assetPath: `${P}/HG_Smoke`, name: "Weights", type: "Float Array" });
+await step("graph_add_parameter Boolean", "voxel_graph_add_parameter", { assetPath: `${P}/HG_Smoke`, name: "Flag", type: "Boolean" });
+const readTypes = await step("read parameter types", "voxel_graph_read", { assetPath: `${P}/HG_Smoke`, includePins: false },
+  (r) => (typed.parameters?.find((p) => p.name === "Weights")?.type === "Float Array") || JSON.stringify(typed.parameters));
+for (const name of ["Surface", "Weights", "Flag"]) {
+  const type = readTypes.parameters?.find((p) => p.name === name)?.type;
+  await step(`graph_add_parameter round-trips '${type}'`, "voxel_graph_add_parameter", { assetPath: `${P}/HG_Types`, name, type },
+    (r) => r.parameters?.find((p) => p.name === name)?.type === type || JSON.stringify(r.parameters));
+}
 await step("stamp_set_parameters package path", "voxel_stamp_set_parameters", () => ({ actorPath: ctx.stamp, values: { Surface: `${P}/ST_Dirt` } }), (r) =>
   /ST_Dirt\.ST_Dirt$/.test(r.overrides?.Surface ?? "") || `override ${JSON.stringify(r.overrides)}`);
 await step("stamp_set_parameters unresolved object", "voxel_stamp_set_parameters", () => ({ actorPath: ctx.stamp, values: { Surface: `${P}/ST_Missing` } }), undefined, { expectError: true });

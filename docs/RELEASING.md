@@ -103,6 +103,13 @@ npm view voxel-plugin-tools dist-tags.latest                                  # 
 gh release view vX.Y.Z --repo db-lyon/voxel-plugin-tools                      # release exists, not a prerelease
 ```
 
+Then replace the generated release notes. `--generate-notes` lists only merged PR titles, one line per PR, which tells a consumer nothing. Write the notes from the PR bodies since the previous tag and set them with `gh release edit vX.Y.Z --repo db-lyon/voxel-plugin-tools --notes-file <file>`:
+
+- One paragraph: what the release does, whether any existing call changes (patch or minor), and the requirements (`minServerVersion`, bridge ABI, Voxel branch, engine).
+- **New actions**, **Fixes**, **Skills and docs**: one bullet per change, naming the actions and the issue it closes.
+- **Upgrading**: the `plugin install --version X.Y.Z` command, `ue-mcp build`, restarting the MCP client, and any known defect in ue-mcp that affects upgrading, linked to its issue.
+- The Full Changelog compare link the generated notes end with.
+
 If `publish` failed:
 
 - **Before or at `npm publish`** (npm does not have the version): rerun the failed job, `gh run rerun <run-id> --failed`. The tag step skips an existing tag and the release step skips an existing release.

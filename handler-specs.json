@@ -437,7 +437,7 @@
               "name": "type",
               "type": "string",
               "required": true,
-              "description": "A voxel_graph_add_parameter type, optionally followed by ' buffer' or ' array' (e.g. 'float buffer'), case-insensitive."
+              "description": "A voxel_graph_add_parameter type, optionally followed by ' buffer' or ' array' (e.g. 'float buffer', as voxel_graph_read reports 'Float Buffer'), case-insensitive."
             },
             {
               "name": "category",
@@ -476,7 +476,7 @@
               "name": "type",
               "type": "string",
               "required": true,
-              "description": "A voxel_graph_add_parameter type, optionally followed by ' buffer' or ' array' (e.g. 'float buffer'), case-insensitive."
+              "description": "A voxel_graph_add_parameter type, optionally followed by ' buffer' or ' array' (e.g. 'float buffer', as voxel_graph_read reports 'Float Buffer'), case-insensitive."
             },
             {
               "name": "category",
@@ -568,7 +568,7 @@
           "name": "type",
           "type": "string",
           "required": true,
-          "description": "float, double, int32 (or int), int64, bool, name, vector2d, vector, color (or linearcolor), seed, or struct:, object:, class: or enum: followed by an asset path; case-insensitive."
+          "description": "float, double, int32 (or int), int64, bool, name, vector2d, vector, color (or linearcolor), seed, struct:, object:, class: or enum: followed by an asset path, or a type name as voxel_graph_read reports it (e.g. Surface Type, Float Array); case-insensitive."
         },
         {
           "name": "default",

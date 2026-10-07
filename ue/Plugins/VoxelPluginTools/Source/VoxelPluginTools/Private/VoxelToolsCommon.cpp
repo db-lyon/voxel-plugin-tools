@@ -6,6 +6,7 @@
 #include "Misc/PackageName.h"
 
 #include "VoxelPinType.h"
+#include "VoxelPinTypeSet.h"
 #include "VoxelPinValue.h"
 #include "Buffer/VoxelBaseBuffers.h"
 #include "VoxelLayer.h"
@@ -346,7 +347,29 @@ namespace VoxelPluginTools
 			OutError = FString::Printf(TEXT("Could not load %s '%s'"), *Kind, *Path);
 			return false;
 		}
-		OutError = FString::Printf(TEXT("Unknown type '%s'. Use float, double, int32, int64, bool, name, vector2d, vector, color, seed, or struct:/object:/class:/enum:<path>"), *T);
+
+		// A name as Voxel prints it (FVoxelPinType::ToString, which voxel_graph_read reports): 'Surface Type',
+		// 'Boolean', 'Float Buffer', 'Float Array'. Matched against every type Voxel's pin type registry knows.
+		TArray<FVoxelPinType> Matches;
+		for (const FVoxelPinType& Known : FVoxelPinTypeSet::GetAllTypes())
+		{
+			const FVoxelPinType Inner = Known.GetInnerType();
+			for (const FVoxelPinType& Candidate : { Inner, Inner.GetBufferType(), Inner.GetBufferType().WithBufferArray(true) })
+			{
+				if (Candidate.IsValid() && !Matches.Contains(Candidate) && Candidate.ToString().Equals(T, ESearchCase::IgnoreCase))
+				{
+					Matches.Add(Candidate);
+				}
+			}
+		}
+		if (Matches.Num() == 1)
+		{
+			Out = Matches[0];
+			return true;
+		}
+		OutError = Matches.Num() > 1
+			? FString::Printf(TEXT("'%s' names %d voxel types; use struct:/object:/class:/enum:<path>"), *T, Matches.Num())
+			: FString::Printf(TEXT("Unknown type '%s'. Use float, double, int32, int64, bool, name, vector2d, vector, color, seed, struct:/object:/class:/enum:<path>, or a type name as voxel_graph_read reports it"), *T);
 		return false;
 	}
 
