@@ -1573,7 +1573,7 @@ void AddGraphHandlers(TArray<FHandlerEntry>& Out)
 	Out.Add({ TEXT("voxel_graph_add_parameter"), &AddParameter, Graph({
 		MCPParam::Required(TEXT("name"), EMCPParamType::String, TEXT("New parameter name, unique in the graph (case-insensitive).")),
 		MCPParam::Required(TEXT("type"), EMCPParamType::String,
-			TEXT("float, double, int32 (or int), int64, bool, name, vector2d, vector, color (or linearcolor), seed, or struct:, object:, class: or enum: followed by an asset path; case-insensitive.")),
+			TEXT("float, double, int32 (or int), int64, bool, name, vector2d, vector, color (or linearcolor), seed, struct:, object:, class: or enum: followed by an asset path, or a type name as voxel_graph_read reports it (e.g. Surface Type, Float Array); case-insensitive.")),
 		ScalarValue(TEXT("default"), false, TEXT("Default value text, validated against the type before anything changes; default the type's own default.")),
 		MCPParam::Optional(TEXT("category"), EMCPParamType::String, TEXT("Category shown in the graph's members panel.")),
 		MCPParam::Optional(TEXT("description"), EMCPParamType::String, TEXT("Parameter tooltip.")),
@@ -1603,7 +1603,7 @@ void AddGraphHandlers(TArray<FHandlerEntry>& Out)
 		TArray<FMCPParamField> Fields = {
 			MCPParam::RequiredField(TEXT("name"), EMCPParamType::String, TEXT("Member name, unique in the list (case-insensitive).")),
 			MCPParam::RequiredField(TEXT("type"), EMCPParamType::String,
-				TEXT("A voxel_graph_add_parameter type, optionally followed by ' buffer' or ' array' (e.g. 'float buffer'), case-insensitive.")),
+				TEXT("A voxel_graph_add_parameter type, optionally followed by ' buffer' or ' array' (e.g. 'float buffer', as voxel_graph_read reports 'Float Buffer'), case-insensitive.")),
 			MCPParam::OptionalField(TEXT("category"), EMCPParamType::String, TEXT("Category in the members panel.")),
 			MCPParam::OptionalField(TEXT("description"), EMCPParamType::String, TEXT("Pin tooltip.")),
 		};
