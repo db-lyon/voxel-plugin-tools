@@ -1873,7 +1873,7 @@
           "name": "unbounded",
           "type": "boolean",
           "required": false,
-          "description": "Sample the whole surface instead of the actor or bounding-shape bounds; default false."
+          "description": "With no Bounding Shape connected, sample the whole surface instead of the actor bounds; a connected shape is still intersected with them. Default false."
         },
         {
           "name": "looseness",
@@ -2144,7 +2144,7 @@
           "name": "save",
           "type": "boolean",
           "required": false,
-          "description": "Save the asset after load: false writes into it, and the content packages the call dirties; default true. Levels are never saved."
+          "description": "Save the asset that load: false writes the actor's data into, and the content packages the call dirties; default true. Levels are never saved."
         }
       ],
       "choices": [
