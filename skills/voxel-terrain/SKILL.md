@@ -67,6 +67,10 @@ Points within 1 m of a stamp's edge get a valid height and a NaN normal (the sca
 
 Set the PCG component's editing mode to Preview so generated output regenerates on load instead of being saved into the level.
 
+A runtime-generated component's partition cells belong to PCG's runtime scheduler, and every stamp change under them makes Voxel's tracker refresh them. To clear such a component, set `bActivated` false and call `UPCGSubsystem::RefreshRuntimeGenExecutionSource(Component, EPCGChangeType::GenerationGrid)`; never `CleanupLocal` on it. A direct cleanup races the scheduler's own and trips PCG's `bAreResourcesInaccessible` ensures. `UPCGComponent::Cleanup` refuses these components for the same reason.
+
 ## 7. Terrain edits from PCG
 
 Put a second height layer above the base one in the world's layer stack. Systems that place things sample the base layer; stamps they spawn (`stamp_spawner` with a height graph or heightmap template) go to the edits layer; scatter samples the edits layer. Placement then never invalidates itself, and scatter regenerates when edits change under it. The stamp spawner uses the full point transform including scale: reset scale when a footprint is already in a graph parameter. Map per-point values onto graph parameters with `SpawnedGraphParameterOverrideDescriptions` and onto stamp properties with `SpawnedStampPropertyOverrideDescriptions`; enum properties (BlendMode) cannot be set from a string attribute, so split points by value into spawners whose templates carry each mode.
+
+A surface type parameter override (`FVoxelParameterValueOverride`) must hold the parameter's exposed type, the surface asset: build it with `FVoxelPinValue(Parameter.Type.GetExposedType())` and `ImportFromUnrelated(FVoxelPinValue::Make(Surface))`. An override in the inner `FVoxelSurfaceType` is orphaned by `FixupParameterOverrides` and the stamp silently carves with the graph's default surface. Voxel spline components carry spline metadata, so generic spline-point tools refuse them; edit them through the spline component API.
