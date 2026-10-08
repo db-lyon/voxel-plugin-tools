@@ -1,6 +1,6 @@
 ---
 name: voxel-terrain
-description: "Use when building or editing Voxel Plugin 2 terrain through ue-mcp's voxel category: the shader-hook preflight, layer stacks, the voxel world, height and volume stamps (graph, heightmap, mesh, spline, instanced) with per-stamp parameter overrides, caves and overhangs, surface types on a mega material, sculpt actors and their save assets, and verifying terrain with layer queries. Pulls in for any voxel world, stamp, terrain shape, cave or terrain material task."
+description: "Use when building or editing Voxel Plugin 2 terrain through ue-mcp's voxel category: the shader-hook preflight, layer stacks, the voxel world, height and volume stamps (graph, heightmap, mesh, shape, spline, instanced) with per-stamp parameter overrides, caves and overhangs, surface types on a mega material, sculpt actors and their save assets, and verifying terrain with layer queries. Pulls in for any voxel world, stamp, terrain shape, cave or terrain material task."
 ---
 
 # Voxel terrain with ue-mcp
@@ -48,6 +48,7 @@ A variant of a graph that differs only in parameter values is an instance (`inst
 | `heightmap` | UVoxelHeightmap (`surfaceType` sets its default surface) | height |
 | `mesh` | UVoxelStaticMesh (`surfaceType`, `useTricubic`) | volume |
 | `height_spline` / `volume_spline` | spline graph, on a stamp actor only | height / volume |
+| `shape` | none: `shape` is `{type: "Sphere", radius}`, `{type: "Cube", size: {x,y,z}, roundness}` or `{type: "Plane", size: {x,y}, height}` (`surfaceType`) | volume |
 
 Fields: `smoothness` is the blend width in centimetres (default 100); `behavior` limits what the stamp writes (shape, surface type, metadata); `applyOnVoid: false` applies only where an earlier stamp already applied, which keeps a stamp inside terrain that earlier stamps already built (ignored by `Override` and `Intersect`). A stamp with a higher `priority` and `blendMode: "Override"` replaces, within its own bounds, what lower-priority stamps produced: the way to flatten or reshape a region on top of the terrain.
 
@@ -60,7 +61,7 @@ Spline stamps take their curve from the stamp actor's `UVoxelSplineComponent`, w
 A height layer cannot overhang. Carve and add in a volume layer above it:
 
 1. Make sure the stack has a volume layer above the height layers (the default stack has one).
-2. A stamp with `kind: "volume_graph"` (or `mesh`) on that layer: `blendMode: "Subtractive"` carves, `Additive` adds rock.
+2. A stamp with `kind: "volume_graph"`, `mesh` or `shape` on that layer: `blendMode: "Subtractive"` carves, `Additive` adds rock. A plain void or block needs no asset: `voxel(action="voxel_stamp_set", actorPath=..., kind="shape", blendMode="Subtractive", shape={type: "Sphere", radius: 3000})`.
 3. Check with `voxel(action="voxel_query_layer", layerKind="volume", stack=..., layer=..., points=[{x,y,z}])`: `distance` is negative inside solid, positive in air.
 4. A `UVoxelNoClippingComponent` teleports its owner back to its last valid location when it ends up inside the volume layer (while `autoAdjustPlayer`, default true; one tick late): add it to the actor to protect with `voxel(action="voxel_component_add", kind="no_clipping")` and point it at the layer with `voxel(action="voxel_no_clipping_set_layer")`.
 

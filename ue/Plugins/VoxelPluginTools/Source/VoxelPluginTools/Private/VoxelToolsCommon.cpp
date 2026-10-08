@@ -151,6 +151,17 @@ namespace VoxelPluginTools
 		return true;
 	}
 
+	bool Vec2(const FParams& Params, const TCHAR* Field, FVector2D& Out)
+	{
+		TArray<double> V;
+		if (!Numbers(Params, Field, { TEXT("x"), TEXT("y") }, V))
+		{
+			return false;
+		}
+		Out = FVector2D(V[0], V[1]);
+		return true;
+	}
+
 	bool Rot(const FParams& Params, const TCHAR* Field, FRotator& Out)
 	{
 		TArray<double> V;

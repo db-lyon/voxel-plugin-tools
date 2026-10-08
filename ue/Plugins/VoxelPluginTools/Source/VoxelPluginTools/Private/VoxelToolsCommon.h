@@ -44,6 +44,8 @@ namespace VoxelPluginTools
 
 	// {x,y,z} of JSON numbers; false when the field is absent or malformed.
 	bool Vec(const FParams& Params, const TCHAR* Field, FVector& Out);
+	// {x,y} of JSON numbers; false when the field is absent or malformed.
+	bool Vec2(const FParams& Params, const TCHAR* Field, FVector2D& Out);
 	// {pitch,yaw,roll} of JSON numbers; false when the field is absent or malformed.
 	bool Rot(const FParams& Params, const TCHAR* Field, FRotator& Out);
 	TSharedRef<FJsonObject> VecJson(const FVector& Value);

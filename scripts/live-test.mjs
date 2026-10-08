@@ -265,6 +265,22 @@ await step("stamp_set height_graph", "voxel_stamp_set", () => ({
 await step("stamp_read", "voxel_stamp_read", () => ({ actorPath: ctx.stamp }), (r) =>
   (r.stamp?.kind === "height_graph" && /HG_Smoke/.test(r.stamp.asset ?? "") && !!r.stamp.layer && r.stamp.overrides?.Amplitude?.startsWith("3500")) || `unexpected ${JSON.stringify(r.stamp)}`);
 await step("stamp_set_parameters", "voxel_stamp_set_parameters", () => ({ actorPath: ctx.stamp, values: { Amplitude: "4000" } }));
+
+// Shape stamps: each shape type with its own fields, a changed field kept on the next call, and the other types replacing it.
+const shapeActor = await step("actor_spawn shape stamp", "voxel_actor_spawn", { kind: "stamp", label: "SmokeShape", location: { x: 0, y: 40000, z: 0 } });
+ctx.shape = shapeActor.actorPath;
+await step("stamp_set shape sphere", "voxel_stamp_set", () => ({
+  actorPath: ctx.shape, kind: "shape", blendMode: "Subtractive", shape: { type: "Sphere", radius: 2500 }, surfaceType: `${P}/ST_Dirt`,
+}), (r) => (r.stamp?.kind === "shape" && r.stamp.shape?.type === "Sphere" && r.stamp.shape.radius === 2500 && r.stamp.blendMode === "Subtractive"
+  && /ST_Dirt/.test(r.stamp.surfaceType ?? "")) || JSON.stringify(r.stamp));
+await step("stamp_set shape keeps its shape", "voxel_stamp_set", () => ({ actorPath: ctx.shape, kind: "shape", priority: 3 }),
+  (r) => (r.stamp?.shape?.radius === 2500 && r.stamp.priority === 3) || JSON.stringify(r.stamp));
+await step("stamp_set shape cube", "voxel_stamp_set", () => ({ actorPath: ctx.shape, kind: "shape", shape: { type: "Cube", size: { x: 1000, y: 2000, z: 3000 }, roundness: 0.5 } }),
+  (r) => (r.stamp?.shape?.type === "Cube" && r.stamp.shape.size?.z === 3000 && r.stamp.shape.roundness === 0.5) || JSON.stringify(r.stamp));
+await step("stamp_set shape plane", "voxel_stamp_set", () => ({ actorPath: ctx.shape, kind: "shape", shape: { type: "Plane", size: { x: 4000, y: 2000 }, height: 2 } }),
+  (r) => (r.stamp?.shape?.type === "Plane" && r.stamp.shape.size?.x === 4000 && r.stamp.shape.height === 2) || JSON.stringify(r.stamp));
+await step("stamp_read shape", "voxel_stamp_read", () => ({ actorPath: ctx.shape }),
+  (r) => (r.stamp?.kind === "shape" && r.stamp.shape?.type === "Plane" && r.stamp.layerType === "volume") || JSON.stringify(r.stamp));
 // Object parameters: a bare package path must resolve, an unresolved one must be refused, never dropped silently
 await step("graph_add_parameter surface", "voxel_graph_add_parameter", { assetPath: `${P}/HG_Smoke`, name: "Surface", type: "struct:/Script/Voxel.VoxelSurfaceType" });
 // Every type name voxel_graph_read reports is accepted back by voxel_graph_add_parameter (#17).
@@ -347,6 +363,18 @@ await refuse("stamp_set refuses an empty asset", "voxel_stamp_set", () => ({ act
 await refuse("stamp_set refuses an empty layer", "voxel_stamp_set", () => ({ actorPath: ctx.stamp, kind: "height_graph", layer: "" }), /layer must not be empty/);
 await refuse("stamp_set refuses an object parameter value", "voxel_stamp_set",
   () => ({ actorPath: ctx.stamp, kind: "height_graph", parameters: { Amplitude: { value: 1 } } }), /parameters\.Amplitude must be a string, number, boolean or null/);
+await refuse("stamp_set refuses the shape kind without a shape", "voxel_stamp_set",
+  () => ({ actorPath: ctx.stamp, kind: "shape" }), /shape is required/);
+await refuse("stamp_set refuses asset on the shape kind", "voxel_stamp_set",
+  () => ({ actorPath: ctx.shape, kind: "shape", asset: `${P}/HG_Smoke` }), /asset does not apply to the shape kind/);
+await refuse("stamp_set refuses shape on another kind", "voxel_stamp_set",
+  () => ({ actorPath: ctx.stamp, kind: "height_graph", shape: { type: "Sphere" } }), /shape only applies to the shape kind/);
+await refuse("stamp_set refuses a field the shape type does not read", "voxel_stamp_set",
+  () => ({ actorPath: ctx.shape, kind: "shape", shape: { type: "Sphere", size: { x: 1, y: 1, z: 1 } } }), /size/);
+await refuse("stamp_set refuses a non-positive radius", "voxel_stamp_set",
+  () => ({ actorPath: ctx.shape, kind: "shape", shape: { type: "Sphere", radius: 0 } }), /radius must be a number > 0/);
+await refuse("stamp_set refuses a plane size with z", "voxel_stamp_set",
+  () => ({ actorPath: ctx.shape, kind: "shape", shape: { type: "Plane", size: { x: 1, y: 1, z: 1 } } }), /size/);
 await refuse("stamp_read refuses an empty componentName", "voxel_stamp_read", () => ({ actorPath: ctx.stamp, componentName: "" }), /componentName must not be empty/);
 await refuse("stamp_read refuses actorPath and actorLabel together", "voxel_stamp_read", () => ({ actorPath: ctx.stamp, actorLabel: "SmokeStamp" }), /takes one side/);
 await refuse("graph_add_parameter refuses a fractional int default", "voxel_graph_add_parameter",
