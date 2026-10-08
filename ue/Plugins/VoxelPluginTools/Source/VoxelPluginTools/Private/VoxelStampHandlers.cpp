@@ -22,6 +22,10 @@
 #include "Heightmap/VoxelHeightmapStamp.h"
 #include "StaticMesh/VoxelStaticMesh.h"
 #include "StaticMesh/VoxelMeshStamp.h"
+#include "Shape/VoxelShapeStamp.h"
+#include "Shape/VoxelSphereShape.h"
+#include "Shape/VoxelCubeShape.h"
+#include "Shape/VoxelPlaneShape.h"
 #include "Spline/VoxelHeightSplineGraph.h"
 #include "Spline/VoxelVolumeSplineGraph.h"
 #include "Spline/VoxelHeightSplineStamp.h"
@@ -47,6 +51,7 @@ namespace
 		Mesh,
 		HeightSpline,
 		VolumeSpline,
+		Shape,
 	};
 
 	struct FKindInfo
@@ -65,6 +70,7 @@ namespace
 		{ EKind::Mesh, TEXT("mesh"), false },
 		{ EKind::HeightSpline, TEXT("height_spline"), true },
 		{ EKind::VolumeSpline, TEXT("volume_spline"), true },
+		{ EKind::Shape, TEXT("shape"), false },
 	};
 
 	FString KindNames()
@@ -110,6 +116,7 @@ namespace
 		case EKind::Mesh: return Fn(TTag<FVoxelMeshStamp>());
 		case EKind::HeightSpline: return Fn(TTag<FVoxelHeightSplineStamp>());
 		case EKind::VolumeSpline: return Fn(TTag<FVoxelVolumeSplineStamp>());
+		case EKind::Shape: return Fn(TTag<FVoxelShapeStamp>());
 		}
 		return Error(TEXT("Unhandled stamp kind"));
 	}
@@ -122,6 +129,7 @@ namespace
 		if (Stamp.As<FVoxelMeshStamp>()) return TEXT("mesh");
 		if (Stamp.As<FVoxelHeightSplineStamp>()) return TEXT("height_spline");
 		if (Stamp.As<FVoxelVolumeSplineStamp>()) return TEXT("volume_spline");
+		if (Stamp.As<FVoxelShapeStamp>()) return TEXT("shape");
 		return TEXT("other");
 	}
 
@@ -334,6 +342,91 @@ namespace
 		return true;
 	}
 
+	// A JSON number, never a string or boolean standing in for one.
+	bool Number(const FParams& Params, const TCHAR* Field, double& Out)
+	{
+		const TSharedPtr<FJsonValue> Value = Params->TryGetField(Field);
+		if (!Value.IsValid() || Value->Type != EJson::Number || !FMath::IsFinite(Value->AsNumber()))
+		{
+			return false;
+		}
+		Out = Value->AsNumber();
+		return true;
+	}
+
+	// The shape a shape stamp adds or removes: its type, and only the fields that type reads. A field left out keeps the
+	// current shape's value when the type is unchanged, else Voxel's default.
+	bool ApplyShape(FVoxelShapeStamp& Stamp, const FParams& Params, FString& OutError)
+	{
+		if (!Has(Params, TEXT("shape")))
+		{
+			if (!Stamp.Shape.IsValid())
+			{
+				OutError = TEXT("shape is required: { type: Sphere | Cube | Plane, ... }");
+				return false;
+			}
+			return true;
+		}
+		const TSharedPtr<FJsonObject>* Object = nullptr;
+		if (!Params->TryGetObjectField(TEXT("shape"), Object))
+		{
+			OutError = TEXT("shape must be an object: { type: Sphere | Cube | Plane, ... }");
+			return false;
+		}
+		const FParams Shape = *Object;
+		const FString Type = Str(Shape, TEXT("type"));
+		if (Type.Equals(TEXT("Sphere"), ESearchCase::CaseSensitive))
+		{
+			if (!OnlyKeys(Shape, { TEXT("type"), TEXT("radius") }, TEXT("a Sphere shape"), OutError)) return false;
+			FVoxelSphereShape Sphere = Stamp.Shape.IsA<FVoxelSphereShape>() ? Stamp.Shape.Get<FVoxelSphereShape>() : FVoxelSphereShape();
+			if (Has(Shape, TEXT("radius")) && (!Number(Shape, TEXT("radius"), Sphere.Radius) || Sphere.Radius <= 0))
+			{
+				OutError = TEXT("shape.radius must be a number > 0");
+				return false;
+			}
+			Stamp.Shape = TVoxelInstancedStruct<FVoxelShape>(Sphere);
+			return true;
+		}
+		if (Type.Equals(TEXT("Cube"), ESearchCase::CaseSensitive))
+		{
+			if (!OnlyKeys(Shape, { TEXT("type"), TEXT("size"), TEXT("roundness") }, TEXT("a Cube shape"), OutError)) return false;
+			FVoxelCubeShape Cube = Stamp.Shape.IsA<FVoxelCubeShape>() ? Stamp.Shape.Get<FVoxelCubeShape>() : FVoxelCubeShape();
+			if (Has(Shape, TEXT("size")) && (!Vec(Shape, TEXT("size"), Cube.Size) || Cube.Size.GetMin() <= 0))
+			{
+				OutError = TEXT("shape.size must be {x,y,z}, each > 0");
+				return false;
+			}
+			double Roundness = Cube.Roundness;
+			if (Has(Shape, TEXT("roundness")) && (!Number(Shape, TEXT("roundness"), Roundness) || Roundness < 0 || Roundness > 1))
+			{
+				OutError = TEXT("shape.roundness must be a number in [0, 1]");
+				return false;
+			}
+			Cube.Roundness = static_cast<float>(Roundness);
+			Stamp.Shape = TVoxelInstancedStruct<FVoxelShape>(Cube);
+			return true;
+		}
+		if (Type.Equals(TEXT("Plane"), ESearchCase::CaseSensitive))
+		{
+			if (!OnlyKeys(Shape, { TEXT("type"), TEXT("size"), TEXT("height") }, TEXT("a Plane shape"), OutError)) return false;
+			FVoxelPlaneShape Plane = Stamp.Shape.IsA<FVoxelPlaneShape>() ? Stamp.Shape.Get<FVoxelPlaneShape>() : FVoxelPlaneShape();
+			if (Has(Shape, TEXT("size")) && (!Vec2(Shape, TEXT("size"), Plane.Size) || Plane.Size.GetMin() <= 0))
+			{
+				OutError = TEXT("shape.size must be {x,y}, each > 0");
+				return false;
+			}
+			if (Has(Shape, TEXT("height")) && (!Number(Shape, TEXT("height"), Plane.Height) || Plane.Height < 0))
+			{
+				OutError = TEXT("shape.height must be a number >= 0");
+				return false;
+			}
+			Stamp.Shape = TVoxelInstancedStruct<FVoxelShape>(Plane);
+			return true;
+		}
+		OutError = FString::Printf(TEXT("shape.type '%s' is not one of: Sphere, Cube, Plane"), *Type);
+		return false;
+	}
+
 	// Layer, blend mode and layer-type padding shared by every height or volume stamp.
 	template<typename StampType>
 	bool ApplyLayerFields(StampType& Stamp, const FParams& Params, FString& OutError)
@@ -402,26 +495,44 @@ namespace
 	template<typename StampType>
 	bool Configure(StampType& Stamp, const FParams& Params, FString& OutError, bool& bOutAssetChanged)
 	{
-		using FTraits = TStampAsset<StampType>;
 		bOutAssetChanged = false;
 
-		const FString AssetPath = Str(Params, TEXT("asset"));
-		if (AssetPath.IsEmpty() && Has(Params, TEXT("asset")))
+		// A shape stamp is its shape; every other kind is driven by an asset.
+		if constexpr (std::is_same_v<StampType, FVoxelShapeStamp>)
 		{
-			OutError = TEXT("asset must not be empty; omit it to keep the current asset, which a stamp cannot be without");
-			return false;
+			if (Has(Params, TEXT("asset")))
+			{
+				OutError = TEXT("asset does not apply to the shape kind; pass shape");
+				return false;
+			}
+			if (!ApplyShape(Stamp, Params, OutError)) return false;
 		}
-		if (!AssetPath.IsEmpty())
+		else
 		{
-			typename FTraits::FAsset* Asset = Load<typename FTraits::FAsset>(AssetPath, OutError);
-			if (!Asset) return false;
-			bOutAssetChanged = FTraits::Get(Stamp) != Asset;
-			FTraits::Set(Stamp, Asset);
-		}
-		if (!FTraits::Get(Stamp))
-		{
-			OutError = FString::Printf(TEXT("asset is required (a %s path)"), *FTraits::FAsset::StaticClass()->GetName());
-			return false;
+			using FTraits = TStampAsset<StampType>;
+			if (Has(Params, TEXT("shape")))
+			{
+				OutError = TEXT("shape only applies to the shape kind");
+				return false;
+			}
+			const FString AssetPath = Str(Params, TEXT("asset"));
+			if (AssetPath.IsEmpty() && Has(Params, TEXT("asset")))
+			{
+				OutError = TEXT("asset must not be empty; omit it to keep the current asset, which a stamp cannot be without");
+				return false;
+			}
+			if (!AssetPath.IsEmpty())
+			{
+				typename FTraits::FAsset* Asset = Load<typename FTraits::FAsset>(AssetPath, OutError);
+				if (!Asset) return false;
+				bOutAssetChanged = FTraits::Get(Stamp) != Asset;
+				FTraits::Set(Stamp, Asset);
+			}
+			if (!FTraits::Get(Stamp))
+			{
+				OutError = FString::Printf(TEXT("asset is required (a %s path)"), *FTraits::FAsset::StaticClass()->GetName());
+				return false;
+			}
 		}
 
 		if constexpr (std::derived_from<StampType, IVoxelParameterOverridesOwner>)
@@ -457,9 +568,13 @@ namespace
 			if (bSurface && !ParseOptionalAsset(Params, TEXT("surfaceType"), Stamp.SurfaceType, OutError)) return false;
 			if (Has(Params, TEXT("useTricubic")) && !ParseBool(Params, TEXT("useTricubic"), Stamp.bUseTricubic, OutError)) return false;
 		}
+		else if constexpr (std::is_same_v<StampType, FVoxelShapeStamp>)
+		{
+			if (bSurface && !ParseOptionalAsset(Params, TEXT("surfaceType"), Stamp.SurfaceType, OutError)) return false;
+		}
 		else if (bSurface)
 		{
-			OutError = TEXT("surfaceType only applies to heightmap and mesh kinds");
+			OutError = TEXT("surfaceType only applies to heightmap, mesh and shape kinds");
 			return false;
 		}
 		if constexpr (!std::is_same_v<StampType, FVoxelMeshStamp>)
@@ -528,6 +643,36 @@ namespace
 		{
 			Out->SetStringField(TEXT("surfaceType"), PathOf(Mesh->SurfaceType.Get()));
 			Out->SetBoolField(TEXT("useTricubic"), Mesh->bUseTricubic);
+		}
+		else if (const FVoxelShapeStamp* ShapeStamp = Stamp.As<FVoxelShapeStamp>())
+		{
+			Out->SetStringField(TEXT("surfaceType"), PathOf(ShapeStamp->SurfaceType.Get()));
+			TSharedRef<FJsonObject> Shape = MakeShared<FJsonObject>();
+			if (const FVoxelSphereShape* Sphere = ShapeStamp->Shape.GetPtr<FVoxelSphereShape>())
+			{
+				Shape->SetStringField(TEXT("type"), TEXT("Sphere"));
+				Shape->SetNumberField(TEXT("radius"), Sphere->Radius);
+			}
+			else if (const FVoxelCubeShape* Cube = ShapeStamp->Shape.GetPtr<FVoxelCubeShape>())
+			{
+				Shape->SetStringField(TEXT("type"), TEXT("Cube"));
+				Shape->SetObjectField(TEXT("size"), VecJson(Cube->Size));
+				Shape->SetNumberField(TEXT("roundness"), Cube->Roundness);
+			}
+			else if (const FVoxelPlaneShape* Plane = ShapeStamp->Shape.GetPtr<FVoxelPlaneShape>())
+			{
+				Shape->SetStringField(TEXT("type"), TEXT("Plane"));
+				TSharedRef<FJsonObject> Size = MakeShared<FJsonObject>();
+				Size->SetNumberField(TEXT("x"), Plane->Size.X);
+				Size->SetNumberField(TEXT("y"), Plane->Size.Y);
+				Shape->SetObjectField(TEXT("size"), Size);
+				Shape->SetNumberField(TEXT("height"), Plane->Height);
+			}
+			else
+			{
+				Shape->SetStringField(TEXT("type"), ShapeStamp->Shape.IsValid() ? ShapeStamp->Shape.GetScriptStruct()->GetName() : TEXT("None"));
+			}
+			Out->SetObjectField(TEXT("shape"), Shape);
 		}
 
 		if (const IVoxelParameterOverridesOwner* Owner = OverridesOwner(Stamp))
@@ -763,7 +908,7 @@ namespace
 			{
 				Allowed.Append({ TEXT("kind"), TEXT("asset"), TEXT("transforms"), TEXT("relativeToComponent"), TEXT("layer"), TEXT("blendMode"),
 					TEXT("priority"), TEXT("smoothness"), TEXT("behavior"), TEXT("applyOnVoid"), TEXT("heightPaddingMultiplier"),
-					TEXT("boundsExtensionMultiplier"), TEXT("maximumBoundsExtension"), TEXT("surfaceType"), TEXT("useTricubic"), TEXT("parameters") });
+					TEXT("boundsExtensionMultiplier"), TEXT("maximumBoundsExtension"), TEXT("surfaceType"), TEXT("useTricubic"), TEXT("parameters"), TEXT("shape") });
 			}
 			if (!OnlyKeys(Params, Allowed, FString::Printf(TEXT("op %s"), *Op), Err)) return Error(Err);
 		}
@@ -1225,7 +1370,22 @@ void AddStampHandlers(TArray<FHandlerEntry>& Out)
 			MCPParam::Optional(TEXT("boundsExtensionMultiplier"), EMCPParamType::Number, TEXT("Volume kinds only: bounds extension relative to the bounds size, >= 0.")).Min(0),
 			MCPParam::Optional(TEXT("maximumBoundsExtension"), EMCPParamType::Number, TEXT("Volume kinds only: cap on the bounds extension in centimetres, >= 0.")).Min(0),
 			MCPParam::Optional(TEXT("surfaceType"), EMCPParamType::String,
-				TEXT("heightmap: the default surface type; mesh: the surface type. A UVoxelSurfaceTypeInterface asset path; \"\" or null clears it.")).Nullable(),
+				TEXT("heightmap: the default surface type; mesh and shape: the surface type. A UVoxelSurfaceTypeInterface asset path; \"\" or null clears it.")).Nullable(),
+			MCPParam::Optional(TEXT("shape"), EMCPParamType::Object,
+				TEXT("shape kind only, required unless the current stamp is a shape: the volume it adds or removes, centred on the component. A field left out keeps the current shape's value when type is unchanged, else Voxel's default."))
+				.Tagged(TEXT("type"), {
+					MCPParam::Variant(TEXT("Sphere"), TEXT("A sphere."), {
+						MCPParam::OptionalField(TEXT("radius"), EMCPParamType::Number, TEXT("Radius in centimetres, > 0; Voxel's default 1000.")).Min(0),
+					}),
+					MCPParam::Variant(TEXT("Cube"), TEXT("A box."), {
+						MCPParam::OptionalField(TEXT("size"), EMCPParamType::Vec3, TEXT("Size in centimetres, each component > 0; Voxel's default 1000 on every axis.")),
+						MCPParam::OptionalField(TEXT("roundness"), EMCPParamType::Number, TEXT("Edge rounding in [0, 1]; Voxel's default 0.")).Range(0, 1),
+					}),
+					MCPParam::Variant(TEXT("Plane"), TEXT("A slab: a flat box of size {x,y}."), {
+						MCPParam::OptionalField(TEXT("size"), EMCPParamType::Object, TEXT("{x,y} in centimetres, each > 0; Voxel's default 1000 on both.")),
+						MCPParam::OptionalField(TEXT("height"), EMCPParamType::Number, TEXT("Thickness, >= 0; Voxel's default 1.")).Min(0),
+					}),
+				}),
 			MCPParam::Optional(TEXT("useTricubic"), EMCPParamType::Boolean, TEXT("mesh only: tricubic interpolation, slower and smoother.")),
 			Spec::ValueMap(TEXT("parameters"), false,
 				TEXT("Graph and spline kinds only: { parameterName: value } overrides; each value a string, number, boolean or null, parsed as the parameter's type, and null sets an object parameter to None.")),
@@ -1237,10 +1397,10 @@ void AddStampHandlers(TArray<FHandlerEntry>& Out)
 		Spec::ActorLabel(TEXT("Stamp actor label; must match exactly one actor.")),
 		Spec::ComponentName(TEXT("UVoxelStampComponent object name; default the actor's first one.")),
 		MCPParam::Required(TEXT("kind"), EMCPParamType::String, TEXT("Stamp kind to build; a different kind replaces the current stamp."))
-			.Enum({ TEXT("height_graph"), TEXT("volume_graph"), TEXT("heightmap"), TEXT("mesh"), TEXT("height_spline"), TEXT("volume_spline") }),
+			.Enum({ TEXT("height_graph"), TEXT("volume_graph"), TEXT("heightmap"), TEXT("mesh"), TEXT("height_spline"), TEXT("volume_spline"), TEXT("shape") }),
 	};
 	SetParams.Append(StampFields(
-		TEXT("UVoxelHeightGraph, UVoxelVolumeGraph, UVoxelHeightmap, UVoxelStaticMesh, UVoxelHeightSplineGraph or UVoxelVolumeSplineGraph path matching kind; required unless the current stamp of this kind has one. Changing a graph clears its overrides."),
+		TEXT("UVoxelHeightGraph, UVoxelVolumeGraph, UVoxelHeightmap, UVoxelStaticMesh, UVoxelHeightSplineGraph or UVoxelVolumeSplineGraph path matching kind, every kind but shape (which takes shape and refuses asset); required unless the current stamp of this kind has one. Changing a graph clears its overrides."),
 		TEXT("UVoxelHeightLayer (height kinds) or UVoxelVolumeLayer (volume kinds) path; default keeps the current layer, else Voxel's built-in default layer.")));
 	SetParams.Add(Spec::SaveDirty());
 	Out.Add({ TEXT("voxel_stamp_set"), &StampSet, SetParams, Spec::OneActor() });
@@ -1259,7 +1419,7 @@ void AddStampHandlers(TArray<FHandlerEntry>& Out)
 			TEXT("add appends stamps, remove empties one slot (indices never shift), clear removes all, update re-evaluates stamps, count reports them. Each op takes only its own fields."))
 			.Enum({ TEXT("add"), TEXT("remove"), TEXT("clear"), TEXT("update"), TEXT("count") }),
 		MCPParam::Optional(TEXT("kind"), EMCPParamType::String, TEXT("add, required: the stamp kind; spline kinds need a stamp actor's spline component and are not offered."))
-			.Enum({ TEXT("height_graph"), TEXT("volume_graph"), TEXT("heightmap"), TEXT("mesh") }),
+			.Enum({ TEXT("height_graph"), TEXT("volume_graph"), TEXT("heightmap"), TEXT("mesh"), TEXT("shape") }),
 		MCPParam::Optional(TEXT("transforms"), EMCPParamType::Array, TEXT("add, required: one stamp per entry, in world space unless relativeToComponent."))
 			.Items(EMCPParamType::Object).WithFields({
 				MCPParam::RequiredField(TEXT("location"), EMCPParamType::Vec3, TEXT("Location in centimetres.")),
@@ -1269,7 +1429,7 @@ void AddStampHandlers(TArray<FHandlerEntry>& Out)
 		MCPParam::Optional(TEXT("relativeToComponent"), EMCPParamType::Boolean, TEXT("add: transforms are relative to the component, baked to world space when added; default false.")),
 	};
 	InstancedParams.Append(StampFields(
-		TEXT("add, required: UVoxelHeightGraph, UVoxelVolumeGraph, UVoxelHeightmap or UVoxelStaticMesh path matching kind."),
+		TEXT("add, required: UVoxelHeightGraph, UVoxelVolumeGraph, UVoxelHeightmap or UVoxelStaticMesh path matching kind, every kind but shape (which takes shape and refuses asset)."),
 		TEXT("add: UVoxelHeightLayer (height kinds) or UVoxelVolumeLayer (volume kinds) path; default Voxel's built-in default layer.")));
 	InstancedParams.Append({
 		MCPParam::Optional(TEXT("index"), EMCPParamType::Integer, TEXT("remove, required: the stamp slot to empty, in [0, count).")).Range(0, MAX_int32),

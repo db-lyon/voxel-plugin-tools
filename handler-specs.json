@@ -1469,7 +1469,8 @@
             "height_graph",
             "volume_graph",
             "heightmap",
-            "mesh"
+            "mesh",
+            "shape"
           ]
         },
         {
@@ -1509,7 +1510,7 @@
           "name": "asset",
           "type": "string",
           "required": false,
-          "description": "add, required: UVoxelHeightGraph, UVoxelVolumeGraph, UVoxelHeightmap or UVoxelStaticMesh path matching kind."
+          "description": "add, required: UVoxelHeightGraph, UVoxelVolumeGraph, UVoxelHeightmap or UVoxelStaticMesh path matching kind, every kind but shape (which takes shape and refuses asset)."
         },
         {
           "name": "layer",
@@ -1592,8 +1593,71 @@
           "name": "surfaceType",
           "type": "string",
           "required": false,
-          "description": "heightmap: the default surface type; mesh: the surface type. A UVoxelSurfaceTypeInterface asset path; \"\" or null clears it.",
+          "description": "heightmap: the default surface type; mesh and shape: the surface type. A UVoxelSurfaceTypeInterface asset path; \"\" or null clears it.",
           "nullable": true
+        },
+        {
+          "name": "shape",
+          "type": "object",
+          "required": false,
+          "description": "shape kind only, required unless the current stamp is a shape: the volume it adds or removes, centred on the component. A field left out keeps the current shape's value when type is unchanged, else Voxel's default.",
+          "oneOf": {
+            "key": "type",
+            "variants": [
+              {
+                "tag": "Sphere",
+                "description": "A sphere.",
+                "fields": [
+                  {
+                    "name": "radius",
+                    "type": "number",
+                    "required": false,
+                    "description": "Radius in centimetres, > 0; Voxel's default 1000.",
+                    "minimum": 0
+                  }
+                ]
+              },
+              {
+                "tag": "Cube",
+                "description": "A box.",
+                "fields": [
+                  {
+                    "name": "size",
+                    "type": "vec3",
+                    "required": false,
+                    "description": "Size in centimetres, each component > 0; Voxel's default 1000 on every axis."
+                  },
+                  {
+                    "name": "roundness",
+                    "type": "number",
+                    "required": false,
+                    "description": "Edge rounding in [0, 1]; Voxel's default 0.",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                ]
+              },
+              {
+                "tag": "Plane",
+                "description": "A slab: a flat box of size {x,y}.",
+                "fields": [
+                  {
+                    "name": "size",
+                    "type": "object",
+                    "required": false,
+                    "description": "{x,y} in centimetres, each > 0; Voxel's default 1000 on both."
+                  },
+                  {
+                    "name": "height",
+                    "type": "number",
+                    "required": false,
+                    "description": "Thickness, >= 0; Voxel's default 1.",
+                    "minimum": 0
+                  }
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "useTricubic",
@@ -2617,14 +2681,15 @@
             "heightmap",
             "mesh",
             "height_spline",
-            "volume_spline"
+            "volume_spline",
+            "shape"
           ]
         },
         {
           "name": "asset",
           "type": "string",
           "required": false,
-          "description": "UVoxelHeightGraph, UVoxelVolumeGraph, UVoxelHeightmap, UVoxelStaticMesh, UVoxelHeightSplineGraph or UVoxelVolumeSplineGraph path matching kind; required unless the current stamp of this kind has one. Changing a graph clears its overrides."
+          "description": "UVoxelHeightGraph, UVoxelVolumeGraph, UVoxelHeightmap, UVoxelStaticMesh, UVoxelHeightSplineGraph or UVoxelVolumeSplineGraph path matching kind, every kind but shape (which takes shape and refuses asset); required unless the current stamp of this kind has one. Changing a graph clears its overrides."
         },
         {
           "name": "layer",
@@ -2707,8 +2772,71 @@
           "name": "surfaceType",
           "type": "string",
           "required": false,
-          "description": "heightmap: the default surface type; mesh: the surface type. A UVoxelSurfaceTypeInterface asset path; \"\" or null clears it.",
+          "description": "heightmap: the default surface type; mesh and shape: the surface type. A UVoxelSurfaceTypeInterface asset path; \"\" or null clears it.",
           "nullable": true
+        },
+        {
+          "name": "shape",
+          "type": "object",
+          "required": false,
+          "description": "shape kind only, required unless the current stamp is a shape: the volume it adds or removes, centred on the component. A field left out keeps the current shape's value when type is unchanged, else Voxel's default.",
+          "oneOf": {
+            "key": "type",
+            "variants": [
+              {
+                "tag": "Sphere",
+                "description": "A sphere.",
+                "fields": [
+                  {
+                    "name": "radius",
+                    "type": "number",
+                    "required": false,
+                    "description": "Radius in centimetres, > 0; Voxel's default 1000.",
+                    "minimum": 0
+                  }
+                ]
+              },
+              {
+                "tag": "Cube",
+                "description": "A box.",
+                "fields": [
+                  {
+                    "name": "size",
+                    "type": "vec3",
+                    "required": false,
+                    "description": "Size in centimetres, each component > 0; Voxel's default 1000 on every axis."
+                  },
+                  {
+                    "name": "roundness",
+                    "type": "number",
+                    "required": false,
+                    "description": "Edge rounding in [0, 1]; Voxel's default 0.",
+                    "minimum": 0,
+                    "maximum": 1
+                  }
+                ]
+              },
+              {
+                "tag": "Plane",
+                "description": "A slab: a flat box of size {x,y}.",
+                "fields": [
+                  {
+                    "name": "size",
+                    "type": "object",
+                    "required": false,
+                    "description": "{x,y} in centimetres, each > 0; Voxel's default 1000 on both."
+                  },
+                  {
+                    "name": "height",
+                    "type": "number",
+                    "required": false,
+                    "description": "Thickness, >= 0; Voxel's default 1.",
+                    "minimum": 0
+                  }
+                ]
+              }
+            ]
+          }
         },
         {
           "name": "useTricubic",
