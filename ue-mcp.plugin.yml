@@ -121,7 +121,7 @@ nativeModule:
     voxel_asset_set_property:
       effect: mutate
       description: >-
-        Set one top-level property on any asset through PreEditChange/PostEditChangeProperty in an undoable transaction. The value is UE import text, validated before the asset changes; object
+        Set one top-level property on a Voxel asset (a class from a Voxel module) through PreEditChange/PostEditChangeProperty in an undoable transaction; any other asset is refused, since asset(set_property) covers it. The value is UE import text, validated before the asset changes; object
         references are asset paths that must load, an empty string clears them; arrays use (a,b,c) or a JSON array. Returns previous, value, changed, editable.
     voxel_mega_material_set_surfaces:
       effect: mutate

@@ -13,7 +13,7 @@ Conventions:
 - `voxel_query_layer` and the PCG samplers default to Voxel's built-in default stack and layer (`/Voxel/Default`); pass the ones your stamps write to.
 - Sculpt brushes name their `type` (`Circular`, `Alpha`, `Pattern`), which decides the fields they take; set the brush falloff with `falloff` or `brush.falloffAmount`, not both.
 - Existing assets are never overwritten: `voxel_asset_create` returns them with `existed: true`.
-- `voxel_asset_set_property` sets any other top-level property of an asset (UE import text, details-panel semantics) when no dedicated action covers it.
+- `voxel_asset_set_property` sets any other top-level property of a Voxel asset (UE import text, details-panel semantics) when no dedicated action covers it. It refuses non-Voxel assets; use core `asset(set_property)` for those.
 - `instanceOf` on `voxel_asset_create` makes a graph instance: it inherits the base graph's nodes and overrides its parameters with `voxel_graph_set_parameter_default`. Node and parameter edits on an instance are refused; edit the base.
 
 Terrain in six calls:

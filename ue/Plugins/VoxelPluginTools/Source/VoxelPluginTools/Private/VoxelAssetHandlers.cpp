@@ -716,6 +716,19 @@ namespace
 	// voxel_asset_set_property
 	///////////////////////////////////////////////////////////////////////////
 
+	// A Voxel asset is one whose nearest native class lives in a Voxel module; anything else belongs to asset(set_property).
+	bool IsVoxelAssetClass(const UClass& Class)
+	{
+		for (const UClass* Native = &Class; Native; Native = Native->GetSuperClass())
+		{
+			if (Native->HasAnyClassFlags(CLASS_Native))
+			{
+				return Native->GetPackage()->GetName().StartsWith(TEXT("/Script/Voxel"));
+			}
+		}
+		return false;
+	}
+
 	FResult AssetSetProperty(const FParams& Params)
 	{
 		FString Err;
@@ -725,6 +738,10 @@ namespace
 		if (!Asset->IsAsset() || Asset->IsA<UWorld>() || Asset->GetTypedOuter<UWorld>() || Asset->HasAnyFlags(RF_ClassDefaultObject))
 		{
 			return Error(FString::Printf(TEXT("%s is not an asset (levels, level actors and class defaults are out of scope)"), *Asset->GetPathName()));
+		}
+		if (!IsVoxelAssetClass(*Asset->GetClass()))
+		{
+			return Error(FString::Printf(TEXT("%s is a %s, not a Voxel asset; set its properties with asset(set_property)"), *Asset->GetPathName(), *Asset->GetClass()->GetName()));
 		}
 
 		const FString PropertyName = Str(Params, TEXT("propertyName")).TrimStartAndEnd();
@@ -1286,7 +1303,7 @@ void AddAssetHandlers(TArray<FHandlerEntry>& Out)
 	}, MCPSpec::ContractExempt(TEXT("Creates and saves an asset named by the contract values before anything can fail")) });
 
 	Out.Add({ TEXT("voxel_asset_set_property"), &AssetSetProperty, {
-		AssetPath(TEXT("Asset path; levels, level actors and class defaults are refused.")),
+		AssetPath(TEXT("Voxel asset path; any other asset is refused (use asset(set_property)), as are levels, level actors and class defaults.")),
 		MCPParam::Required(TEXT("propertyName"), EMCPParamType::String, TEXT("Top-level C++ property name, e.g. MaxDistance or bInvisible; matched exactly, then case-insensitively.")),
 		MCPParam::Required(TEXT("value"), EMCPParamType::Array,
 			TEXT("UE import text such as '0.5', 'true', '/Game/M.M' or '(X=1,Y=2,Z=3)'; a number, a boolean, or an array of strings, numbers and booleans ((a,b) import text). An integer property takes only whole numbers, an enum only its value names, and an object reference \"\" to clear."))

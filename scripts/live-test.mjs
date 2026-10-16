@@ -418,6 +418,8 @@ await refuse("asset_set_property refuses an enum index", "voxel_asset_set_proper
   { assetPath: `${P}/MM_Smoke`, propertyName: "LumenMaterialType", value: "1" }, /is not a EVoxelMegaMaterialGenerationType value/);
 await refuse("asset_set_property refuses an unloadable soft reference", "voxel_asset_set_property",
   { assetPath: `${P}/MM_Smoke`, propertyName: "DitherNoiseTexture", value: `${P}/T_Missing` }, /No Texture2D at/);
+await refuse("asset_set_property refuses a non-Voxel asset", "voxel_asset_set_property",
+  { assetPath: "/Engine/BasicShapes/Cube", propertyName: "LightMapResolution", value: "64" }, /not a Voxel asset; set its properties with asset\(set_property\)/);
 await refuse("graph_export_t3d refuses an empty node list", "voxel_graph_export_t3d", { assetPath: `${P}/HG_Smoke`, nodes: [] }, /nodes must be a non-empty array/);
 await refuse("graph_read refuses an empty terminalGraph", "voxel_graph_read", { assetPath: `${P}/HG_Smoke`, terminalGraph: "" }, /terminalGraph must not be empty/);
 await refuse("graph_add_parameter refuses an empty default", "voxel_graph_add_parameter",

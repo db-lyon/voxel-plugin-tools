@@ -116,7 +116,7 @@
           "name": "assetPath",
           "type": "string",
           "required": true,
-          "description": "Asset path; levels, level actors and class defaults are refused."
+          "description": "Voxel asset path; any other asset is refused (use asset(set_property)), as are levels, level actors and class defaults."
         },
         {
           "name": "propertyName",
